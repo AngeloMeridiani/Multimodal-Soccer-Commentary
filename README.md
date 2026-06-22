@@ -46,14 +46,5 @@ streamlit run app.py
 Il sistema è stato testato su un dataset proprietario di 40 clip raccolte da YouTube (In-the-wild videos).
 La valutazione delle performance del modello linguistico è stata condotta confrontando la generazione Vision-Only contro la generazione Multimodal (Vision+Audio) utilizzando le metriche BLEU Score e ROUGE-L. I risultati completi sono consultabili nella cartella /notebooks.
 
-👥 Organizzazione del Team
-
-[Nome 1]: Computer Vision Lead (Estrazione feature CLIP)
-
-[Nome 2]: Signal Processing Lead (Filtraggio audio e RMS)
-
-[Nome 3]: NLP & UI Lead (Prompt Engineering e App Streamlit)
-
-[Nome 4]: Data & Research Lead (Dataset curaton, annotazione Ground Truth e Metriche)
 
 Disclaimer: Progetto a scopo puramente accademico e di ricerca.
