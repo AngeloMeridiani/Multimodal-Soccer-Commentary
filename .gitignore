@@ -1,0 +1,13 @@
+# Ambienti virtuali e file temporanei Python
+venv/
+env/
+.env
+__pycache__/
+*.pyc
+
+# Cartella Dati e File Video (CRITICO)
+data/
+*.mp4
+*.mp3
+*.wav
+*.avi
