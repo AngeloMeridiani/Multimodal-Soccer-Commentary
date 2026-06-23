@@ -1,13 +1,19 @@
-# Ambienti virtuali e file temporanei Python
-venv/
-env/
-.env
-__pycache__/
-*.pyc
+# --- Cartelle pesanti/rigenerabili: ignora il contenuto ma tieni la struttura ---
+data/**
+!data/**/
+!data/**/.gitkeep
 
-# Cartella Dati e File Video (CRITICO)
-data/
+features/**
+!features/**/
+!features/**/.gitkeep
+
+# --- Ambiente e cache ---
+__pycache__/
+venv/
+.venv/
+
+# --- Tipi di file pesanti (in qualsiasi cartella) ---
 *.mp4
-*.mp3
 *.wav
-*.avi
+*.npy
+*.zip
