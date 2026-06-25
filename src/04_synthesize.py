@@ -42,15 +42,22 @@ logger = get_logger("fase4_sintesi")
 # --------------------------------------------------------------------------- #
 class TtsEngine:
     """
-    Produce audio NEUTRO da testo. Implementazione di default offline (pyttsx3).
+    Interfaccia base per i motori TTS. Produce audio NEUTRO da testo.
 
     La qualita'/lo stile vocale ("dark hero", ecc.) si ottengono sostituendo
-    questo motore con un TTS espressivo (es. Coqui XTTS) senza toccare il resto
+    il motore con un TTS espressivo (es. Coqui XTTS) senza toccare il resto
     della pipeline: il contributo (la prosodia) e' indipendente dal TTS.
     """
 
     def __init__(self, sample_rate: int) -> None:
         self.sr = sample_rate
+
+    def synthesize(self, text: str) -> np.ndarray:
+        raise NotImplementedError
+
+
+class Pyttsx3Engine(TtsEngine):
+    """TTS offline basato su pyttsx3. Semplice e leggero, voce robotica."""
 
     def synthesize(self, text: str) -> np.ndarray:
         import librosa
@@ -66,6 +73,74 @@ class TtsEngine:
         finally:
             Path(tmp_path).unlink(missing_ok=True)
         return waveform.astype(np.float32)
+
+
+class CoquiTtsEngine(TtsEngine):
+    """
+    TTS espressivo basato su Coqui XTTS v2.
+
+    Offre voci molto piu' naturali di pyttsx3, con supporto multilingue
+    (incluso italiano) e possibilita' di clonare lo stile vocale da un
+    campione audio di riferimento (speaker_wav).
+
+    Richiede: pip install TTS
+    """
+
+    def __init__(self, sample_rate: int) -> None:
+        super().__init__(sample_rate)
+        self._model = None
+
+    def _load_model(self):
+        """Lazy loading del modello (pesante, ~2GB)."""
+        if self._model is None:
+            from TTS.api import TTS as CoquiTTS
+            logger.info("Carico Coqui TTS '%s'...", config.COQUI_MODEL)
+            self._model = CoquiTTS(model_name=config.COQUI_MODEL)
+        return self._model
+
+    def synthesize(self, text: str) -> np.ndarray:
+        import librosa
+
+        model = self._load_model()
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            # XTTS v2: supporta speaker_wav per voice cloning dello stile
+            kwargs = {
+                "text": text,
+                "file_path": tmp_path,
+                "language": config.COQUI_LANGUAGE,
+            }
+            if config.COQUI_SPEAKER_WAV and Path(config.COQUI_SPEAKER_WAV).exists():
+                kwargs["speaker_wav"] = config.COQUI_SPEAKER_WAV
+
+            model.tts_to_file(**kwargs)
+            waveform, _ = librosa.load(tmp_path, sr=self.sr, mono=True)
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+
+        return waveform.astype(np.float32)
+
+
+def create_tts_engine(engine_name: str | None = None) -> TtsEngine:
+    """Factory: crea il motore TTS in base alla configurazione."""
+    engine = engine_name or config.TTS_ENGINE
+    sr = config.SAMPLE_RATE
+
+    if engine == "coqui":
+        try:
+            import TTS  # noqa: F401
+            logger.info("Motore TTS: Coqui XTTS (espressivo)")
+            return CoquiTtsEngine(sr)
+        except ImportError:
+            logger.warning("Coqui TTS non installato. Fallback a pyttsx3. "
+                           "Installa con: pip install TTS")
+            return Pyttsx3Engine(sr)
+
+    logger.info("Motore TTS: pyttsx3 (offline)")
+    return Pyttsx3Engine(sr)
 
 
 # --------------------------------------------------------------------------- #
@@ -127,8 +202,8 @@ class ProsodyPredictor:
 # --------------------------------------------------------------------------- #
 # Sintesi completa                                                            #
 # --------------------------------------------------------------------------- #
-def synthesize_commentary(script: list[dict], mode: str) -> np.ndarray:
-    tts = TtsEngine(config.SAMPLE_RATE)
+def synthesize_commentary(script: list[dict], mode: str, tts_engine: str | None = None) -> np.ndarray:
+    tts = create_tts_engine(tts_engine)
     predictor = ProsodyPredictor(mode)
     gap = np.zeros(int(config.GAP_BETWEEN_UTTERANCES_S * config.SAMPLE_RATE), dtype=np.float32)
 
@@ -150,8 +225,10 @@ def synthesize_commentary(script: list[dict], mode: str) -> np.ndarray:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 4 - Sintesi telecronaca audio")
-    parser.add_argument("--script", required=True, help="JSON script della Fase 2.")
+    parser.add_argument("--script", required=True, help="JSON script della Fase 2/2b.")
     parser.add_argument("--mode", choices=["flat", "rule", "learned"], default="learned")
+    parser.add_argument("--tts", choices=["pyttsx3", "coqui"], default=None,
+                        help="Motore TTS (default: da config.TTS_ENGINE).")
     args = parser.parse_args()
 
     import soundfile as sf
@@ -159,7 +236,7 @@ def main() -> None:
     script_path = Path(args.script)
     script = load_json(script_path)
 
-    audio = synthesize_commentary(script, args.mode)
+    audio = synthesize_commentary(script, args.mode, tts_engine=args.tts)
 
     out_path = config.AUDIO_OUT_DIR / f"{script_path.stem}_{args.mode}.wav"
     ensure_dir(out_path)

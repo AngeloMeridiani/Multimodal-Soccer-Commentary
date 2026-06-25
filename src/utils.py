@@ -122,6 +122,71 @@ FEATURE_DIM: int = 1 + len(config.EVENT_TYPES)  # importanza + one-hot
 
 
 # --------------------------------------------------------------------------- #
+# Feature ESTESE per il modello arricchito (Livello 3)                         #
+# --------------------------------------------------------------------------- #
+# Mappature categoriche -> numeriche per le feature estese
+CROWD_LEVEL_MAP: dict[str, float] = {
+    "low": 0.0, "medium": 0.33, "high": 0.66, "peak": 1.0,
+}
+BALL_SPEED_MAP: dict[str, float] = {
+    "stopped": 0.0, "low": 0.2, "medium": 0.5, "high": 0.8, "very_high": 1.0,
+}
+EMOTION_LEVEL_MAP: dict[str, float] = {
+    "low": 0.0, "medium": 0.33, "high": 0.66, "very_high": 1.0,
+}
+BALL_ZONE_LIST: list[str] = [
+    "penalty_area_home", "penalty_area_away", "midfield", "wing_left", "wing_right",
+]
+
+
+def event_to_features_extended(event: dict) -> np.ndarray:
+    """
+    Vettore esteso: aggiunge crowd_excitement, ball_zone, ball_speed e
+    emotion_intensity alle feature base. Usato quando
+    config.PROSODY_USE_EXTENDED_FEATURES e' True.
+
+    Formato: [importanza, one-hot_evento(11), crowd_score, ball_speed,
+              emotion_intensity, one-hot_ball_zone(5)]
+    """
+    event_type = event.get("type", "idle")
+    importance = event.get("importance", config.EVENT_IMPORTANCE.get(event_type, 0.1))
+
+    # One-hot esteso (usa EVENT_TYPES_EXTENDED)
+    one_hot_event = [
+        1.0 if event_type == t else 0.0
+        for t in config.EVENT_TYPES_EXTENDED
+    ]
+
+    # Crowd excitement (numerico)
+    crowd_level = event.get("crowd_excitement", "low")
+    crowd_score = event.get("crowd_score", CROWD_LEVEL_MAP.get(crowd_level, 0.0))
+
+    # Ball speed (numerico)
+    ball_speed_str = event.get("ball_speed", "medium")
+    ball_speed = BALL_SPEED_MAP.get(ball_speed_str, 0.5)
+
+    # Emotion intensity (numerico)
+    emotion_str = event.get("emotion_intensity", "medium")
+    emotion = EMOTION_LEVEL_MAP.get(emotion_str, 0.33)
+
+    # Ball zone (one-hot)
+    ball_zone = event.get("ball_zone", "midfield")
+    one_hot_zone = [1.0 if ball_zone == z else 0.0 for z in BALL_ZONE_LIST]
+
+    features = [importance, *one_hot_event, crowd_score, ball_speed, emotion, *one_hot_zone]
+    return np.asarray(features, dtype=np.float32)
+
+
+FEATURE_DIM_EXTENDED: int = (
+    1                                    # importanza
+    + len(config.EVENT_TYPES_EXTENDED)   # one-hot evento esteso
+    + 3                                  # crowd_score, ball_speed, emotion
+    + len(BALL_ZONE_LIST)                # one-hot ball_zone
+)
+
+
+
+# --------------------------------------------------------------------------- #
 # Applicazione della prosodia all'audio neutro (DSP)                           #
 # --------------------------------------------------------------------------- #
 def apply_prosody(
