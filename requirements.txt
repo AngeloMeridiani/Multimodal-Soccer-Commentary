@@ -1,1 +1,32 @@
+# =========================================================================== #
+#  Telecronaca per videogiochi con prosodia event-aware                        #
+#  Installazione:  pip install -r requirements.txt                            #
+#                                                                             #
+#  DIPENDENZA DI SISTEMA: FFmpeg (per leggere l'audio dai video).             #
+#    Ubuntu: sudo apt-get install ffmpeg | macOS: brew install ffmpeg         #
+#  pyttsx3 su Linux richiede inoltre 'espeak':                                #
+#    Ubuntu: sudo apt-get install espeak                                      #
+# =========================================================================== #
 
+# --- Core ---
+numpy>=1.24,<2.0
+pandas>=2.0
+scipy>=1.11
+scikit-learn>=1.3
+joblib>=1.3
+tqdm>=4.66
+
+# --- Fase 1: OCR / Vision ---
+opencv-python>=4.8
+easyocr>=1.7            # OCR basato su deep learning (trascina torch)
+
+# --- Fase 3: modello di prosodia ---
+torch>=2.1
+
+# --- Fase 4: sintesi + DSP audio ---
+librosa>=0.10
+soundfile>=0.12
+pyttsx3>=2.90          # TTS offline di default (sostituibile con Coqui XTTS)
+
+# --- Opzionale: TTS espressivo di qualita' superiore (stile vocale) ---
+# TTS>=0.22            # Coqui TTS / XTTS - decommenta se vuoi voci espressive
