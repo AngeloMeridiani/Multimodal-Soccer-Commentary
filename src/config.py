@@ -265,3 +265,4 @@ TTS_ENGINE: str = "pyttsx3"
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
 COQUI_SPEAKER_WAV: str | None = None  # path a un .wav di riferimento per la voce
 COQUI_LANGUAGE: str = "it"
+ 
