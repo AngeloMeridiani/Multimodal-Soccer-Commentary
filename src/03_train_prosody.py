@@ -1,235 +1,211 @@
 """
 03_train_prosody.py
 ===================
-FASE 3 - Modello evento -> prosodia. QUESTO E' IL CONTRIBUTO DI RICERCA.
+FASE 3 - Addestramento del modello di PROSODIA (IL CONTRIBUTO di ricerca).
 
-Idea: un TTS generico legge tutto con tono piatto. Un vero telecronista modula la
-voce in base all'IMPORTANZA dell'evento (esplode sul gol, calmo a centrocampo).
-Qui APPRENDIAMO quella mappatura da telecronache reali, invece di codificarla a
-mano.
+Impara la mappa  feature_evento -> (rate_factor, pitch_semitones, energy_gain),
+cioe' COME deve suonare la voce per ogni tipo di evento. E' l'unica parte con un
+modello addestrato (un piccolo MLP); il resto della pipeline e' impalcatura.
 
-Il modello e' un piccolo MLP che, dato l'evento (importanza + tipo), predice i
-parametri prosodici [rate_factor, pitch_semitones, energy_gain] da applicare poi
-all'audio (Fase 4).
+Costruzione del dataset:
+  1) Se ci sono clip di telecronaca reale annotate (config.PROSODY_ANNOTATIONS +
+     audio in config.COMMENTARY_DIR), si MISURANO i target prosodici da quei
+     segmenti (rate da densita' di onset, pitch da f0, energy da RMS), normalizzati
+     rispetto alla mediana del dataset.
+  2) Se non ci sono dati reali utilizzabili, si SINTETIZZA un dataset dai valori
+     a regole (config.RULE_BASED_PROSODY) con un po' di rumore, cosi' la pipeline
+     gira comunque end-to-end. (In tesi, sostituire con dati reali.)
 
-Due passi:
-    A) build-dataset : estrae i target prosodici da clip di telecronache reali
-                       annotate (CSV), misurandoli con librosa rispetto a un
-                       riferimento neutro.
-    B) train         : addestra l'MLP sul dataset estratto.
-
-Formato del CSV di annotazione (data/raw/prosody_annotations.csv):
-    clip,start,end,event_type
-    telecronaca1.wav,12.3,14.1,goal
-    telecronaca1.wav,30.0,31.2,pass
-    ...
-('clip' e' un file in data/raw/commentary/; start/end in secondi.)
+Input  : feature da utils.event_to_features (UNICA codifica, coerente con la Fase 4).
+Output : models/prosody_mlp.pt , models/prosody_scaler.joblib , dataset .npz
 
 Uso:
-    python src/03_train_prosody.py build-dataset
-    python src/03_train_prosody.py train
+    python 03_train_prosody.py
+    python 03_train_prosody.py --synthetic     # forza il dataset sintetico
+    python 03_train_prosody.py --epochs 300
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 from pathlib import Path
 
-import joblib
 import numpy as np
-import torch
-import torch.nn as nn
-from sklearn.preprocessing import StandardScaler
-from torch.utils.data import DataLoader, TensorDataset
-from tqdm import tqdm
 
 import config
-from utils import (ensure_dir, event_to_features, get_logger, set_seed, FEATURE_DIM)
+from utils import (FEATURE_DIM, build_prosody_mlp, ensure_dir, event_to_features,
+                   get_logger, set_seed)
 
 logger = get_logger("fase3_prosodia")
 
 
 # --------------------------------------------------------------------------- #
-# A) Costruzione del dataset prosodico dalle clip reali                        #
+# Misura dei target prosodici da audio reale                                  #
 # --------------------------------------------------------------------------- #
-class ProsodyMeasurer:
-    """Misura i parametri prosodici di un segmento audio (rate, pitch, energia)."""
-
-    def __init__(self, sample_rate: int) -> None:
-        self.sr = sample_rate
-        # Riferimenti "neutri" stimati dall'insieme dei segmenti (vedi calibrate()).
-        self.ref_pitch_hz: float | None = None
-        self.ref_energy: float | None = None
-        self.ref_rate: float | None = None
-
-    def _raw_measures(self, y: np.ndarray) -> tuple[float, float, float]:
-        """Restituisce (pitch_hz_medio, energia_rms, tasso_sillabico_proxy)."""
-        import librosa
-
-        # Pitch medio sui frame sonori
-        f0, voiced, _ = librosa.pyin(
-            y, fmin=librosa.note_to_hz("C2"), fmax=librosa.note_to_hz("C6"), sr=self.sr
-        )
-        pitch = float(np.nanmean(f0)) if np.any(voiced) else 150.0
-
-        # Energia RMS media
-        energy = float(np.mean(librosa.feature.rms(y=y)))
-
-        # Proxy della velocita' di eloquio: densita' di onset / durata
-        onsets = librosa.onset.onset_detect(y=y, sr=self.sr, units="time")
-        duration = max(len(y) / self.sr, 1e-6)
-        rate = len(onsets) / duration
-
-        return pitch, energy, rate
-
-    def calibrate(self, all_measures: list[tuple[float, float, float]]) -> None:
-        """Fissa i riferimenti neutri come mediana di tutti i segmenti."""
-        arr = np.asarray(all_measures, dtype=np.float32)
-        self.ref_pitch_hz = float(np.median(arr[:, 0]))
-        self.ref_energy = float(np.median(arr[:, 1]))
-        self.ref_rate = float(np.median(arr[:, 2]))
-        logger.info("Riferimenti neutri -> pitch=%.1fHz energy=%.4f rate=%.2f",
-                    self.ref_pitch_hz, self.ref_energy, self.ref_rate)
-
-    def to_targets(self, measures: tuple[float, float, float]) -> np.ndarray:
-        """Converte misure assolute in target relativi al neutro."""
-        pitch, energy, rate = measures
-        rate_factor = rate / max(self.ref_rate, 1e-6)
-        # Semitoni = 12*log2(f/f_ref)
-        pitch_semitones = 12.0 * np.log2(max(pitch, 1e-6) / max(self.ref_pitch_hz, 1e-6))
-        energy_gain = energy / max(self.ref_energy, 1e-6)
-        return np.asarray([rate_factor, pitch_semitones, energy_gain], dtype=np.float32)
-
-
-def build_dataset() -> None:
-    """Legge il CSV di annotazioni, misura la prosodia di ogni segmento e salva (X, y)."""
+def _measure_segment(audio: np.ndarray, sr: int) -> dict[str, float] | None:
+    """Misure grezze (non normalizzate) di un segmento: rate, f0, energy."""
     import librosa
-    import pandas as pd
+    if audio.size < sr // 5:
+        return None
+    rms = float(np.sqrt(np.mean(audio ** 2)))
+    onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
+    onsets = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr)
+    duration = len(audio) / sr
+    rate = len(onsets) / duration if duration > 0 else 0.0
+    try:
+        f0, voiced, _ = librosa.pyin(audio, fmin=70, fmax=400, sr=sr)
+        f0_med = float(np.nanmedian(f0[voiced])) if np.any(voiced) else np.nan
+    except Exception:
+        f0_med = np.nan
+    return {"rate": rate, "f0": f0_med, "energy": rms}
 
-    if not config.PROSODY_ANNOTATIONS.exists():
-        raise FileNotFoundError(
-            f"Annotazioni mancanti: {config.PROSODY_ANNOTATIONS}\n"
-            f"Crea il CSV (clip,start,end,event_type) descritto nell'header dello script."
-        )
 
-    df = pd.read_csv(config.PROSODY_ANNOTATIONS)
-    measurer = ProsodyMeasurer(config.SAMPLE_RATE)
+def build_dataset_from_audio() -> tuple[np.ndarray, np.ndarray] | None:
+    """Costruisce (X, Y) misurando i target dai segmenti annotati reali."""
+    import librosa
+    csv_path = config.PROSODY_ANNOTATIONS
+    if not csv_path.exists():
+        logger.warning("Annotazioni non trovate: %s", csv_path)
+        return None
 
-    # Pass 1: misura grezza di ogni segmento (serve per calibrare i riferimenti)
-    raw, rows = [], []
-    for _, r in tqdm(df.iterrows(), total=len(df), desc="Misuro prosodia"):
-        clip_path = config.COMMENTARY_DIR / r["clip"]
-        try:
-            y, _ = librosa.load(clip_path, sr=config.SAMPLE_RATE,
-                                offset=float(r["start"]),
-                                duration=float(r["end"]) - float(r["start"]))
-            if y.size < config.SAMPLE_RATE // 10:  # < 0.1s: troppo corto
-                raise ValueError("segmento troppo corto")
-            m = measurer._raw_measures(y)
-        except Exception as exc:
-            logger.warning("Segmento saltato (%s @%.1f): %s", r["clip"], r["start"], exc)
+    with open(csv_path, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    measures: list[dict] = []
+    audio_cache: dict[str, tuple[np.ndarray, int]] = {}
+    for row in rows:
+        clip_path = config.COMMENTARY_DIR / row["clip"]
+        if not clip_path.exists():
             continue
-        raw.append(m)
-        rows.append(r["event_type"])
+        if row["clip"] not in audio_cache:
+            audio_cache[row["clip"]] = librosa.load(str(clip_path), sr=config.SAMPLE_RATE,
+                                                    mono=True)
+        audio, sr = audio_cache[row["clip"]]
+        seg = audio[int(float(row["start"]) * sr):int(float(row["end"]) * sr)]
+        m = _measure_segment(seg, sr)
+        if m is None:
+            continue
+        m["event_type"] = row["event_type"]
+        measures.append(m)
 
-    if not raw:
-        raise RuntimeError("Nessun segmento valido: controlla clip e annotazioni.")
+    measures = [m for m in measures if not np.isnan(m.get("f0", np.nan))]
+    if len(measures) < 4:
+        logger.warning("Solo %d segmenti reali utilizzabili: insufficiente.", len(measures))
+        return None
 
-    # Pass 2: calibra i riferimenti e converte in target relativi
-    measurer.calibrate(raw)
-    X = np.vstack([
-        event_to_features(et, config.EVENT_IMPORTANCE.get(et, 0.1))
-        for et in rows
-    ]).astype(np.float32)
-    y = np.vstack([measurer.to_targets(m) for m in raw]).astype(np.float32)
+    med_rate = np.median([m["rate"] for m in measures]) + 1e-6
+    med_f0 = np.median([m["f0"] for m in measures]) + 1e-6
+    med_energy = np.median([m["energy"] for m in measures]) + 1e-6
 
-    ensure_dir(config.PROSODY_DATASET)
-    np.savez(config.PROSODY_DATASET, X=X, y=y,
-             ref_pitch=measurer.ref_pitch_hz, ref_energy=measurer.ref_energy,
-             ref_rate=measurer.ref_rate)
-    logger.info("Dataset prosodico salvato: X=%s y=%s -> %s",
-                X.shape, y.shape, config.PROSODY_DATASET)
+    X, Y = [], []
+    for m in measures:
+        et = m["event_type"]
+        rate_factor = float(np.clip(m["rate"] / med_rate, *config.PROSODY_CLAMP["rate_factor"]))
+        pitch_semi = float(np.clip(12.0 * np.log2(m["f0"] / med_f0),
+                                   *config.PROSODY_CLAMP["pitch_semitones"]))
+        energy_gain = float(np.clip(m["energy"] / med_energy,
+                                    *config.PROSODY_CLAMP["energy_gain"]))
+        X.append(event_to_features(et, config.EVENT_IMPORTANCE.get(et, 0.1)))
+        Y.append([rate_factor, pitch_semi, energy_gain])
+    logger.info("Dataset da audio reale: %d campioni.", len(X))
+    return np.asarray(X, np.float32), np.asarray(Y, np.float32)
+
+
+def build_dataset_synthetic(n_per_type: int = 40) -> tuple[np.ndarray, np.ndarray]:
+    """Dataset sintetico dai valori a regole + rumore (per far girare la pipeline)."""
+    rng = np.random.default_rng(config.RANDOM_SEED)
+    X, Y = [], []
+    for et, params in config.RULE_BASED_PROSODY.items():
+        base = np.array([params["rate_factor"], params["pitch_semitones"],
+                         params["energy_gain"]], np.float32)
+        importance = config.EVENT_IMPORTANCE.get(et, 0.1)
+        for _ in range(n_per_type):
+            noise = rng.normal(0.0, [0.04, 0.4, 0.06]).astype(np.float32)
+            target = base + noise
+            for i, key in enumerate(config.PROSODY_TARGETS):
+                target[i] = np.clip(target[i], *config.PROSODY_CLAMP[key])
+            imp = float(np.clip(importance + rng.normal(0, 0.03), 0, 1))
+            X.append(event_to_features(et, imp))
+            Y.append(target)
+    logger.info("Dataset sintetico: %d campioni (%d tipi).", len(X), len(config.RULE_BASED_PROSODY))
+    return np.asarray(X, np.float32), np.asarray(Y, np.float32)
 
 
 # --------------------------------------------------------------------------- #
-# B) Modello e training                                                        #
+# Addestramento                                                               #
 # --------------------------------------------------------------------------- #
-class ProsodyMLP(nn.Module):
-    """MLP di regressione: feature evento -> [rate_factor, pitch_semitones, energy_gain]."""
-
-    def __init__(self, in_dim: int, hidden: tuple[int, ...], out_dim: int) -> None:
-        super().__init__()
-        layers: list[nn.Module] = []
-        prev = in_dim
-        for h in hidden:
-            layers += [nn.Linear(prev, h), nn.ReLU()]
-            prev = h
-        layers.append(nn.Linear(prev, out_dim))
-        self.net = nn.Sequential(*layers)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
-
-
-def train() -> None:
-    """Addestra l'MLP sul dataset prosodico estratto e salva modello + scaler."""
-    if not config.PROSODY_DATASET.exists():
-        raise FileNotFoundError(
-            f"Dataset non trovato: {config.PROSODY_DATASET}. "
-            f"Esegui prima: python src/03_train_prosody.py build-dataset"
-        )
+def train(X: np.ndarray, Y: np.ndarray, epochs: int) -> None:
+    import joblib
+    import torch
+    from sklearn.preprocessing import StandardScaler
 
     set_seed(config.RANDOM_SEED)
-    data = np.load(config.PROSODY_DATASET)
-    X, y = data["X"].astype(np.float32), data["y"].astype(np.float32)
-    logger.info("Carico dataset: X=%s y=%s", X.shape, y.shape)
+    scaler = StandardScaler().fit(X)
+    Xs = scaler.transform(X).astype(np.float32)
 
-    # Standardizziamo i target (scale diverse) per stabilizzare il training
-    scaler = StandardScaler().fit(y)
-    y_scaled = scaler.transform(y).astype(np.float32)
+    n = len(Xs)
+    idx = np.random.permutation(n)
+    split = max(int(n * 0.85), 1)
+    tr, va = idx[:split], idx[split:] if n > 1 else idx[:1]
 
-    loader = DataLoader(
-        TensorDataset(torch.from_numpy(X), torch.from_numpy(y_scaled)),
-        batch_size=config.PROSODY_BATCH_SIZE, shuffle=True,
-    )
+    Xt = torch.tensor(Xs[tr]); Yt = torch.tensor(Y[tr])
+    Xv = torch.tensor(Xs[va]); Yv = torch.tensor(Y[va])
 
-    model = ProsodyMLP(FEATURE_DIM, config.PROSODY_HIDDEN_DIMS, len(config.PROSODY_TARGETS))
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.PROSODY_LR)
-    criterion = nn.MSELoss()
+    model = build_prosody_mlp(FEATURE_DIM, config.PROSODY_HIDDEN_DIMS, len(config.PROSODY_TARGETS))
+    opt = torch.optim.Adam(model.parameters(), lr=config.PROSODY_LR)
+    loss_fn = torch.nn.MSELoss()
 
-    model.train()
-    for epoch in range(1, config.PROSODY_EPOCHS + 1):
-        running = 0.0
-        for xb, yb in loader:
-            optimizer.zero_grad()
-            loss = criterion(model(xb), yb)
+    best_val, best_state = float("inf"), None
+    for epoch in range(epochs):
+        model.train()
+        perm = torch.randperm(len(Xt))
+        for i in range(0, len(Xt), config.PROSODY_BATCH_SIZE):
+            b = perm[i:i + config.PROSODY_BATCH_SIZE]
+            opt.zero_grad()
+            loss = loss_fn(model(Xt[b]), Yt[b])
             loss.backward()
-            optimizer.step()
-            running += loss.item() * xb.size(0)
-        if epoch % 25 == 0 or epoch == 1:
-            logger.info("Epoch %3d | loss=%.4f", epoch, running / len(X))
+            opt.step()
+        model.eval()
+        with torch.no_grad():
+            val = float(loss_fn(model(Xv), Yv))
+        if val < best_val:
+            best_val, best_state = val, {k: v.clone() for k, v in model.state_dict().items()}
+        if (epoch + 1) % 50 == 0:
+            logger.info("Epoca %3d/%d | val_loss=%.4f", epoch + 1, epochs, val)
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    logger.info("Miglior val_loss: %.4f", best_val)
 
     ensure_dir(config.PROSODY_MODEL_PATH)
-    torch.save({"state_dict": model.state_dict(), "in_dim": FEATURE_DIM,
-                "out_dim": len(config.PROSODY_TARGETS)}, config.PROSODY_MODEL_PATH)
+    torch.save({"state_dict": model.state_dict(), "feature_dim": FEATURE_DIM,
+                "hidden": list(config.PROSODY_HIDDEN_DIMS),
+                "targets": config.PROSODY_TARGETS}, config.PROSODY_MODEL_PATH)
     joblib.dump(scaler, config.PROSODY_SCALER_PATH)
-    logger.info("Modello salvato -> %s", config.PROSODY_MODEL_PATH)
-    logger.info("Scaler target salvato -> %s", config.PROSODY_SCALER_PATH)
-    logger.info("Fase 3 completata.")
+    logger.info("Modello -> %s | scaler -> %s",
+                config.PROSODY_MODEL_PATH, config.PROSODY_SCALER_PATH)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Fase 3 - Modello evento->prosodia")
-    parser.add_argument("command", choices=["build-dataset", "train"],
-                        help="build-dataset: estrae i target dalle clip; train: addestra l'MLP.")
+    parser = argparse.ArgumentParser(description="Fase 3 - Addestramento prosodia")
+    parser.add_argument("--synthetic", action="store_true", help="Forza dataset sintetico.")
+    parser.add_argument("--epochs", type=int, default=config.PROSODY_EPOCHS)
     args = parser.parse_args()
 
-    if args.command == "build-dataset":
-        build_dataset()
-    else:
-        train()
+    dataset = None if args.synthetic else build_dataset_from_audio()
+    if dataset is None:
+        logger.info("Uso dataset SINTETICO (dai valori a regole).")
+        dataset = build_dataset_synthetic()
+    X, Y = dataset
+
+    ensure_dir(config.PROSODY_DATASET)
+    np.savez(config.PROSODY_DATASET, X=X, Y=Y)
+    logger.info("Dataset salvato (%s) -> %s", X.shape, config.PROSODY_DATASET)
+
+    train(X, Y, args.epochs)
+    logger.info("Fase 3 completata.")
 
 
 if __name__ == "__main__":
     main()
- 

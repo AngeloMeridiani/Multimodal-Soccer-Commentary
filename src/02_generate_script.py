@@ -3,19 +3,15 @@
 ====================
 FASE 2 - Generazione del testo della telecronaca (NLP, basata su template).
 
-Trasforma il log eventi (Fase 1) in una sequenza di battute testuali, scegliendo
-un template per ogni evento e riempiendo i segnaposto (nome giocatore).
+Trasforma il log eventi in battute testuali, scegliendo un template per evento e
+riempiendo i segnaposto. I template sono affidabili (zero allucinazioni,
+riproducibili) e spostano il valore di ricerca sulla prosodia (Fase 3).
+L'LLM e' l'alternativa nella Fase 2b.
 
-Scelta progettuale: si usano TEMPLATE, non un LLM. Per un PoC i template sono
-affidabili (zero allucinazioni, riproducibili) e spostano il valore di ricerca
-sulla prosodia, dove sta il vero contributo. L'LLM resta un'estensione futura
-(vedi README).
-
-Output: features/scripts/<nome_video>.json
-        lista di battute: {t, text, event_type, importance}
+Output: features/scripts/<nome_video>.json   (lista: {t, text, event_type, importance})
 
 Uso:
-    python src/02_generate_script.py --events features/events/match1.json
+    python 02_generate_script.py --events features/events/match1.json
 """
 
 from __future__ import annotations
@@ -31,48 +27,42 @@ logger = get_logger("fase2_script")
 
 
 class ScriptGenerator:
-    """Genera battute di telecronaca da una lista di eventi, via template."""
-
     def __init__(self, templates: dict[str, list[str]]) -> None:
         self.templates = templates
-        self._last_choice: dict[str, str] = {}  # per evitare ripetizioni consecutive
+        self._last: dict[str, str] = {}
 
-    def _pick_template(self, event_type: str) -> str:
-        """Sceglie un template evitando, se possibile, di ripetere il precedente."""
+    def _pick(self, event_type: str) -> str:
         options = self.templates.get(event_type, ["{player}."])
-        if len(options) > 1 and event_type in self._last_choice:
-            options = [o for o in options if o != self._last_choice[event_type]] or options
+        if len(options) > 1 and event_type in self._last:
+            options = [o for o in options if o != self._last[event_type]] or options
         choice = random.choice(options)
-        self._last_choice[event_type] = choice
+        self._last[event_type] = choice
         return choice
 
     def generate(self, events: list[dict]) -> list[dict]:
         script: list[dict] = []
-        for event in events:
-            template = self._pick_template(event["type"])
-            text = template.format(player=event.get("player", "il giocatore"))
+        for ev in events:
+            template = self._pick(ev["type"])
+            text = template.format(player=ev.get("player", "il giocatore"))
             script.append({
-                "t": event["t"],
+                "t": ev["t"],
                 "text": text,
-                "event_type": event["type"],
-                "importance": event["importance"],
+                "event_type": ev["type"],
+                "importance": ev["importance"],
             })
         return script
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 2 - Generazione testo telecronaca")
-    parser.add_argument("--events", required=True, help="JSON eventi della Fase 1.")
+    parser.add_argument("--events", required=True)
     args = parser.parse_args()
 
-    set_seed(config.RANDOM_SEED)  # rende riproducibile la scelta dei template
-
+    set_seed(config.RANDOM_SEED)
     events_path = Path(args.events)
     events = load_json(events_path)
 
-    generator = ScriptGenerator(config.TEMPLATES)
-    script = generator.generate(events)
-
+    script = ScriptGenerator(config.TEMPLATES).generate(events)
     out_path = config.SCRIPTS_DIR / events_path.name
     ensure_dir(out_path)
     save_json(script, out_path)
@@ -85,4 +75,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
- 

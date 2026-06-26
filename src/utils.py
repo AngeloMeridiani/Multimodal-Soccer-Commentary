@@ -1,15 +1,16 @@
 """
 utils.py
 ========
-Utilita' condivise da tutte le fasi della pipeline.
+Utilita' condivise da tutte le fasi.
 
-- get_logger / set_seed / ensure_dir : infrastruttura di base.
-- save_json / load_json              : I/O del log eventi e degli script.
-- iter_sampled_frames                : generatore di frame campionati da un video.
-- event_to_features                  : trasforma un evento nel vettore di input
-                                       del modello di prosodia (importanza + one-hot).
-- apply_prosody                      : applica i parametri prosodici a un'onda
-                                       audio neutra (time-stretch, pitch, gain).
+- get_logger / set_seed / ensure_dir / save_json / load_json : infrastruttura.
+- VideoNormalizer + iter_sampled_frames : lettura video RADDRIZZATO e RITAGLIATO
+  (risolve rotazione ignorata da OpenCV + bande nere laterali).
+- event_to_features / FEATURE_DIM : evento -> vettore di input del modello
+  prosodia (importanza + one-hot UNICO su config.EVENT_TYPES).
+- ProsodyMLP : la rete (qui, cosi' Fase 3 e Fase 4 la importano senza accoppiarsi
+  al nome-file).
+- apply_prosody : applica i parametri prosodici a un'onda audio neutra (DSP).
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+import subprocess
 from pathlib import Path
 from typing import Iterator
 
@@ -41,6 +43,9 @@ def get_logger(name: str) -> logging.Logger:
     return logger
 
 
+logger = get_logger("utils")
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -54,6 +59,7 @@ def set_seed(seed: int) -> None:
 
 
 def ensure_dir(path: Path) -> None:
+    """Crea la cartella di `path` (o `path` stessa se non ha estensione)."""
     target = path if path.suffix == "" else path.parent
     target.mkdir(parents=True, exist_ok=True)
 
@@ -75,14 +81,55 @@ def load_json(path: Path):
 
 
 # --------------------------------------------------------------------------- #
-# Video                                                                        #
+# Normalizzazione video: rotazione + ritaglio letterbox                       #
 # --------------------------------------------------------------------------- #
-def iter_sampled_frames(
-    video_path: Path, frames_per_second: float
-) -> Iterator[tuple[float, np.ndarray]]:
+def _probe_rotation(video_path: Path) -> int:
     """
-    Genera coppie (timestamp_secondi, frame_BGR) campionando a `frames_per_second`.
-    Solleva RuntimeError se il video non e' apribile.
+    Rotazione (gradi orari) da applicare per vedere il video dritto.
+    Prova prima ffprobe (robusto), poi torna 0.
+    """
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream_side_data=rotation:stream_tags=rotate",
+             "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)],
+            capture_output=True, text=True, check=True,
+        ).stdout
+        vals = [int(float(v)) for v in out.split() if v.strip().lstrip("-").isdigit()]
+        if vals:
+            # ffprobe da' la rotazione del display (spesso negativa, es. -90).
+            # La rotazione da APPLICARE e' l'opposto, normalizzata a [0,360).
+            return (-vals[0]) % 360
+    except Exception:
+        pass
+    return 0
+
+
+def _detect_letterbox_bbox(frame: np.ndarray) -> tuple[int, int, int, int]:
+    """
+    Trova il rettangolo di "contenuto" eliminando le bande nere.
+    Restituisce (x1, y1, x2, y2) in pixel. Se non trova bande, l'intero frame.
+    """
+    gray = frame.mean(axis=2) if frame.ndim == 3 else frame
+    thr = config.LETTERBOX_BLACK_THRESHOLD
+    min_fill = config.LETTERBOX_MIN_FILL
+
+    col_fill = (gray > thr).mean(axis=0)   # frazione di pixel "accesi" per colonna
+    row_fill = (gray > thr).mean(axis=1)   # ... per riga
+
+    cols = np.where(col_fill > min_fill)[0]
+    rows = np.where(row_fill > min_fill)[0]
+    h, w = gray.shape[:2]
+    if cols.size == 0 or rows.size == 0:
+        return 0, 0, w, h
+    return int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1
+
+
+def open_capture(video_path: Path):
+    """
+    Apre un VideoCapture chiedendo a OpenCV di applicare la rotazione dei
+    metadati (auto-orientamento). Restituisce (cap, auto_applied), dove
+    auto_applied dice se OpenCV gestira' la rotazione da solo.
     """
     import cv2
 
@@ -90,8 +137,81 @@ def iter_sampled_frames(
     if not cap.isOpened():
         raise RuntimeError(f"Impossibile aprire il video: {video_path}")
 
+    auto_prop = getattr(cv2, "CAP_PROP_ORIENTATION_AUTO", None)
+    auto_applied = False
+    if auto_prop is not None:
+        cap.set(auto_prop, 1)   # OpenCV moderno: raddrizza lui i frame
+        auto_applied = True
+    return cap, auto_applied
+
+
+class VideoNormalizer:
+    """
+    Raddrizza (rotazione) e ritaglia (letterbox) i frame, una sola volta per
+    video. Se OpenCV ha gia' applicato l'orientamento (auto_applied=True) NON
+    ruota di nuovo; altrimenti (build vecchie) applica la rotazione dai metadati.
+    """
+
+    def __init__(self, video_path: Path, auto_applied: bool = True) -> None:
+        import cv2
+        self.cv2 = cv2
+
+        # Rotazione manuale da applicare NOI (oltre a quella eventuale di OpenCV).
+        if config.VIDEO_ROTATION == "auto":
+            # OpenCV moderno raddrizza da solo -> 0; build vecchie -> dai metadati.
+            self.rotation = 0 if auto_applied else _probe_rotation(video_path)
+        else:
+            self.rotation = int(config.VIDEO_ROTATION) % 360
+
+        self._rot_code = {
+            90: cv2.ROTATE_90_CLOCKWISE,
+            180: cv2.ROTATE_180,
+            270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+        }.get(self.rotation)
+
+        self._crop: tuple[int, int, int, int] | None = None
+        self._crop_ready = False
+
+    def _rotate(self, frame: np.ndarray) -> np.ndarray:
+        return self.cv2.rotate(frame, self._rot_code) if self._rot_code else frame
+
+    def _ensure_crop(self, rotated: np.ndarray) -> None:
+        if self._crop_ready:
+            return
+        mode = config.LETTERBOX_CROP
+        h, w = rotated.shape[:2]
+        if mode is None:
+            self._crop = (0, 0, w, h)
+        elif isinstance(mode, tuple):                       # coordinate normalizzate fisse
+            x1, y1, x2, y2 = mode
+            self._crop = (int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h))
+        else:                                               # "auto"
+            self._crop = _detect_letterbox_bbox(rotated)
+        self._crop_ready = True
+        x1, y1, x2, y2 = self._crop
+        logger.info("Normalizzazione: rotazione=%d°, crop=(%d,%d,%d,%d) da frame %dx%d",
+                    self.rotation, x1, y1, x2, y2, w, h)
+
+    def apply(self, frame: np.ndarray) -> np.ndarray:
+        rotated = self._rotate(frame)
+        self._ensure_crop(rotated)
+        x1, y1, x2, y2 = self._crop  # type: ignore[misc]
+        return rotated[y1:y2, x1:x2]
+
+
+def iter_sampled_frames(
+    video_path: Path, frames_per_second: float, normalize: bool = True,
+) -> Iterator[tuple[float, np.ndarray]]:
+    """
+    Genera (timestamp_s, frame_BGR) campionando a `frames_per_second`.
+    Se `normalize` e' True, raddrizza e ritaglia ogni frame.
+    """
+    import cv2
+
+    cap, auto_applied = open_capture(video_path)
     native_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     step = max(int(round(native_fps / max(frames_per_second, 1e-6))), 1)
+    normalizer = VideoNormalizer(video_path, auto_applied) if normalize else None
 
     try:
         idx = 0
@@ -100,19 +220,36 @@ def iter_sampled_frames(
             if not ret:
                 break
             if idx % step == 0:
-                yield idx / native_fps, frame
+                yield idx / native_fps, (normalizer.apply(frame) if normalizer else frame)
             idx += 1
     finally:
         cap.release()
 
 
+def get_frame_at(video_path: Path, timestamp_s: float, normalize: bool = True) -> np.ndarray:
+    """Restituisce un singolo frame al tempo dato (normalizzato di default)."""
+    import cv2
+
+    cap, auto_applied = open_capture(video_path)
+    try:
+        cap.set(cv2.CAP_PROP_POS_MSEC, timestamp_s * 1000.0)
+        ret, frame = cap.read()
+        if not ret:
+            raise RuntimeError(f"Nessun frame a {timestamp_s}s in {video_path}")
+        if normalize:
+            frame = VideoNormalizer(video_path, auto_applied).apply(frame)
+        return frame
+    finally:
+        cap.release()
+
+
 # --------------------------------------------------------------------------- #
-# Eventi -> feature per il modello di prosodia                                 #
+# Eventi -> feature per il modello di prosodia (UNA sola codifica)             #
 # --------------------------------------------------------------------------- #
 def event_to_features(event_type: str, importance: float) -> np.ndarray:
     """
-    Vettore di input del modello: [importanza, one-hot del tipo di evento].
-    Mantiene un formato unico e coerente tra training (Fase 3) e sintesi (Fase 4).
+    Vettore di input del modello: [importanza, one-hot su config.EVENT_TYPES].
+    Identico in training (Fase 3) e sintesi (Fase 4): ogni tipo ha la sua colonna.
     """
     one_hot = [1.0 if event_type == t else 0.0 for t in config.EVENT_TYPES]
     return np.asarray([importance, *one_hot], dtype=np.float32)
@@ -122,68 +259,29 @@ FEATURE_DIM: int = 1 + len(config.EVENT_TYPES)  # importanza + one-hot
 
 
 # --------------------------------------------------------------------------- #
-# Feature ESTESE per il modello arricchito (Livello 3)                         #
+# Modello di prosodia (qui, per disaccoppiare Fase 3 e Fase 4)                 #
 # --------------------------------------------------------------------------- #
-# Mappature categoriche -> numeriche per le feature estese
-CROWD_LEVEL_MAP: dict[str, float] = {
-    "low": 0.0, "medium": 0.33, "high": 0.66, "peak": 1.0,
-}
-BALL_SPEED_MAP: dict[str, float] = {
-    "stopped": 0.0, "low": 0.2, "medium": 0.5, "high": 0.8, "very_high": 1.0,
-}
-EMOTION_LEVEL_MAP: dict[str, float] = {
-    "low": 0.0, "medium": 0.33, "high": 0.66, "very_high": 1.0,
-}
-BALL_ZONE_LIST: list[str] = [
-    "penalty_area_home", "penalty_area_away", "midfield", "wing_left", "wing_right",
-]
+def build_prosody_mlp(in_dim: int, hidden: tuple[int, ...], out_dim: int):
+    """Crea l'MLP. Import locale di torch: pesante, solo quando serve."""
+    import torch.nn as nn
 
+    class ProsodyMLP(nn.Module):
+        """MLP di regressione: feature evento -> [rate, pitch, energy]."""
 
-def event_to_features_extended(event: dict) -> np.ndarray:
-    """
-    Vettore esteso: aggiunge crowd_excitement, ball_zone, ball_speed e
-    emotion_intensity alle feature base. Usato quando
-    config.PROSODY_USE_EXTENDED_FEATURES e' True.
+        def __init__(self) -> None:
+            super().__init__()
+            layers: list = []
+            prev = in_dim
+            for h in hidden:
+                layers += [nn.Linear(prev, h), nn.ReLU()]
+                prev = h
+            layers.append(nn.Linear(prev, out_dim))
+            self.net = nn.Sequential(*layers)
 
-    Formato: [importanza, one-hot_evento(11), crowd_score, ball_speed,
-              emotion_intensity, one-hot_ball_zone(5)]
-    """
-    event_type = event.get("type", "idle")
-    importance = event.get("importance", config.EVENT_IMPORTANCE.get(event_type, 0.1))
+        def forward(self, x):
+            return self.net(x)
 
-    # One-hot esteso (usa EVENT_TYPES_EXTENDED)
-    one_hot_event = [
-        1.0 if event_type == t else 0.0
-        for t in config.EVENT_TYPES_EXTENDED
-    ]
-
-    # Crowd excitement (numerico)
-    crowd_level = event.get("crowd_excitement", "low")
-    crowd_score = event.get("crowd_score", CROWD_LEVEL_MAP.get(crowd_level, 0.0))
-
-    # Ball speed (numerico)
-    ball_speed_str = event.get("ball_speed", "medium")
-    ball_speed = BALL_SPEED_MAP.get(ball_speed_str, 0.5)
-
-    # Emotion intensity (numerico)
-    emotion_str = event.get("emotion_intensity", "medium")
-    emotion = EMOTION_LEVEL_MAP.get(emotion_str, 0.33)
-
-    # Ball zone (one-hot)
-    ball_zone = event.get("ball_zone", "midfield")
-    one_hot_zone = [1.0 if ball_zone == z else 0.0 for z in BALL_ZONE_LIST]
-
-    features = [importance, *one_hot_event, crowd_score, ball_speed, emotion, *one_hot_zone]
-    return np.asarray(features, dtype=np.float32)
-
-
-FEATURE_DIM_EXTENDED: int = (
-    1                                    # importanza
-    + len(config.EVENT_TYPES_EXTENDED)   # one-hot evento esteso
-    + 3                                  # crowd_score, ball_speed, emotion
-    + len(BALL_ZONE_LIST)                # one-hot ball_zone
-)
-
+    return ProsodyMLP()
 
 
 # --------------------------------------------------------------------------- #
@@ -197,34 +295,23 @@ def apply_prosody(
     energy_gain: float,
 ) -> np.ndarray:
     """
-    Trasforma un'onda audio NEUTRA secondo i parametri prosodici.
-
-    - rate_factor      > 1 accelera il parlato (telecronaca concitata).
-    - pitch_semitones  > 0 alza il tono (eccitazione).
-    - energy_gain      > 1 aumenta il volume.
-
-    Disaccoppia il CONTRIBUTO (la mappatura evento->prosodia, appresa) dal motore
-    TTS: qualunque TTS produca l'audio neutro, qui lo si rende espressivo. Questo
-    rende l'esperimento riproducibile e indipendente dal TTS scelto.
+    Trasforma un'onda NEUTRA secondo i parametri prosodici.
+    - rate_factor     > 1 accelera (telecronaca concitata).
+    - pitch_semitones > 0 alza il tono.
+    - energy_gain     > 1 aumenta il volume.
+    Disaccoppia il CONTRIBUTO (mappatura evento->prosodia) dal motore TTS.
     """
     import librosa
 
     out = waveform.astype(np.float32)
 
-    # 1) Velocita': time-stretch (non altera il pitch)
     if abs(rate_factor - 1.0) > 1e-3:
         out = librosa.effects.time_stretch(out, rate=float(rate_factor))
-
-    # 2) Pitch: spostamento in semitoni
     if abs(pitch_semitones) > 1e-3:
-        out = librosa.effects.pitch_shift(
-            out, sr=sample_rate, n_steps=float(pitch_semitones)
-        )
+        out = librosa.effects.pitch_shift(out, sr=sample_rate, n_steps=float(pitch_semitones))
 
-    # 3) Energia: guadagno con clipping di sicurezza
     out = out * float(energy_gain)
-    peak = np.max(np.abs(out)) if out.size else 0.0
-    if peak > 1.0:                       # evita distorsione/clipping
+    peak = float(np.max(np.abs(out))) if out.size else 0.0
+    if peak > 1.0:                       # evita clipping
         out = out / peak
-
     return out
