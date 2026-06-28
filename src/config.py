@@ -93,18 +93,38 @@ HUD_REGIONS: dict[str, tuple[float, float, float, float]] = {
 # Codici squadra mostrati nel punteggio (per disambiguare home/away dall'OCR).
 TEAM_CODES: dict[str, str] = {"home": "BRA", "away": "HAI"}
 
-# Mappa giocatore -> squadra ("home"/"away"). Serve a distinguere "passaggio"
-# (stessa squadra) da "palla persa" (avversaria). Nomi in MAIUSCOLO.
+# Rose SEPARATE per squadra. Servono ad agganciare (snap) i nomi letti dall'OCR
+# alla rosa nota e a derivare la squadra dell'attore. Nomi in MAIUSCOLO.
+# Inserisci qui le rose REALI delle due squadre della clip.
+ROSTER_HOME: list[str] = [   # es. Brasile
+    "DANILO", "ALEX SANDRO", "MARQUINHOS", "BASTONI", "BARELLA",
+    "LUIZ HENRIQUE", "CASEMIRO", "RODRYGO", "VINICIUS",
+]
+ROSTER_AWAY: list[str] = [   # es. Haiti
+    "BELLEGARDE", "JEAN JACQUES", "DELCROIX", "PIERRE", "PIERROT",
+    "NAZON", "SAINTE",
+]
+
+# ROSTER combinato giocatore -> squadra ("home"/"away"), derivato dalle due rose.
+# Mantenuto per retro-compatibilita' con chi usa ancora la mappa unica.
 ROSTER: dict[str, str] = {
-    # --- Brasile (home) ---
-    "DANILO": "home", "ALEX SANDRO": "home", "MARQUINHOS": "home",
-    "BASTONI": "home", "BARELLA": "home", "LUIZ HENRIQUE": "home",
-    # --- Haiti (away) ---
-    "PIERROT": "away", "CASIMIR": "away", "PROVIDENCE": "away",
+    **{n: "home" for n in ROSTER_HOME},
+    **{n: "away" for n in ROSTER_AWAY},
 }
 
 OCR_LANGUAGES: list[str] = ["en"]   # lingue per EasyOCR
 OCR_MIN_CONFIDENCE: float = 0.30    # sotto questa confidenza la lettura si scarta
+# Soglia piu' bassa per i NOMI: conviene leggere tutto il cognome (anche a bassa
+# confidenza) e poi agganciarlo alla rosa, invece di scartare pezzi e ritrovarsi
+# frammenti come "NDRO"/"INHOS".
+OCR_NAME_MIN_CONFIDENCE: float = 0.15
+
+# Un punteggio di calcio oltre questo valore e' quasi certamente OCR rotto:
+# i numeri letti fuori range vengono ignorati nel parsing del punteggio.
+MAX_PLAUSIBLE_SCORE: int = 9
+# Un cambio di punteggio deve persistere per N letture consecutive prima di
+# valere come gol (debounce contro il flicker dell'OCR).
+GOAL_CONFIRM_FRAMES: int = 2
 
 # --------------------------------------------------------------------------- #
 # Importanza degli eventi (0 = banale, 1 = clou). Guida la prosodia.           #

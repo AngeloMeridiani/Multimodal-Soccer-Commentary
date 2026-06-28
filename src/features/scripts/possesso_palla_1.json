@@ -1,0 +1,92 @@
+[
+  {
+    "t": 0.0,
+    "text": "La gioca PIERRE.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 0.5,
+    "text": "BELLEGARDE controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 2.0,
+    "text": "Apertura per JEAN JACQUES.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 7.0,
+    "text": "La gioca BELLEGARDE.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 7.5,
+    "text": "PIERRE controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 9.51,
+    "text": "Apertura per DELCROIX.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 11.01,
+    "text": "PIERRE controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 11.51,
+    "text": "Apertura per JEAN JACQUES.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 17.51,
+    "text": "PIERROT controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 20.51,
+    "text": "La gioca BELLEGARDE.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 21.51,
+    "text": "PIERROT controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 27.02,
+    "text": "Apertura per BELLEGARDE.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 31.52,
+    "text": "RO controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 32.02,
+    "text": "Apertura per JEAN JACQUES.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 35.02,
+    "text": "PIERRE controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  }
+]
