@@ -97,7 +97,7 @@ HUD_REGIONS: dict[str, tuple[float, float, float, float]] = {
 # dalla sola HUD il possesso non e' deducibile.
 #   "home" / "away" -> forza il lato (usalo quando SAI chi attacca nella clip).
 #   None            -> non si forza: si segue il lato che cambia, possesso incerto.
-HUD_ACTIVE_SIDE: str | None = None   # in questa clip attacca il Brasile (home)
+HUD_ACTIVE_SIDE: str | None = "home"   # in questa clip attacca il Brasile (home)
 
 # Codici squadra mostrati nel punteggio (per disambiguare home/away dall'OCR).
 TEAM_CODES: dict[str, str] = {"home": "BRA", "away": "HAI"}
@@ -106,10 +106,9 @@ TEAM_CODES: dict[str, str] = {"home": "BRA", "away": "HAI"}
 # alla rosa nota e a derivare la squadra dell'attore. Nomi in MAIUSCOLO.
 # Inserisci qui le rose REALI delle due squadre della clip.
 ROSTER_HOME: list[str] = [   # Brasile (home) - COMPLETA con la rosa REALE della clip
-    "RAPHINHA", "VINICIUS", "VINI JR", "RODRYGO", "CASEMIRO", "BRUNO GUIMARAES",
+    "RAPHINHA", "VINICIUS", "RODRYGO", "CASEMIRO", "BRUNO GUIMARAES",
     "MARQUINHOS", "DANILO", "ALEX SANDRO", "BREMER", "ANDREAS PEREIRA",
-    "LUIZ HENRIQUE", "BARELLA", "BASTONI", "GABRIEL", "CUNHA", "GABRIEL JESUS",
-    "GABRIEL MARTINELLI",
+    "LUIZ HENRIQUE", "BARELLA", "BASTONI",
 ]
 ROSTER_AWAY: list[str] = [   # Haiti (away) - COMPLETA con la rosa REALE della clip
     "BELLEGARDE", "JEAN JACQUES", "DELCROIX", "PIERRE", "PIERROT",
@@ -164,10 +163,13 @@ EVENT_TYPES: list[str] = [
 # --------------------------------------------------------------------------- #
 # Fase 1b - Modulo Visivo (YOLO + OpenCV)                                      #
 # --------------------------------------------------------------------------- #
-YOLO_MODEL: str = "yolov8m.pt"   # era "yolov8n.pt"   
-YOLO_CLASSES_OF_INTEREST: dict[int, str] = {
-    0:  "person",       # giocatori + arbitro + portiere
-    32: "sports_ball",  # pallone
+YOLO_MODEL: str = "models/best.pt"   # modello FIFA addestrato su Roboflow
+# Il modello FIFA usa nomi diversi da COCO. Li mappiamo ai nomi interni del progetto.
+YOLO_CLASS_MAP: dict[str, str] = {
+    "player":     "person",       # giocatori
+    "goalkeeper":  "person",       # portiere (trattato come giocatore)
+    "referee":    "referee",      # arbitro
+    "ball":       "sports_ball",  # pallone
 }
 YOLO_CONFIDENCE: float = 0.35
 
@@ -343,7 +345,7 @@ HUD_PROFILES: dict[str, dict] = {
             "home": [((105, 60, 40), (130, 255, 255))],   # navy (Tottenham)
             "away": [((90, 50, 110), (104, 255, 255))],    # azzurro (Marseille)
         },
-        "active_side": None,
+        "active_side": "home",
         "aspect_min": 0.0,             # fallback (16:9 ~1.78)
     },
 }

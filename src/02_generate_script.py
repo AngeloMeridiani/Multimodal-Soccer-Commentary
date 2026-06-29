@@ -43,7 +43,15 @@ class ScriptGenerator:
         script: list[dict] = []
         for ev in events:
             template = self._pick(ev["type"])
-            text = template.format(player=ev.get("player", "il giocatore"))
+            # Scegli il nome giusto in base al possesso visivo.
+            poss = ev.get("possession")
+            if poss == "home" and ev.get("player_home"):
+                player = ev["player_home"]
+            elif poss == "away" and ev.get("player_away"):
+                player = ev["player_away"]
+            else:
+                player = ev.get("player", "il giocatore")
+            text = template.format(player=player)
             script.append({
                 "t": ev["t"],
                 "text": text,

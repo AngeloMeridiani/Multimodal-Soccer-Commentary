@@ -310,14 +310,22 @@ def analyze_video(video_path: Path, limit: int | None = None,
     return visual_events, possession_timeline
 
 
-def possession_at(timeline: list[dict], t: float, tol: float = 0.75) -> str | None:
-    """Squadra in possesso al tempo t (campione piu' vicino entro tol secondi)."""
+def possession_at(timeline: list[dict], t: float, tol: float = 3.0) -> str | None:
+    """Squadra in possesso al tempo t. Cerca il campione piu' vicino entro tol secondi.
+    Se nessuno entro tol, usa l'ultimo possesso noto PRIMA di t."""
     best, best_d = None, tol
     for p in timeline:
         d = abs(p["t"] - t)
         if d <= best_d and p.get("possession"):
             best, best_d = p, d
-    return best["possession"] if best else None
+    if best:
+        return best["possession"]
+    # Fallback: ultimo possesso noto prima di t
+    last = None
+    for p in timeline:
+        if p["t"] <= t and p.get("possession"):
+            last = p["possession"]
+    return last
 
 
 def merge_events(ocr_events: list[dict], visual_events: list[dict],
