@@ -180,6 +180,14 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
     processed = 0
     profile_applied = False
 
+    # Finestra scorrevole per il possesso: traccia i cambi di targhetta recenti.
+    # Il lato che cambia PIU' SPESSO e' quello in possesso (in FIFA il giocatore
+    # controllato cambia a ogni passaggio -> la targhetta si aggiorna).
+    from collections import deque
+    POSS_WINDOW_SEC = 4.0          # finestra temporale (secondi)
+    change_log: deque[tuple[float, str]] = deque()   # (timestamp, "home"|"away")
+    current_possession: str | None = None
+
     for timestamp, frame in tqdm(
         iter_sampled_frames(video_path, config.FRAMES_PER_SECOND), desc="OCR HUD"
     ):
@@ -221,26 +229,39 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
         snap_h = snap_name(home_txt)
         snap_a = snap_name(away_txt)
 
-        # --- chi e' il "portatore"? Dalla sola HUD NON e' deducibile, perche'
-        #     le due targhette mostrano i giocatori SELEZIONATI di entrambe le
-        #     squadre, non chi ha la palla. Strategia:
-        #       * HUD_ACTIVE_SIDE forzato ("home"/"away") -> usa quel lato.
-        #       * altrimenti segui il lato che e' CAMBIATO (best effort), incerto.
-        #     Il possesso "vero" va confermato dalla Fase 1b (colore maglia+palla).
-        if config.HUD_ACTIVE_SIDE == "home":
-            active, possession_certain = snap_h, True
-        elif config.HUD_ACTIVE_SIDE == "away":
-            active, possession_certain = snap_a, True
+        # --- possesso dalla FREQUENZA DI CAMBIO delle targhette ---
+        # In FIFA chi ha la palla passa e cambia giocatore -> la sua targhetta
+        # cambia piu' spesso. La targhetta dell'avversario cambia poco.
+        # Tracciamo i cambi in una finestra scorrevole e il lato piu' attivo vince.
+        home_changed = bool(snap_h["name"]) and snap_h["name"] != prev_home
+        away_changed = bool(snap_a["name"]) and snap_a["name"] != prev_away
+        if home_changed:
+            change_log.append((timestamp, "home"))
+        if away_changed:
+            change_log.append((timestamp, "away"))
+        # Scarta i cambi fuori dalla finestra temporale.
+        while change_log and change_log[0][0] < timestamp - POSS_WINDOW_SEC:
+            change_log.popleft()
+        # Chi ha cambiato di piu' nella finestra?
+        n_home = sum(1 for _, s in change_log if s == "home")
+        n_away = sum(1 for _, s in change_log if s == "away")
+        if n_home > n_away:
+            current_possession = "home"
+        elif n_away > n_home:
+            current_possession = "away"
+        # altrimenti (parita') mantieni l'ultimo noto.
+
+        # Usa la targhetta del LATO IN POSSESSO per il nome del portatore.
+        if current_possession == "home":
+            active = snap_h
+        elif current_possession == "away":
+            active = snap_a
+        elif home_changed and not away_changed:
+            active = snap_h
+        elif away_changed and not home_changed:
+            active = snap_a
         else:
-            home_changed = bool(snap_h["name"]) and snap_h["name"] != prev_home
-            away_changed = bool(snap_a["name"]) and snap_a["name"] != prev_away
-            if home_changed and not away_changed:
-                active = snap_h
-            elif away_changed and not home_changed:
-                active = snap_a
-            else:
-                active = snap_h if snap_h["matched"] else snap_a
-            possession_certain = False
+            active = snap_h if snap_h["matched"] else snap_a
         team = active["team"] or ("home" if active is snap_h else "away")
         active_name = active["name"]
 
@@ -260,7 +281,7 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
                 "type": event_type,
                 "player": active_name or "il giocatore",
                 "player_team": team,
-                "possession_certain": possession_certain,
+                "possession": current_possession,
                 "player_resolved": active["matched"],
                 "name_confidence": active["confidence"],
                 "player_home": snap_h["name"],

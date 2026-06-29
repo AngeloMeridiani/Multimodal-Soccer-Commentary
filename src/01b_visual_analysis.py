@@ -205,6 +205,7 @@ class PossessionTracker:
 
 
 
+class VisualEventClassifier:
     """Classifica eventi da detection + ball tracking (complementare all'OCR)."""
 
     def __init__(self) -> None:
