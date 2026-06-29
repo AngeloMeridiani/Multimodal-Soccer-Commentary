@@ -122,7 +122,89 @@ class BallTracker:
         return "midfield"
 
 
-class VisualEventClassifier:
+class TeamClassifier:
+    """Classifica la squadra di un giocatore dal COLORE della maglia (HSV)."""
+
+    def __init__(self) -> None:
+        self.ranges = config.TEAM_JERSEY_HSV
+        self.sample = config.JERSEY_SAMPLE_BOX
+        self.min_fill = config.JERSEY_MIN_FILL
+        self.min_margin = config.JERSEY_MIN_MARGIN
+
+    def classify(self, frame, det: "Detection") -> tuple[str | None, float]:
+        """Ritorna (team, fill) dove team in {'home','away',None}. None = incerto."""
+        import cv2
+        bw, bh = det.x2 - det.x1, det.y2 - det.y1
+        if bw <= 0 or bh <= 0:
+            return None, 0.0
+        sx1 = max(det.x1 + int(self.sample[0] * bw), 0)
+        sy1 = max(det.y1 + int(self.sample[1] * bh), 0)
+        sx2 = det.x1 + int(self.sample[2] * bw)
+        sy2 = det.y1 + int(self.sample[3] * bh)
+        patch = frame[sy1:sy2, sx1:sx2]
+        if patch.size == 0:
+            return None, 0.0
+
+        hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+        fills: dict[str, float] = {}
+        for team, ranges in self.ranges.items():
+            mask = None
+            for lo, hi in ranges:
+                m = cv2.inRange(hsv, lo, hi)
+                mask = m if mask is None else cv2.bitwise_or(mask, m)
+            fills[team] = float(mask.sum()) / 255.0 / mask.size
+
+        team = max(fills, key=fills.get)
+        fill = fills[team]
+        other = max((v for k, v in fills.items() if k != team), default=0.0)
+        # serve abbastanza colore E un margine chiaro sull'altra squadra
+        if fill < self.min_fill or fill < other * self.min_margin:
+            return None, round(fill, 3)
+        return team, round(fill, 3)
+
+
+class PossessionTracker:
+    """
+    Possesso = squadra del giocatore PIU' VICINO alla palla (entro un raggio),
+    classificata dal colore maglia, con debounce anti-flicker.
+    """
+
+    def __init__(self) -> None:
+        self.max_dist = config.POSSESSION_MAX_DIST_PX
+        self.confirm = config.POSSESSION_CONFIRM_FRAMES
+        self.team_clf = TeamClassifier()
+        self.current: str | None = None
+        self.pending: str | None = None
+        self.count = 0
+
+    def update(self, frame, ball: "BallState | None",
+               detections: list["Detection"]) -> tuple[str | None, float, str | None]:
+        """Ritorna (possesso_confermato, fill, carrier_name=None)."""
+        if ball is None:
+            return self.current, 0.0, None
+        players = [d for d in detections if d.class_name == "person"]
+        if not players:
+            return self.current, 0.0, None
+
+        nearest = min(players, key=lambda p: math.hypot(p.center[0] - ball.x,
+                                                         p.center[1] - ball.y))
+        if math.hypot(nearest.center[0] - ball.x, nearest.center[1] - ball.y) > self.max_dist:
+            return self.current, 0.0, None   # palla in volo / nessuno la controlla
+
+        team, fill = self.team_clf.classify(frame, nearest)
+        if team is None:
+            return self.current, fill, None
+
+        if team == self.pending:
+            self.count += 1
+        else:
+            self.pending, self.count = team, 1
+        if self.count >= self.confirm:
+            self.current = self.pending
+        return self.current, fill, None
+
+
+
     """Classifica eventi da detection + ball tracking (complementare all'OCR)."""
 
     def __init__(self) -> None:
@@ -189,12 +271,14 @@ class VisualEventClassifier:
 
 
 def analyze_video(video_path: Path, limit: int | None = None,
-                  ocr_events: list[dict] | None = None) -> list[dict]:
+                  ocr_events: list[dict] | None = None) -> tuple[list[dict], list[dict]]:
     detector = YoloDetector()
     tracker = BallTracker()
     classifier = VisualEventClassifier()
+    possession = PossessionTracker()
 
     visual_events: list[dict] = []
+    possession_timeline: list[dict] = []
     count = 0
     for timestamp, frame in tqdm(
         iter_sampled_frames(video_path, config.FRAMES_PER_SECOND), desc="YOLO + Tracking"
@@ -204,24 +288,61 @@ def analyze_video(video_path: Path, limit: int | None = None,
         count += 1
         detections = detector.detect(frame)
         ball = tracker.update(timestamp, detections, frame.shape)
+
+        # --- possesso dal colore maglia del giocatore piu' vicino alla palla ---
+        poss_team, poss_fill, _ = possession.update(frame, ball, detections)
+        possession_timeline.append({
+            "t": round(timestamp, 2),
+            "possession": poss_team,
+            "confidence": round(poss_fill, 3),
+        })
+
         event = classifier.classify(timestamp, ball, detections)
         if event is not None:
             event["n_players"] = sum(1 for d in detections if d.class_name == "person")
+            event["possession"] = poss_team
             visual_events.append(event)
 
     if ocr_events:
-        visual_events = merge_events(ocr_events, visual_events)
+        visual_events = merge_events(ocr_events, visual_events, possession_timeline)
     visual_events.sort(key=lambda e: e["t"])
-    return visual_events
+    return visual_events, possession_timeline
+
+
+def possession_at(timeline: list[dict], t: float, tol: float = 0.75) -> str | None:
+    """Squadra in possesso al tempo t (campione piu' vicino entro tol secondi)."""
+    best, best_d = None, tol
+    for p in timeline:
+        d = abs(p["t"] - t)
+        if d <= best_d and p.get("possession"):
+            best, best_d = p, d
+    return best["possession"] if best else None
 
 
 def merge_events(ocr_events: list[dict], visual_events: list[dict],
+                 possession_timeline: list[dict] | None = None,
                  time_tolerance: float = 1.0) -> list[dict]:
-    """Fonde OCR e visivi: i gol OCR hanno precedenza; i visivi arricchiscono/aggiungono."""
+    """
+    Fonde OCR e visivi. Inoltre, usando il possesso (colore maglia), CORREGGE il
+    portatore: sceglie la targhetta della squadra che ha davvero la palla
+    (player_home se possesso=home, player_away se possesso=away).
+    """
+    possession_timeline = possession_timeline or []
     merged: list[dict] = []
     for ocr_ev in ocr_events:
         m = dict(ocr_ev)
         m.setdefault("source", "ocr")
+
+        # --- correzione del portatore in base al possesso visivo ---
+        poss = possession_at(possession_timeline, ocr_ev["t"])
+        if poss in ("home", "away"):
+            name = m.get("player_home") if poss == "home" else m.get("player_away")
+            if name:
+                m["player"] = name
+                m["player_team"] = poss
+                m["possession_certain"] = True
+                m["possession_source"] = "visual"
+
         for vis in visual_events:
             if abs(vis["t"] - ocr_ev["t"]) <= time_tolerance:
                 m["ball_zone"] = vis.get("ball_zone", "unknown")
@@ -243,22 +364,37 @@ def main() -> None:
     parser.add_argument("--video", required=True)
     parser.add_argument("--limit", type=int, default=None, help="Max frame (debug).")
     parser.add_argument("--merge", type=str, default=None, help="JSON eventi OCR da fondere.")
+    parser.add_argument("--profile", default="auto",
+                        help="Profilo HUD/colori: 'auto' o un nome di config.HUD_PROFILES.")
     args = parser.parse_args()
 
     video_path = Path(args.video)
     if not video_path.exists():
         raise FileNotFoundError(f"Video non trovato: {video_path}")
 
+    # Applica il profilo (rose/colori maglia/lato) prima di costruire i classificatori.
+    from utils import get_frame_at
+    probe = get_frame_at(video_path, 0.0)
+    pname, prof = config.select_profile(probe.shape[1], probe.shape[0], args.profile)
+    config.apply_profile(prof)
+    logger.info("Profilo HUD/colori: '%s' (frame %dx%d)", pname, probe.shape[1], probe.shape[0])
+
     ocr_events = None
     if args.merge:
         ocr_events = load_json(Path(args.merge))
         logger.info("Caricati %d eventi OCR da %s", len(ocr_events), args.merge)
 
-    events = analyze_video(video_path, args.limit, ocr_events)
+    events, possession_timeline = analyze_video(video_path, args.limit, ocr_events)
 
     out_path = config.EVENTS_DIR / f"{video_path.stem}_enriched.json"
     ensure_dir(out_path)
     save_json(events, out_path)
+
+    poss_path = config.EVENTS_DIR / f"{video_path.stem}_possession.json"
+    save_json(possession_timeline, poss_path)
+    held = sum(1 for p in possession_timeline if p["possession"])
+    logger.info("Timeline possesso: %d/%d frame con possesso assegnato -> %s",
+                held, len(possession_timeline), poss_path)
 
     by_type: dict[str, int] = {}
     by_source: dict[str, int] = {}

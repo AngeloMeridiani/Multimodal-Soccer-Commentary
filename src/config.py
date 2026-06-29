@@ -84,11 +84,20 @@ FRAMES_PER_SECOND: float = 2.0
 # (questi sono valori di partenza tipici per l'HUD di EA FC, punteggio in alto a
 #  sinistra e due targhette nomi in basso ai due lati).
 HUD_REGIONS: dict[str, tuple[float, float, float, float]] = {
-    "score":              (0.11, 0.02, 0.33, 0.11),   # "BRA 1 - 1 HAI"
-    "clock":              (0.335, 0.02, 0.42, 0.11),  # "28:19"
-    "active_player_home": (0.10, 0.88, 0.30, 0.99),   # targhetta sinistra
-    "active_player_away": (0.74, 0.88, 0.95, 0.99),   # targhetta destra
+    # Calibrate sui fotogrammi REALI di questa clip (1920x886, crop letterbox):
+    "score":              (0.115, 0.025, 0.205, 0.10),  # SOLO le due cifre "1 .. 0"
+    "clock":              (0.27, 0.02, 0.37, 0.11),     # "16:55"
+    "active_player_home": (0.035, 0.90, 0.22, 0.985),   # "11 RAPHINHA" (Brasile, sx)
+    "active_player_away": (0.74, 0.88, 0.95, 0.99),     # "BELLEGARDE 10" (Haiti, dx)
 }
+
+# Lato della targhetta da usare come "giocatore in possesso" quando NON c'e' una
+# fonte affidabile di possesso (la Fase 1b/visivo). Le due targhette sono SEMPRE
+# entrambe a schermo (mostrano il giocatore SELEZIONATO di ogni squadra), quindi
+# dalla sola HUD il possesso non e' deducibile.
+#   "home" / "away" -> forza il lato (usalo quando SAI chi attacca nella clip).
+#   None            -> non si forza: si segue il lato che cambia, possesso incerto.
+HUD_ACTIVE_SIDE: str | None = "home"   # in questa clip attacca il Brasile (home)
 
 # Codici squadra mostrati nel punteggio (per disambiguare home/away dall'OCR).
 TEAM_CODES: dict[str, str] = {"home": "BRA", "away": "HAI"}
@@ -96,13 +105,14 @@ TEAM_CODES: dict[str, str] = {"home": "BRA", "away": "HAI"}
 # Rose SEPARATE per squadra. Servono ad agganciare (snap) i nomi letti dall'OCR
 # alla rosa nota e a derivare la squadra dell'attore. Nomi in MAIUSCOLO.
 # Inserisci qui le rose REALI delle due squadre della clip.
-ROSTER_HOME: list[str] = [   # es. Brasile
-    "DANILO", "ALEX SANDRO", "MARQUINHOS", "BASTONI", "BARELLA",
-    "LUIZ HENRIQUE", "CASEMIRO", "RODRYGO", "VINICIUS",
+ROSTER_HOME: list[str] = [   # Brasile (home) - COMPLETA con la rosa REALE della clip
+    "RAPHINHA", "VINICIUS", "RODRYGO", "CASEMIRO", "BRUNO GUIMARAES",
+    "MARQUINHOS", "DANILO", "ALEX SANDRO", "BREMER", "ANDREAS PEREIRA",
+    "LUIZ HENRIQUE", "BARELLA", "BASTONI",
 ]
-ROSTER_AWAY: list[str] = [   # es. Haiti
+ROSTER_AWAY: list[str] = [   # Haiti (away) - COMPLETA con la rosa REALE della clip
     "BELLEGARDE", "JEAN JACQUES", "DELCROIX", "PIERRE", "PIERROT",
-    "NAZON", "SAINTE",
+    "NAZON", "SAINTE", "PROVIDENCE", "CASIMIR",
 ]
 
 # ROSTER combinato giocatore -> squadra ("home"/"away"), derivato dalle due rose.
@@ -159,6 +169,25 @@ YOLO_CLASSES_OF_INTEREST: dict[int, str] = {
     32: "sports_ball",  # pallone
 }
 YOLO_CONFIDENCE: float = 0.35
+
+# --- Possesso palla dal COLORE MAGLIA del giocatore piu' vicino alla palla --- #
+# Range HSV (OpenCV: H 0-179, S 0-255, V 0-255), TARATI sui frame reali della clip.
+# home = Brasile (giallo); away = Haiti (rosso, che in HSV sta a cavallo di 0/180).
+TEAM_JERSEY_HSV: dict[str, list[tuple[tuple[int, int, int], tuple[int, int, int]]]] = {
+    "home": [((20, 90, 90), (38, 255, 255))],
+    "away": [((0, 90, 70), (10, 255, 255)), ((168, 90, 70), (179, 255, 255))],
+}
+# Porzione del bounding box del giocatore da campionare (torso = alto-centrale),
+# in frazioni del box: (x1, y1, x2, y2). Evita gambe/erba e numero schiena.
+JERSEY_SAMPLE_BOX: tuple[float, float, float, float] = (0.20, 0.15, 0.80, 0.55)
+# Frazione minima di pixel del colore squadra perche' la classificazione valga.
+JERSEY_MIN_FILL: float = 0.12
+# Margine: il colore vincente deve superare l'altro di almeno questo fattore.
+JERSEY_MIN_MARGIN: float = 1.3
+# Raggio massimo (px sul frame normalizzato) entro cui un giocatore "ha" la palla.
+POSSESSION_MAX_DIST_PX: float = 90.0
+# Il possesso cambia squadra solo dopo N frame coerenti (anti-flicker).
+POSSESSION_CONFIRM_FRAMES: int = 2
 
 # Soglie di tracking della palla (pixel/frame sul frame normalizzato).
 BALL_TRACKING: dict[str, float] = {
@@ -268,3 +297,80 @@ TTS_ENGINE: str = "pyttsx3"             # "pyttsx3" (offline) | "coqui" (espress
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
 COQUI_SPEAKER_WAV: str | None = None
 COQUI_LANGUAGE: str = "it"
+
+
+# =========================================================================== #
+# PROFILI HUD  (multi-interfaccia)                                            #
+# =========================================================================== #
+# Ogni profilo descrive UNA interfaccia: posizioni HUD + rosa + colori maglia +
+# lato attivo. Il profilo si sceglie a runtime (per risoluzione o via --profile)
+# e si applica con apply_profile(), che riscrive le costanti usate dalle fasi.
+HUD_PROFILES: dict[str, dict] = {
+    # Brasile vs Haiti (clip verticale ruotata -> normalizzata ~1706x886).
+    "bra_hai": {
+        "regions": HUD_REGIONS,
+        "roster_home": ROSTER_HOME,
+        "roster_away": ROSTER_AWAY,
+        "team_codes": TEAM_CODES,
+        "jersey_hsv": TEAM_JERSEY_HSV,
+        "active_side": HUD_ACTIVE_SIDE,
+        "aspect_min": 1.85,            # frame largo/basso (~1.93)
+    },
+    # Tottenham vs Marseille (1920x1080 orizzontale, HUD standard EA FC).
+    "tot_om": {
+        "regions": {
+            "score":              (0.135, 0.055, 0.155, 0.108),  # cifre "2"/"1" impilate
+            "clock":              (0.085, 0.110, 0.140, 0.140),  # "x:05" (best effort)
+            "active_player_home": (0.045, 0.886, 0.210, 0.930),  # "23 PORRO"
+            "active_player_away": (0.780, 0.886, 0.955, 0.930),  # "PAIXAO 14"
+        },
+        "roster_home": [   # Tottenham
+            "VICARIO", "PORRO", "ROMERO", "VAN DE VEN", "UDOGIE", "BISSOUMA",
+            "BENTANCUR", "MADDISON", "KULUSEVSKI", "SON", "RICHARLISON",
+            "JOHNSON", "SARR", "SOLANKE",
+        ],
+        "roster_away": [   # Olympique Marseille
+            "RULLI", "PAIXAO", "BALERDI", "BRASSIER", "MURILLO", "HOJBJERG",
+            "KONDOGBIA", "RABIOT", "HARIT", "GREENWOOD", "VERETOUT",
+            "MERLIN", "GARCIA",
+        ],
+        "team_codes": {"home": "TOT", "away": "OM"},
+        # ATTENZIONE: entrambe le maglie sono BIANCHE -> il possesso DAL COLORE qui
+        # non e' affidabile. Valori indicativi sul colore secondario (navy vs
+        # azzurro). Per questa interfaccia serve il clustering colori (vedi nota).
+        "jersey_hsv": {
+            "home": [((105, 60, 40), (130, 255, 255))],   # navy (Tottenham)
+            "away": [((90, 50, 110), (104, 255, 255))],    # azzurro (Marseille)
+        },
+        "active_side": "home",
+        "aspect_min": 0.0,             # fallback (16:9 ~1.78)
+    },
+}
+
+DEFAULT_PROFILE: str = "bra_hai"
+
+
+def select_profile(frame_w: int, frame_h: int, name: str = "auto") -> tuple[str, dict]:
+    """Profilo HUD attivo: per nome esplicito, o 'auto' in base alle proporzioni."""
+    if name and name != "auto":
+        return name, HUD_PROFILES[name]
+    aspect = frame_w / max(frame_h, 1)
+    cands = [(p.get("aspect_min", 0.0), n, p) for n, p in HUD_PROFILES.items()
+             if aspect >= p.get("aspect_min", 0.0)]
+    if cands:
+        _, n, p = max(cands, key=lambda c: c[0])
+        return n, p
+    return DEFAULT_PROFILE, HUD_PROFILES[DEFAULT_PROFILE]
+
+
+def apply_profile(prof: dict) -> None:
+    """Riscrive le costanti globali usate dalle fasi con i valori del profilo."""
+    global HUD_REGIONS, ROSTER_HOME, ROSTER_AWAY, TEAM_CODES, TEAM_JERSEY_HSV
+    global HUD_ACTIVE_SIDE, ROSTER
+    HUD_REGIONS = prof["regions"]
+    ROSTER_HOME = prof["roster_home"]
+    ROSTER_AWAY = prof["roster_away"]
+    TEAM_CODES = prof["team_codes"]
+    TEAM_JERSEY_HSV = prof["jersey_hsv"]
+    HUD_ACTIVE_SIDE = prof["active_side"]
+    ROSTER = {**{n: "home" for n in ROSTER_HOME}, **{n: "away" for n in ROSTER_AWAY}}

@@ -35,13 +35,14 @@ from utils import ensure_dir, get_logger, iter_sampled_frames, save_json
 logger = get_logger("fase1_eventi")
 
 # --- parametri (dalla config, con fallback se non definiti) ---------------- #
-ROSTER_HOME = getattr(config, "ROSTER_HOME", [])
-ROSTER_AWAY = getattr(config, "ROSTER_AWAY", [])
 MAX_SCORE = getattr(config, "MAX_PLAUSIBLE_SCORE", 9)
 CONFIRM_N = getattr(config, "GOAL_CONFIRM_FRAMES", 2)
 NAME_MIN_CONF = getattr(config, "OCR_NAME_MIN_CONFIDENCE", 0.15)
 NAME_MIN_FRAGMENT = 3       # sotto questa lunghezza NON si tenta il match ("RO","AA")
 NAME_RATIO_THRESHOLD = 0.62  # similarita' minima per accettare un match "fuzzy"
+# Nota: rose, regioni HUD e lato attivo NON sono cablati qui: si leggono dal
+# PROFILO HUD attivo (config.ROSTER_HOME/ROSTER_AWAY/HUD_REGIONS/HUD_ACTIVE_SIDE),
+# scelto a runtime in base alla risoluzione o a --profile.
 
 
 # =========================================================================== #
@@ -92,8 +93,8 @@ def snap_name(raw: str | None) -> dict:
     name = normalize_name(raw)
     if not name:
         return {"name": "", "team": None, "confidence": 0.0, "matched": False}
-    h_name, h_score = _best_in_roster(name, ROSTER_HOME)
-    a_name, a_score = _best_in_roster(name, ROSTER_AWAY)
+    h_name, h_score = _best_in_roster(name, config.ROSTER_HOME)
+    a_name, a_score = _best_in_roster(name, config.ROSTER_AWAY)
     if max(h_score, a_score) >= NAME_RATIO_THRESHOLD:
         if h_score >= a_score:
             return {"name": h_name, "team": "home", "confidence": round(h_score, 2), "matched": True}
@@ -149,11 +150,15 @@ class HudReader:
 
 
 def parse_score(text: str) -> tuple[int, int] | None:
-    """Estrae (home, away) tenendo SOLO numeri plausibili (0..MAX_SCORE)."""
+    """
+    Estrae (home, away) tenendo SOLO numeri plausibili (0..MAX_SCORE) e prendendo
+    il PRIMO e l'ULTIMO: cosi' l'icona/trofeo in mezzo ai due punteggi (letta a
+    volte come '8') viene scartata invece di entrare nel risultato.
+    """
     nums = [int(n) for n in re.findall(r"\d+", text)]
     nums = [n for n in nums if 0 <= n <= MAX_SCORE]
     if len(nums) >= 2:
-        return nums[0], nums[1]
+        return nums[0], nums[-1]
     return None
 
 
@@ -165,12 +170,15 @@ def parse_clock(text: str) -> str | None:
 # =========================================================================== #
 # Estrazione                                                                   #
 # =========================================================================== #
-def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> list[dict]:
+def extract_events(video_path: Path, reader: HudReader, limit: int | None,
+                   profile_name: str = "auto") -> list[dict]:
     events: list[dict] = []
     confirmed_score = None
     pending_score, pending_count = None, 0
     prev_active = ""
+    prev_home, prev_away = "", ""
     processed = 0
+    profile_applied = False
 
     for timestamp, frame in tqdm(
         iter_sampled_frames(video_path, config.FRAMES_PER_SECOND), desc="OCR HUD"
@@ -178,6 +186,16 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> li
         if limit and processed >= limit:
             break
         processed += 1
+
+        # Sceglie e applica il PROFILO HUD una volta sola, sul primo frame
+        # normalizzato (in base alla risoluzione, o forzato da --profile).
+        if not profile_applied:
+            h, w = frame.shape[:2]
+            pname, prof = config.select_profile(w, h, profile_name)
+            config.apply_profile(prof)
+            logger.info("Profilo HUD: '%s' (frame %dx%d, lato attivo=%s)",
+                        pname, w, h, config.HUD_ACTIVE_SIDE)
+            profile_applied = True
 
         try:
             score_txt = reader.read_region(frame, config.HUD_REGIONS["score"])
@@ -199,22 +217,30 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> li
         else:
             became_official = False
 
-        # --- nomi agganciati alla rosa ---
+        # --- nomi agganciati alla rosa (entrambe le targhette sono SEMPRE a video) ---
         snap_h = snap_name(home_txt)
         snap_a = snap_name(away_txt)
-        h_ok, a_ok = snap_h["matched"], snap_a["matched"]
-        if h_ok and not a_ok:
+
+        # --- chi e' il "portatore"? Dalla sola HUD NON e' deducibile, perche'
+        #     le due targhette mostrano i giocatori SELEZIONATI di entrambe le
+        #     squadre, non chi ha la palla. Strategia:
+        #       * HUD_ACTIVE_SIDE forzato ("home"/"away") -> usa quel lato.
+        #       * altrimenti segui il lato che e' CAMBIATO (best effort), incerto.
+        #     Il possesso "vero" va confermato dalla Fase 1b (colore maglia+palla).
+        if config.HUD_ACTIVE_SIDE == "home":
             active, possession_certain = snap_h, True
-        elif a_ok and not h_ok:
+        elif config.HUD_ACTIVE_SIDE == "away":
             active, possession_certain = snap_a, True
-        elif h_ok and a_ok:
-            # Entrambe leggibili: dalla SOLA HUD il possesso e' ambiguo
-            # (le targhette mostrano i CONTROLLATI, non chi ha la palla).
-            # La conferma deve arrivare dalla Fase 1b (tracking visivo).
-            active = snap_h if snap_h["confidence"] >= snap_a["confidence"] else snap_a
-            possession_certain = False
         else:
-            active, possession_certain = snap_h, False
+            home_changed = bool(snap_h["name"]) and snap_h["name"] != prev_home
+            away_changed = bool(snap_a["name"]) and snap_a["name"] != prev_away
+            if home_changed and not away_changed:
+                active = snap_h
+            elif away_changed and not home_changed:
+                active = snap_a
+            else:
+                active = snap_h if snap_h["matched"] else snap_a
+            possession_certain = False
         team = active["team"] or ("home" if active is snap_h else "away")
         active_name = active["name"]
 
@@ -246,6 +272,7 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> li
             })
         if active_name:
             prev_active = active_name
+        prev_home, prev_away = snap_h["name"], snap_a["name"]
 
     return events
 
@@ -254,16 +281,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 1 - Estrazione eventi da HUD")
     parser.add_argument("--video", required=True)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--profile", default="auto",
+                        help="Profilo HUD: 'auto' (per risoluzione) o un nome di config.HUD_PROFILES.")
     args = parser.parse_args()
 
     video_path = Path(args.video)
     if not video_path.exists():
         raise FileNotFoundError(f"Video non trovato: {video_path}")
-    if not (ROSTER_HOME or ROSTER_AWAY):
-        logger.warning("config.ROSTER_HOME/ROSTER_AWAY vuote: i nomi non verranno corretti.")
 
     reader = HudReader(config.OCR_LANGUAGES, config.OCR_MIN_CONFIDENCE)
-    events = extract_events(video_path, reader, args.limit)
+    events = extract_events(video_path, reader, args.limit, args.profile)
 
     out_path = config.EVENTS_DIR / f"{video_path.stem}.json"
     ensure_dir(out_path)
