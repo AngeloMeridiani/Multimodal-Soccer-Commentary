@@ -66,7 +66,7 @@ class YoloDetector:
         logger.info("Carico modello YOLO '%s'...", model_name)
         self.model = YOLO(model_name)
         self.confidence = confidence
-        self.classes_of_interest = set(config.YOLO_CLASSES_OF_INTEREST.keys())
+        self.classes_of_interest = set(config.YOLO_CLASS_MAP.values())
 
     def detect(self, frame) -> list[Detection]:
         results = self.model(frame, conf=self.confidence, verbose=False)
@@ -76,12 +76,14 @@ class YoloDetector:
                 continue
             for box in result.boxes:
                 cls_id = int(box.cls[0])
-                if cls_id not in self.classes_of_interest:
+                orig_name = self.model.names[cls_id]
+                mapped_name = config.YOLO_CLASS_MAP.get(orig_name)
+                if mapped_name not in self.classes_of_interest:
                     continue
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                 detections.append(Detection(
                     class_id=cls_id,
-                    class_name=config.YOLO_CLASSES_OF_INTEREST.get(cls_id, "unknown"),
+                    class_name=mapped_name,
                     confidence=float(box.conf[0]),
                     x1=x1, y1=y1, x2=x2, y2=y2,
                 ))
@@ -122,85 +124,97 @@ class BallTracker:
         return "midfield"
 
 
-class TeamClassifier:
-    """Classifica la squadra di un giocatore dal COLORE della maglia (HSV)."""
-
-    def __init__(self) -> None:
-        self.ranges = config.TEAM_JERSEY_HSV
-        self.sample = config.JERSEY_SAMPLE_BOX
-        self.min_fill = config.JERSEY_MIN_FILL
-        self.min_margin = config.JERSEY_MIN_MARGIN
-
-    def classify(self, frame, det: "Detection") -> tuple[str | None, float]:
-        """Ritorna (team, fill) dove team in {'home','away',None}. None = incerto."""
-        import cv2
-        bw, bh = det.x2 - det.x1, det.y2 - det.y1
-        if bw <= 0 or bh <= 0:
-            return None, 0.0
-        sx1 = max(det.x1 + int(self.sample[0] * bw), 0)
-        sy1 = max(det.y1 + int(self.sample[1] * bh), 0)
-        sx2 = det.x1 + int(self.sample[2] * bw)
-        sy2 = det.y1 + int(self.sample[3] * bh)
-        patch = frame[sy1:sy2, sx1:sx2]
-        if patch.size == 0:
-            return None, 0.0
-
-        hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
-        fills: dict[str, float] = {}
-        for team, ranges in self.ranges.items():
-            mask = None
-            for lo, hi in ranges:
-                m = cv2.inRange(hsv, lo, hi)
-                mask = m if mask is None else cv2.bitwise_or(mask, m)
-            fills[team] = float(mask.sum()) / 255.0 / mask.size
-
-        team = max(fills, key=fills.get)
-        fill = fills[team]
-        other = max((v for k, v in fills.items() if k != team), default=0.0)
-        # serve abbastanza colore E un margine chiaro sull'altra squadra
-        if fill < self.min_fill or fill < other * self.min_margin:
-            return None, round(fill, 3)
-        return team, round(fill, 3)
-
-
 class PossessionTracker:
     """
-    Possesso = squadra del giocatore PIU' VICINO alla palla (entro un raggio),
-    classificata dal colore maglia, con debounce anti-flicker.
+    Legge il possesso palla analizzando la minimappa (radar).
+    - Maschera i colori delle squadre (giallo = home, rosso/magenta = away)
+    - Cerca la palla (arancione intenso)
+    - Assegna il possesso alla squadra più vicina all'ultima posizione nota della palla.
     """
 
     def __init__(self) -> None:
-        self.max_dist = config.POSSESSION_MAX_DIST_PX
         self.confirm = config.POSSESSION_CONFIRM_FRAMES
-        self.team_clf = TeamClassifier()
         self.current: str | None = None
         self.pending: str | None = None
         self.count = 0
+        self.last_ball_pos = None
 
     def update(self, frame, ball: "BallState | None",
                detections: list["Detection"]) -> tuple[str | None, float, str | None]:
-        """Ritorna (possesso_confermato, fill, carrier_name=None)."""
-        if ball is None:
+        import cv2
+        import numpy as np
+        
+        minimap_rect = config.HUD_REGIONS.get("minimap")
+        if not minimap_rect:
             return self.current, 0.0, None
-        players = [d for d in detections if d.class_name == "person"]
-        if not players:
+            
+        h, w = frame.shape[:2]
+        rx1, ry1 = int(minimap_rect[0] * w), int(minimap_rect[1] * h)
+        rx2, ry2 = int(minimap_rect[2] * w), int(minimap_rect[3] * h)
+        radar = frame[ry1:ry2, rx1:rx2]
+        
+        hsv = cv2.cvtColor(radar, cv2.COLOR_BGR2HSV)
+        
+        mask_orange = cv2.inRange(hsv, (10, 100, 150), (25, 255, 255))
+        mask_yellow = cv2.inRange(hsv, (25, 30, 150), (45, 255, 255))
+        mask_red1 = cv2.inRange(hsv, (0, 50, 100), (10, 255, 255))
+        mask_red2 = cv2.inRange(hsv, (160, 50, 100), (180, 255, 255))
+        mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+        
+        def get_objects(mask, return_area=False):
+            objs = []
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                if area > 1:
+                    M = cv2.moments(cnt)
+                    if M["m00"] != 0:
+                        cx, cy = int(M["m10"]/M["m00"]), int(M["m01"]/M["m00"])
+                        if return_area:
+                            objs.append(((cx, cy), area))
+                        else:
+                            objs.append((cx, cy))
+            return objs
+            
+        orange_objs = get_objects(mask_orange, return_area=True)
+        home_players = get_objects(mask_yellow)
+        away_players = get_objects(mask_red)
+        
+        radar_ball = None
+        if orange_objs:
+            # Prende l'oggetto arancione con area maggiore (la croce vera e propria)
+            orange_objs.sort(key=lambda x: x[1], reverse=True)
+            radar_ball = orange_objs[0][0]
+            
+        if radar_ball:
+            self.last_ball_pos = radar_ball
+            
+        ref_pos = radar_ball if radar_ball else self.last_ball_pos
+        
+        if not ref_pos:
             return self.current, 0.0, None
-
-        nearest = min(players, key=lambda p: math.hypot(p.center[0] - ball.x,
-                                                         p.center[1] - ball.y))
-        if math.hypot(nearest.center[0] - ball.x, nearest.center[1] - ball.y) > self.max_dist:
-            return self.current, 0.0, None   # palla in volo / nessuno la controlla
-
-        team, fill = self.team_clf.classify(frame, nearest)
-        if team is None:
-            return self.current, fill, None
-
+            
+        dist_home = min([math.hypot(p[0]-ref_pos[0], p[1]-ref_pos[1]) for p in home_players]) if home_players else float('inf')
+        dist_away = min([math.hypot(p[0]-ref_pos[0], p[1]-ref_pos[1]) for p in away_players]) if away_players else float('inf')
+        
+        dh_adj = dist_home
+        da_adj = dist_away
+        if self.current == "home":
+            dh_adj -= 8.0
+        elif self.current == "away":
+            da_adj -= 8.0
+            
+        team = "home" if dh_adj < da_adj else "away"
+        fill = 1.0 
+        
         if team == self.pending:
             self.count += 1
         else:
             self.pending, self.count = team, 1
+            
         if self.count >= self.confirm:
             self.current = self.pending
+            
         return self.current, fill, None
 
 
@@ -349,6 +363,7 @@ def merge_events(ocr_events: list[dict], visual_events: list[dict],
             if name:
                 m["player"] = name
                 m["player_team"] = poss
+                m["possession"] = poss  # <-- Aggiorna anche il campo possession!
                 m["possession_certain"] = True
                 m["possession_source"] = "visual"
 
