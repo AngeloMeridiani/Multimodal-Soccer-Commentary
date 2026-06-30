@@ -94,6 +94,28 @@ class TTSEngine:
         raise NotImplementedError
 
 
+class GttsEngine(TTSEngine):
+    """TTS tramite Google Translate API (online). Ottima qualità, 100% Python."""
+
+    def __init__(self) -> None:
+        logger.info("TTS: gTTS (online).")
+
+    def synth_neutral(self, text: str) -> tuple[np.ndarray, int]:
+        from gtts import gTTS
+        import librosa
+        tmp = Path(tempfile.mktemp(suffix=".mp3"))
+        
+        # Effettua la richiesta a Google
+        tts = gTTS(text, lang='it')
+        tts.save(str(tmp))
+
+        try:
+            # Librosa usa ffmpeg (o audioread) sotto al cofano per leggere l'MP3
+            audio, sr = librosa.load(str(tmp), sr=config.SAMPLE_RATE, mono=True)
+        finally:
+            tmp.unlink(missing_ok=True)
+        return audio.astype(np.float32), sr
+
 class Pyttsx3Engine(TTSEngine):
     """TTS offline. Su Windows il motore SAPI5 si pianta se riusato in un
     ciclo: lo ricreiamo a ogni battuta (piu' lento ma robusto)."""
@@ -105,13 +127,12 @@ class Pyttsx3Engine(TTSEngine):
 
     def synth_neutral(self, text: str) -> tuple[np.ndarray, int]:
         import librosa
+        import subprocess
         tmp = Path(tempfile.mktemp(suffix=".wav"))
-        engine = self._pyttsx3.init()          # nuovo motore per ogni frase
-        try:
-            engine.save_to_file(text, str(tmp))
-            engine.runAndWait()
-        finally:
-            engine.stop()
+        
+        # Bypass pyttsx3 buggy bindings su Linux e usa espeak CLI direttamente
+        subprocess.run(["espeak", "-w", str(tmp), "-v", "it", text], check=True)
+
         try:
             audio, sr = librosa.load(str(tmp), sr=config.SAMPLE_RATE, mono=True)
         finally:
@@ -141,6 +162,8 @@ class CoquiEngine(TTSEngine):
 def make_tts_engine(name: str) -> TTSEngine:
     if name == "coqui":
         return CoquiEngine()
+    if name == "gtts":
+        return GttsEngine()
     return Pyttsx3Engine()
 
 
@@ -182,7 +205,7 @@ def main() -> None:
     parser.add_argument("--script", required=True, help="JSON dello script (Fase 2/2b).")
     parser.add_argument("--rule-based", action="store_true",
                         help="Forza la prosodia a regole (condizione baseline dello studio).")
-    parser.add_argument("--engine", choices=["pyttsx3", "coqui"], default=config.TTS_ENGINE)
+    parser.add_argument("--engine", choices=["gtts", "pyttsx3", "coqui"], default=config.TTS_ENGINE)
     parser.add_argument("--out", type=str, default=None)
     args = parser.parse_args()
 

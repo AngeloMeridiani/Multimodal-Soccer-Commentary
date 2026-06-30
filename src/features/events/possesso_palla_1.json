@@ -2,32 +2,32 @@
   {
     "t": 0.0,
     "type": "pass",
-    "player": "PIERRE",
-    "player_team": "away",
-    "possession_certain": false,
+    "player": "LUIZ HENRIQUE",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "LUIZ HENRIQUE",
     "player_away": "PIERRE",
     "importance": 0.25,
     "score": null,
-    "clock": null,
+    "clock": "16:16",
     "source": "ocr"
   },
   {
-    "t": 0.5,
+    "t": 1.0,
     "type": "pass",
-    "player": "BELLEGARDE",
-    "player_team": "away",
-    "possession_certain": false,
+    "player": "CASEMIRO",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "LUIZ HENRIQUE",
+    "player_home": "CASEMIRO",
     "player_away": "BELLEGARDE",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
     "clock": null,
     "source": "ocr"
@@ -35,109 +35,145 @@
   {
     "t": 2.0,
     "type": "pass",
-    "player": "JEAN JACQUES",
-    "player_team": "away",
-    "possession_certain": true,
+    "player": "DANILO",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "",
+    "player_home": "DANILO",
     "player_away": "JEAN JACQUES",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "16:27",
+    "source": "ocr"
+  },
+  {
+    "t": 3.0,
+    "type": "pass",
+    "player": "RAPHINHA",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "RAPHINHA",
+    "player_away": "JEAN JACQUES",
+    "importance": 0.25,
+    "score": [
+      1,
+      0
+    ],
+    "clock": "16:33",
+    "source": "ocr"
+  },
+  {
+    "t": 4.0,
+    "type": "pass",
+    "player": "DANILO",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "DANILO",
+    "player_away": "JEAN JACQUES",
+    "importance": 0.25,
+    "score": [
+      1,
+      0
+    ],
+    "clock": "16:38",
     "source": "ocr"
   },
   {
     "t": 7.0,
     "type": "pass",
-    "player": "BELLEGARDE",
-    "player_team": "away",
-    "possession_certain": true,
+    "player": "RAPHINHA",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "AA",
+    "player_home": "RAPHINHA",
     "player_away": "BELLEGARDE",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "16:56",
     "source": "ocr"
   },
   {
     "t": 7.5,
     "type": "pass",
-    "player": "PIERRE",
-    "player_team": "away",
-    "possession_certain": true,
+    "player": "CUNHA",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "",
+    "player_home": "CUNHA",
     "player_away": "PIERRE",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "16:58",
     "source": "ocr"
   },
   {
     "t": 9.51,
     "type": "pass",
-    "player": "DELCROIX",
-    "player_team": "away",
-    "possession_certain": true,
+    "player": "CASEMIRO",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "RO",
+    "player_home": "CASEMIRO",
     "player_away": "DELCROIX",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
-    "source": "ocr"
-  },
-  {
-    "t": 11.01,
-    "type": "pass",
-    "player": "PIERRE",
-    "player_team": "away",
-    "possession_certain": true,
-    "player_resolved": true,
-    "name_confidence": 1.0,
-    "player_home": "RO",
-    "player_away": "PIERRE",
-    "importance": 0.25,
-    "score": [
-      1,
-      8
-    ],
-    "clock": null,
+    "clock": "17:10",
     "source": "ocr"
   },
   {
     "t": 11.51,
     "type": "pass",
-    "player": "JEAN JACQUES",
-    "player_team": "away",
-    "possession_certain": true,
+    "player": "VINI JR",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
-    "name_confidence": 0.67,
-    "player_home": "",
-    "player_away": "JEAN JACQUES",
+    "name_confidence": 1.0,
+    "player_home": "VINI JR",
+    "player_away": "MARCUS",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
     "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 15.01,
+    "type": "turnover",
+    "player": "PLACIDE",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "VINI JR",
+    "player_away": "PLACIDE",
+    "importance": 0.55,
+    "score": [
+      1,
+      0
+    ],
+    "clock": "17:41",
     "source": "ocr"
   },
   {
@@ -145,61 +181,133 @@
     "type": "pass",
     "player": "PIERROT",
     "player_team": "away",
-    "possession_certain": true,
+    "possession": "away",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "",
+    "player_home": "VINI JR",
     "player_away": "PIERROT",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "17:55",
     "source": "ocr"
   },
   {
-    "t": 20.51,
-    "type": "pass",
-    "player": "BELLEGARDE",
-    "player_team": "away",
-    "possession_certain": true,
+    "t": 20.01,
+    "type": "turnover",
+    "player": "WESLEY",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "",
-    "player_away": "BELLEGARDE",
-    "importance": 0.25,
+    "player_home": "WESLEY",
+    "player_away": "PIERROT",
+    "importance": 0.55,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "18:08",
     "source": "ocr"
   },
   {
     "t": 21.51,
     "type": "pass",
-    "player": "PIERROT",
-    "player_team": "away",
-    "possession_certain": true,
+    "player": "EDERSON",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "",
+    "player_home": "EDERSON",
     "player_away": "PIERROT",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "18:17",
     "source": "ocr"
   },
   {
-    "t": 27.02,
+    "t": 24.52,
     "type": "pass",
-    "player": "BELLEGARDE",
-    "player_team": "away",
-    "possession_certain": false,
+    "player": "ALEX SANDRO",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "ALEX SANDRO",
+    "player_away": "PIERROT",
+    "importance": 0.25,
+    "score": [
+      1,
+      0
+    ],
+    "clock": "18:34",
+    "source": "ocr"
+  },
+  {
+    "t": 25.52,
+    "type": "pass",
+    "player": "GABRIEL",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "GABRIEL",
+    "player_away": "PIERROT",
+    "importance": 0.25,
+    "score": [
+      1,
+      0
+    ],
+    "clock": "18:40",
+    "source": "ocr"
+  },
+  {
+    "t": 26.52,
+    "type": "pass",
+    "player": "MARQUINHOS",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "MARQUINHOS",
+    "player_away": "PIERROT",
+    "importance": 0.25,
+    "score": [
+      1,
+      0
+    ],
+    "clock": "18:45",
+    "source": "ocr"
+  },
+  {
+    "t": 27.52,
+    "type": "pass",
+    "player": "CASEMIRO",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "CASEMIRO",
+    "player_away": "BELLEGARDE",
+    "importance": 0.25,
+    "score": [
+      1,
+      0
+    ],
+    "clock": "18:51",
+    "source": "ocr"
+  },
+  {
+    "t": 28.52,
+    "type": "pass",
+    "player": "MARQUINHOS",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "MARQUINHOS",
@@ -207,27 +315,45 @@
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "18:56",
+    "source": "ocr"
+  },
+  {
+    "t": 30.52,
+    "type": "turnover",
+    "player": "BELLEGARDE",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "MARQUINHOS",
+    "player_away": "BELLEGARDE",
+    "importance": 0.55,
+    "score": [
+      1,
+      0
+    ],
+    "clock": "19:08",
     "source": "ocr"
   },
   {
     "t": 31.52,
     "type": "pass",
-    "player": "RO",
-    "player_team": "home",
-    "possession_certain": false,
-    "player_resolved": false,
-    "name_confidence": 0.5,
-    "player_home": "RO",
+    "player": "PROVIDENCE",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "CASEMIRO",
     "player_away": "PROVIDENCE",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "19:13",
     "source": "ocr"
   },
   {
@@ -235,17 +361,17 @@
     "type": "pass",
     "player": "JEAN JACQUES",
     "player_team": "away",
-    "possession_certain": true,
+    "possession": "away",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "RO",
+    "player_home": "CASEMIRO",
     "player_away": "JEAN JACQUES",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "19:16",
     "source": "ocr"
   },
   {
@@ -253,17 +379,17 @@
     "type": "pass",
     "player": "PIERRE",
     "player_team": "away",
-    "possession_certain": true,
+    "possession": "away",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "AA",
+    "player_home": "RAPHINHA",
     "player_away": "PIERRE",
     "importance": 0.25,
     "score": [
       1,
-      8
+      0
     ],
-    "clock": null,
+    "clock": "19:33",
     "source": "ocr"
   }
 ]

@@ -35,13 +35,14 @@ from utils import ensure_dir, get_logger, iter_sampled_frames, save_json
 logger = get_logger("fase1_eventi")
 
 # --- parametri (dalla config, con fallback se non definiti) ---------------- #
-ROSTER_HOME = getattr(config, "ROSTER_HOME", [])
-ROSTER_AWAY = getattr(config, "ROSTER_AWAY", [])
 MAX_SCORE = getattr(config, "MAX_PLAUSIBLE_SCORE", 9)
 CONFIRM_N = getattr(config, "GOAL_CONFIRM_FRAMES", 2)
 NAME_MIN_CONF = getattr(config, "OCR_NAME_MIN_CONFIDENCE", 0.15)
 NAME_MIN_FRAGMENT = 3       # sotto questa lunghezza NON si tenta il match ("RO","AA")
 NAME_RATIO_THRESHOLD = 0.62  # similarita' minima per accettare un match "fuzzy"
+# Nota: rose, regioni HUD e lato attivo NON sono cablati qui: si leggono dal
+# PROFILO HUD attivo (config.ROSTER_HOME/ROSTER_AWAY/HUD_REGIONS/HUD_ACTIVE_SIDE),
+# scelto a runtime in base alla risoluzione o a --profile.
 
 
 # =========================================================================== #
@@ -92,8 +93,8 @@ def snap_name(raw: str | None) -> dict:
     name = normalize_name(raw)
     if not name:
         return {"name": "", "team": None, "confidence": 0.0, "matched": False}
-    h_name, h_score = _best_in_roster(name, ROSTER_HOME)
-    a_name, a_score = _best_in_roster(name, ROSTER_AWAY)
+    h_name, h_score = _best_in_roster(name, config.ROSTER_HOME)
+    a_name, a_score = _best_in_roster(name, config.ROSTER_AWAY)
     if max(h_score, a_score) >= NAME_RATIO_THRESHOLD:
         if h_score >= a_score:
             return {"name": h_name, "team": "home", "confidence": round(h_score, 2), "matched": True}
@@ -121,7 +122,7 @@ def is_real_goal(prev_score, curr_score) -> bool:
 
 
 # =========================================================================== #
-# OCR dell'HUD                                                                 #
+# OCR dell'HUD                                                                #
 # =========================================================================== #
 class HudReader:
     """OCR sulle regioni dell'HUD di un singolo frame normalizzato."""
@@ -149,11 +150,15 @@ class HudReader:
 
 
 def parse_score(text: str) -> tuple[int, int] | None:
-    """Estrae (home, away) tenendo SOLO numeri plausibili (0..MAX_SCORE)."""
+    """
+    Estrae (home, away) tenendo SOLO numeri plausibili (0..MAX_SCORE) e prendendo
+    il PRIMO e l'ULTIMO: cosi' l'icona/trofeo in mezzo ai due punteggi (letta a
+    volte come '8') viene scartata invece di entrare nel risultato.
+    """
     nums = [int(n) for n in re.findall(r"\d+", text)]
     nums = [n for n in nums if 0 <= n <= MAX_SCORE]
     if len(nums) >= 2:
-        return nums[0], nums[1]
+        return nums[0], nums[-1]
     return None
 
 
@@ -165,12 +170,26 @@ def parse_clock(text: str) -> str | None:
 # =========================================================================== #
 # Estrazione                                                                   #
 # =========================================================================== #
-def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> list[dict]:
+def extract_events(video_path: Path, reader: HudReader, limit: int | None,
+                   profile_name: str = "auto") -> list[dict]:
     events: list[dict] = []
     confirmed_score = None
     pending_score, pending_count = None, 0
     prev_active = ""
+    prev_home, prev_away = "", ""
     processed = 0
+    profile_applied = False
+
+    # Finestra scorrevole per il possesso.
+    from collections import deque
+    POSS_WINDOW_SEC = 2.0          # Ridotto da 4.0 a 2.0 per renderlo REATTIVO ai cambi veloci!
+    INACTIVITY_SEC = 2.0           # Se il lato attivo non cambia per 2s e l'altro si', cambia possesso
+    change_log: deque[tuple[float, str]] = deque()
+    current_possession: str | None = None
+    last_possession: str | None = None
+    last_home_change_t: float = 0.0
+    last_away_change_t: float = 0.0
+    possession_start_t: float | None = None
 
     for timestamp, frame in tqdm(
         iter_sampled_frames(video_path, config.FRAMES_PER_SECOND), desc="OCR HUD"
@@ -178,6 +197,16 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> li
         if limit and processed >= limit:
             break
         processed += 1
+
+        # Sceglie e applica il PROFILO HUD una volta sola, sul primo frame
+        # normalizzato (in base alla risoluzione, o forzato da --profile).
+        if not profile_applied:
+            h, w = frame.shape[:2]
+            pname, prof = config.select_profile(w, h, profile_name)
+            config.apply_profile(prof)
+            logger.info("Profilo HUD: '%s' (frame %dx%d, lato attivo=%s)",
+                        pname, w, h, config.HUD_ACTIVE_SIDE)
+            profile_applied = True
 
         try:
             score_txt = reader.read_region(frame, config.HUD_REGIONS["score"])
@@ -199,31 +228,85 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> li
         else:
             became_official = False
 
-        # --- nomi agganciati alla rosa ---
+        # --- nomi agganciati alla rosa (entrambe le targhette sono SEMPRE a video) ---
         snap_h = snap_name(home_txt)
         snap_a = snap_name(away_txt)
-        h_ok, a_ok = snap_h["matched"], snap_a["matched"]
-        if h_ok and not a_ok:
-            active, possession_certain = snap_h, True
-        elif a_ok and not h_ok:
-            active, possession_certain = snap_a, True
-        elif h_ok and a_ok:
-            # Entrambe leggibili: dalla SOLA HUD il possesso e' ambiguo
-            # (le targhette mostrano i CONTROLLATI, non chi ha la palla).
-            # La conferma deve arrivare dalla Fase 1b (tracking visivo).
-            active = snap_h if snap_h["confidence"] >= snap_a["confidence"] else snap_a
-            possession_certain = False
+
+        # --- possesso e giocatore attivo -------------------------------- #
+        home_changed = bool(snap_h["name"]) and snap_h["name"] != prev_home
+        away_changed = bool(snap_a["name"]) and snap_a["name"] != prev_away
+
+        if config.HUD_ACTIVE_SIDE:
+            current_possession = config.HUD_ACTIVE_SIDE
+            active = snap_h if current_possession == "home" else snap_a
+            active_side_changed = home_changed if current_possession == "home" else away_changed
         else:
-            active, possession_certain = snap_h, False
+            # ── Euristica multi-segnale per il possesso ── #
+            if home_changed:
+                change_log.append((timestamp, "home"))
+                last_home_change_t = timestamp
+            if away_changed:
+                change_log.append((timestamp, "away"))
+                last_away_change_t = timestamp
+            while change_log and change_log[0][0] < timestamp - POSS_WINDOW_SEC:
+                change_log.popleft()
+                
+            n_home = sum(1 for _, s in change_log if s == "home")
+            n_away = sum(1 for _, s in change_log if s == "away")
+            
+            # Assegna il possesso iniziale alla prima squadra che cambia
+            if current_possession is None:
+                if home_changed:
+                    current_possession = "home"
+                    possession_start_t = timestamp
+                elif away_changed:
+                    current_possession = "away"
+                    possession_start_t = timestamp
+            
+            prev_possession = current_possession
+            
+            # --- Cambio di possesso --- #
+            # Metodo 1: finestra scorrevole (serve margine per evitare falsi positivi)
+            POSS_MIN_MARGIN = 1
+            if current_possession == "home" and n_away > n_home + POSS_MIN_MARGIN:
+                current_possession = "away"
+            elif current_possession == "away" and n_home > n_away + POSS_MIN_MARGIN:
+                current_possession = "home"
+            
+            # Metodo 3: silenzio reciproco + durata possesso.
+            MIN_POSS_DURATION = 8.0
+            if current_possession is not None and possession_start_t is not None:
+                poss_dur = timestamp - possession_start_t
+                both_home_silent = (timestamp - last_home_change_t) >= INACTIVITY_SEC
+                both_away_silent = (timestamp - last_away_change_t) >= INACTIVITY_SEC
+                if both_home_silent and both_away_silent and poss_dur >= MIN_POSS_DURATION:
+                    current_possession = "away" if current_possession == "home" else "home"
+            
+            # Aggiorna il timestamp di inizio possesso se e' cambiato
+            if current_possession != prev_possession:
+                possession_start_t = timestamp
+            
+
+
+            # Registriamo gli eventi SOLO sul lato in possesso
+            active = snap_h if current_possession == "home" else snap_a
+            active_side_changed = home_changed if current_possession == "home" else away_changed
+
         team = active["team"] or ("home" if active is snap_h else "away")
         active_name = active["name"]
 
         # --- classificazione ---
         event_type = "idle"
-        if became_official and is_real_goal(confirmed_score, pending_score):
+        
+        # Se il possesso e' appena cambiato, registriamo un turnover!
+        if last_possession and current_possession != last_possession:
+            event_type = "turnover"
+        elif became_official and is_real_goal(confirmed_score, pending_score):
             event_type = "goal"
-        elif active_name and active_name != prev_active:
-            event_type = "pass"   # cambio del giocatore controllato
+        elif active_name and active_name != prev_active and active_side_changed:
+            event_type = "pass"   # cambio del giocatore controllato SUL LATO IN POSSESSO
+
+        last_possession = current_possession
 
         if became_official:
             confirmed_score = pending_score
@@ -234,7 +317,7 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> li
                 "type": event_type,
                 "player": active_name or "il giocatore",
                 "player_team": team,
-                "possession_certain": possession_certain,
+                "possession": current_possession,
                 "player_resolved": active["matched"],
                 "name_confidence": active["confidence"],
                 "player_home": snap_h["name"],
@@ -246,6 +329,7 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None) -> li
             })
         if active_name:
             prev_active = active_name
+        prev_home, prev_away = snap_h["name"], snap_a["name"]
 
     return events
 
@@ -254,16 +338,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 1 - Estrazione eventi da HUD")
     parser.add_argument("--video", required=True)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--profile", default="auto",
+                        help="Profilo HUD: 'auto' (per risoluzione) o un nome di config.HUD_PROFILES.")
     args = parser.parse_args()
 
     video_path = Path(args.video)
     if not video_path.exists():
         raise FileNotFoundError(f"Video non trovato: {video_path}")
-    if not (ROSTER_HOME or ROSTER_AWAY):
-        logger.warning("config.ROSTER_HOME/ROSTER_AWAY vuote: i nomi non verranno corretti.")
 
     reader = HudReader(config.OCR_LANGUAGES, config.OCR_MIN_CONFIDENCE)
-    events = extract_events(video_path, reader, args.limit)
+    events = extract_events(video_path, reader, args.limit, args.profile)
 
     out_path = config.EVENTS_DIR / f"{video_path.stem}.json"
     ensure_dir(out_path)
