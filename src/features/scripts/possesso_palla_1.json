@@ -15,13 +15,13 @@
     "t": 2.0,
     "text": "Apertura per DANILO.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.80
   },
   {
     "t": 3.0,
     "text": "La gioca RAPHINHA.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.40
   },
   {
     "t": 4.0,
@@ -33,7 +33,7 @@
     "t": 7.0,
     "text": "Apertura per RAPHINHA.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.45
   },
   {
     "t": 7.5,
@@ -45,7 +45,7 @@
     "t": 9.51,
     "text": "Apertura per CASEMIRO.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.40
   },
   {
     "t": 11.51,
@@ -63,7 +63,7 @@
     "t": 17.51,
     "text": "La gioca PIERROT.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.40
   },
   {
     "t": 20.01,
@@ -93,7 +93,7 @@
     "t": 26.52,
     "text": "Apertura per MARQUINHOS.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.75
   },
   {
     "t": 27.52,
@@ -111,24 +111,24 @@
     "t": 30.52,
     "text": "Cambio di fronte, ora BELLEGARDE.",
     "event_type": "turnover",
-    "importance": 0.55
+    "importance": 0.70
   },
   {
     "t": 31.52,
     "text": "PROVIDENCE controlla.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.35
   },
   {
     "t": 32.02,
     "text": "La gioca JEAN JACQUES.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.70
   },
   {
     "t": 35.02,
     "text": "Apertura per PIERRE.",
     "event_type": "pass",
-    "importance": 0.25
+    "importance": 0.75
   }
 ]

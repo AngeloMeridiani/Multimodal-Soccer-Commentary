@@ -131,7 +131,7 @@ class Pyttsx3Engine(TTSEngine):
         tmp = Path(tempfile.mktemp(suffix=".wav"))
         
         # Bypass pyttsx3 buggy bindings su Linux e usa espeak CLI direttamente
-        subprocess.run(["espeak", "-w", str(tmp), "-v", "it", text], check=True)
+        subprocess.run(["espeak-ng", "-w", str(tmp), "-v", "it", text], check=True)
 
         try:
             audio, sr = librosa.load(str(tmp), sr=config.SAMPLE_RATE, mono=True)
