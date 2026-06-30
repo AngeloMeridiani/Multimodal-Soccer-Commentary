@@ -97,7 +97,7 @@ HUD_REGIONS: dict[str, tuple[float, float, float, float]] = {
 # dalla sola HUD il possesso non e' deducibile.
 #   "home" / "away" -> forza il lato (usalo quando SAI chi attacca nella clip).
 #   None            -> non si forza: si segue il lato che cambia, possesso incerto.
-HUD_ACTIVE_SIDE: str | None = "home"   # in questa clip attacca il Brasile (home)
+HUD_ACTIVE_SIDE: str | None = None   # Impostato a None per abilitare il cambio di possesso dinamico
 
 # Codici squadra mostrati nel punteggio (per disambiguare home/away dall'OCR).
 TEAM_CODES: dict[str, str] = {"home": "BRA", "away": "HAI"}

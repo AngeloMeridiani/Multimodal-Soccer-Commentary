@@ -163,6 +163,48 @@ python src/05_evaluate.py analyze --responses outputs/study/responses.csv
 > 1→2→4) per avere una telecronaca funzionante. Solo dopo aggiungi la Fase 3 e la
 > versione **learned**. Così hai sempre qualcosa di consegnabile.
 
+### 6b. Esecuzione rapida (un solo comando)
+
+Lo script `run_pipeline.py` esegue l'intera pipeline con **un singolo comando**,
+senza dover lanciare ogni fase a mano.
+
+```bash
+cd src
+
+# Pipeline completa su un video (Fasi 1→2→3→4):
+python3 run_pipeline.py --video data/raw/gameplay/possesso_palla_1.mov
+
+# Pipeline su TUTTI i video nella cartella gameplay:
+python3 run_pipeline.py --all
+
+# Solo alcune fasi (es. estrazione eventi + testo):
+python3 run_pipeline.py --video data/raw/gameplay/possesso_palla_1.mov --phases 1 2
+
+# Genera sia learned che rule-based (per confronto/studio A/B):
+python3 run_pipeline.py --video data/raw/gameplay/possesso_palla_1.mov --both-modes
+
+# Pipeline completa inclusa la Fase 5 (valutazione):
+python3 run_pipeline.py --video data/raw/gameplay/possesso_palla_1.mov --phases 1 2 3 4 5
+
+# Usa un profilo HUD specifico:
+python3 run_pipeline.py --video data/raw/gameplay/match.mp4 --profile tot_om
+
+# Scegli il motore TTS:
+python3 run_pipeline.py --video data/raw/gameplay/match.mp4 --engine pyttsx3
+```
+
+| Opzione | Default | Descrizione |
+|---------|---------|-------------|
+| `--video` | — | Percorso del video di gameplay |
+| `--all` | — | Processa tutti i video in `data/raw/gameplay/` |
+| `--phases` | `1 2 3 4` | Fasi da eseguire (es. `--phases 1 2`) |
+| `--both-modes` | off | Genera sia *learned* che *rule-based* |
+| `--profile` | `auto` | Profilo HUD (vedi `config.HUD_PROFILES`) |
+| `--engine` | da config | Motore TTS: `gtts`, `pyttsx3`, `coqui` |
+| `--epochs` | da config | Numero epoche per la Fase 3 |
+
+> **Nota macOS:** usa `python3` invece di `python`.
+
 ---
 
 ## 7. Calibrazione dell'HUD (Fase 1)

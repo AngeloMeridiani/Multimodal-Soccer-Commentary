@@ -1,0 +1,116 @@
+[
+  {
+    "t": 0.0,
+    "text": "La gioca CASEMIRO.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 3.53,
+    "text": "DANILO controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 6.04,
+    "text": "Apertura per ALEX SANDRO.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 10.58,
+    "text": "La gioca RAPHINHA.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 12.59,
+    "text": "GABRIEL controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 13.09,
+    "text": "Apertura per CASEMIRO.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 14.1,
+    "text": "GABRIEL controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 16.62,
+    "text": "Apertura per CUNHA.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 17.63,
+    "text": "CASEMIRO controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 19.14,
+    "text": "La gioca LUIZ HENRIQUE.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 20.15,
+    "text": "CUNHA controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 21.66,
+    "text": "Apertura per RAPHINHA.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 22.66,
+    "text": "DANILO controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 25.18,
+    "text": "Apertura per VINI JR.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 26.69,
+    "text": "Palla persa, la recupera CASIMIR.",
+    "event_type": "turnover",
+    "importance": 0.55
+  },
+  {
+    "t": 27.7,
+    "text": "JEAN JACQUES controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 28.71,
+    "text": "Apertura per PIERRE.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 30.22,
+    "text": "La gioca DELCROIX.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 33.24,
+    "text": "PLACIDE controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  }
+]

@@ -122,7 +122,7 @@ def is_real_goal(prev_score, curr_score) -> bool:
 
 
 # =========================================================================== #
-# OCR dell'HUD                                                                 #
+# OCR dell'HUD                                                                #
 # =========================================================================== #
 class HudReader:
     """OCR sulle regioni dell'HUD di un singolo frame normalizzato."""
@@ -180,13 +180,12 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
     processed = 0
     profile_applied = False
 
-    # Finestra scorrevole per il possesso: traccia i cambi di targhetta recenti.
-    # Il lato che cambia PIU' SPESSO e' quello in possesso (in FIFA il giocatore
-    # controllato cambia a ogni passaggio -> la targhetta si aggiorna).
+    # Finestra scorrevole per il possesso.
     from collections import deque
-    POSS_WINDOW_SEC = 4.0          # finestra temporale (secondi)
-    change_log: deque[tuple[float, str]] = deque()   # (timestamp, "home"|"away")
+    POSS_WINDOW_SEC = 2.0          # Ridotto da 4.0 a 2.0 per renderlo REATTIVO ai cambi veloci!
+    change_log: deque[tuple[float, str]] = deque()
     current_possession: str | None = None
+    last_possession: str | None = None
 
     for timestamp, frame in tqdm(
         iter_sampled_frames(video_path, config.FRAMES_PER_SECOND), desc="OCR HUD"
@@ -229,48 +228,58 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
         snap_h = snap_name(home_txt)
         snap_a = snap_name(away_txt)
 
-        # --- possesso dalla FREQUENZA DI CAMBIO delle targhette ---
-        # In FIFA chi ha la palla passa e cambia giocatore -> la sua targhetta
-        # cambia piu' spesso. La targhetta dell'avversario cambia poco.
-        # Tracciamo i cambi in una finestra scorrevole e il lato piu' attivo vince.
+        # --- possesso e giocatore attivo -------------------------------- #
         home_changed = bool(snap_h["name"]) and snap_h["name"] != prev_home
         away_changed = bool(snap_a["name"]) and snap_a["name"] != prev_away
-        if home_changed:
-            change_log.append((timestamp, "home"))
-        if away_changed:
-            change_log.append((timestamp, "away"))
-        # Scarta i cambi fuori dalla finestra temporale.
-        while change_log and change_log[0][0] < timestamp - POSS_WINDOW_SEC:
-            change_log.popleft()
-        # Chi ha cambiato di piu' nella finestra?
-        n_home = sum(1 for _, s in change_log if s == "home")
-        n_away = sum(1 for _, s in change_log if s == "away")
-        if n_home > n_away:
-            current_possession = "home"
-        elif n_away > n_home:
-            current_possession = "away"
-        # altrimenti (parita') mantieni l'ultimo noto.
 
-        # Usa la targhetta del LATO IN POSSESSO per il nome del portatore.
-        if current_possession == "home":
-            active = snap_h
-        elif current_possession == "away":
-            active = snap_a
-        elif home_changed and not away_changed:
-            active = snap_h
-        elif away_changed and not home_changed:
-            active = snap_a
+        if config.HUD_ACTIVE_SIDE:
+            current_possession = config.HUD_ACTIVE_SIDE
+            active = snap_h if current_possession == "home" else snap_a
+            active_side_changed = home_changed if current_possession == "home" else away_changed
         else:
-            active = snap_h if snap_h["matched"] else snap_a
+            # ── Euristica "sticky" ultra rapida ── #
+            if home_changed:
+                change_log.append((timestamp, "home"))
+            if away_changed:
+                change_log.append((timestamp, "away"))
+            while change_log and change_log[0][0] < timestamp - POSS_WINDOW_SEC:
+                change_log.popleft()
+                
+            n_home = sum(1 for _, s in change_log if s == "home")
+            n_away = sum(1 for _, s in change_log if s == "away")
+            
+            # Assegna il possesso iniziale alla prima squadra che cambia
+            if current_possession is None:
+                if home_changed: current_possession = "home"
+                elif away_changed: current_possession = "away"
+            
+            # Cambio di possesso: l'avversario deve avere superato l'attuale
+            # portatore palla di un margine per vincere l'inerzia (sticky).
+            POSS_MIN_MARGIN = 1
+            if current_possession == "home" and n_away > n_home + POSS_MIN_MARGIN:
+                current_possession = "away"
+            elif current_possession == "away" and n_home > n_away + POSS_MIN_MARGIN:
+                current_possession = "home"
+
+            # Registriamo gli eventi SOLO sul lato in possesso
+            active = snap_h if current_possession == "home" else snap_a
+            active_side_changed = home_changed if current_possession == "home" else away_changed
+
         team = active["team"] or ("home" if active is snap_h else "away")
         active_name = active["name"]
 
         # --- classificazione ---
         event_type = "idle"
-        if became_official and is_real_goal(confirmed_score, pending_score):
+        
+        # Se il possesso e' appena cambiato, registriamo un turnover!
+        if last_possession and current_possession != last_possession:
+            event_type = "turnover"
+        elif became_official and is_real_goal(confirmed_score, pending_score):
             event_type = "goal"
-        elif active_name and active_name != prev_active:
-            event_type = "pass"   # cambio del giocatore controllato
+        elif active_name and active_name != prev_active and active_side_changed:
+            event_type = "pass"   # cambio del giocatore controllato SUL LATO IN POSSESSO
+
+        last_possession = current_possession
 
         if became_official:
             confirmed_score = pending_score

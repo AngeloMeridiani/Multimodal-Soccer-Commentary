@@ -1,91 +1,115 @@
 [
   {
     "t": 0.0,
-    "text": "La gioca PIERRE.",
+    "text": "La gioca LUIZ HENRIQUE.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 0.5,
-    "text": "BELLEGARDE controlla.",
+    "t": 1.0,
+    "text": "CASEMIRO controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 2.0,
-    "text": "Apertura per JEAN JACQUES.",
+    "text": "Apertura per DANILO.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 3.0,
+    "text": "La gioca RAPHINHA.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 4.0,
+    "text": "DANILO controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 7.0,
-    "text": "La gioca BELLEGARDE.",
+    "text": "Apertura per RAPHINHA.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 7.5,
-    "text": "PIERRE controlla.",
+    "text": "CUNHA controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 9.51,
-    "text": "Apertura per DELCROIX.",
-    "event_type": "pass",
-    "importance": 0.25
-  },
-  {
-    "t": 11.01,
-    "text": "PIERRE controlla.",
+    "text": "Apertura per CASEMIRO.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 11.51,
-    "text": "Apertura per JEAN JACQUES.",
+    "text": "VINI JR controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 17.51,
-    "text": "PIERROT controlla.",
+    "t": 19.01,
+    "text": "La gioca GABRIEL.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 20.51,
-    "text": "La gioca BELLEGARDE.",
+    "t": 20.01,
+    "text": "WESLEY controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 21.51,
-    "text": "PIERROT controlla.",
+    "text": "Apertura per EDERSON.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 27.02,
-    "text": "Apertura per BELLEGARDE.",
+    "t": 24.52,
+    "text": "ALEX SANDRO controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 31.52,
-    "text": "RO controlla.",
+    "t": 25.52,
+    "text": "Apertura per GABRIEL.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 32.02,
-    "text": "Apertura per JEAN JACQUES.",
+    "t": 26.52,
+    "text": "MARQUINHOS controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 35.02,
-    "text": "PIERRE controlla.",
+    "t": 27.52,
+    "text": "Apertura per CASEMIRO.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 28.52,
+    "text": "MARQUINHOS controlla.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 31.02,
+    "text": "La gioca CASEMIRO.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 32.52,
+    "text": "RAPHINHA controlla.",
     "event_type": "pass",
     "importance": 0.25
   }
