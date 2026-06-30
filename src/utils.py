@@ -301,15 +301,43 @@ def apply_prosody(
     - energy_gain     > 1 aumenta il volume.
     Disaccoppia il CONTRIBUTO (mappatura evento->prosodia) dal motore TTS.
     """
-    import librosa
+    import pyworld as pw
+    import scipy.interpolate
 
-    out = waveform.astype(np.float32)
+    # pyworld requires 64-bit float array
+    x = waveform.astype(np.float64)
 
-    if abs(rate_factor - 1.0) > 1e-3:
-        out = librosa.effects.time_stretch(out, rate=float(rate_factor))
+    # 1. Estrarre le caratteristiche vocali
+    _f0, t = pw.dio(x, sample_rate)
+    f0 = pw.stonemask(x, _f0, t, sample_rate)
+    sp = pw.cheaptrick(x, f0, t, sample_rate)
+    ap = pw.d4c(x, f0, t, sample_rate)
+
+    # 2. Modifica del pitch (tono)
     if abs(pitch_semitones) > 1e-3:
-        out = librosa.effects.pitch_shift(out, sr=sample_rate, n_steps=float(pitch_semitones))
+        pitch_ratio = 2.0 ** (float(pitch_semitones) / 12.0)
+        f0 = f0 * pitch_ratio
 
+    # 3. Modifica della velocità (rate)
+    if abs(rate_factor - 1.0) > 1e-3:
+        # rate_factor > 1 accelera (durata minore)
+        new_length = int(len(f0) / float(rate_factor))
+        old_indices = np.arange(len(f0))
+        new_indices = np.linspace(0, len(f0) - 1, new_length)
+        
+        f0_interp = scipy.interpolate.interp1d(old_indices, f0)(new_indices)
+        sp_interp = scipy.interpolate.interp1d(old_indices, sp, axis=0)(new_indices)
+        ap_interp = scipy.interpolate.interp1d(old_indices, ap, axis=0)(new_indices)
+        
+        f0 = np.ascontiguousarray(f0_interp)
+        sp = np.ascontiguousarray(sp_interp)
+        ap = np.ascontiguousarray(ap_interp)
+
+    # 4. Risintetizzare l'audio
+    out = pw.synthesize(f0, sp, ap, sample_rate, pw.default_frame_period)
+    out = out.astype(np.float32)
+
+    # 5. Modifica del volume
     out = out * float(energy_gain)
     peak = float(np.max(np.abs(out))) if out.size else 0.0
     if peak > 1.0:                       # evita clipping
