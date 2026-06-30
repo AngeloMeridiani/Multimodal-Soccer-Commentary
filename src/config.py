@@ -296,7 +296,7 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
 # --------------------------------------------------------------------------- #
 GAP_BETWEEN_UTTERANCES_S: float = 0.15
 VOICE_STYLE: str = "dark_hero"          # etichetta descrittiva (NON voce clonata)
-TTS_ENGINE: str = "pyttsx3"             # "pyttsx3" (offline) | "coqui" (espressivo)
+TTS_ENGINE: str = "gtts"                # "gtts" | "pyttsx3" | "coqui"
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
 COQUI_SPEAKER_WAV: str | None = None
 COQUI_LANGUAGE: str = "it"
@@ -311,7 +311,10 @@ COQUI_LANGUAGE: str = "it"
 HUD_PROFILES: dict[str, dict] = {
     # Brasile vs Haiti (clip verticale ruotata -> normalizzata ~1706x886).
     "bra_hai": {
-        "regions": HUD_REGIONS,
+        "regions": {
+            **HUD_REGIONS,
+            "minimap": (0.35, 0.82, 0.65, 0.98), # Aggiunto minimap
+        },
         "roster_home": ROSTER_HOME,
         "roster_away": ROSTER_AWAY,
         "team_codes": TEAM_CODES,
