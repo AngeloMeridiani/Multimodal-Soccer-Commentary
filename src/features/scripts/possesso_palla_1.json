@@ -54,62 +54,80 @@
     "importance": 0.25
   },
   {
-    "t": 19.01,
-    "text": "La gioca GABRIEL.",
+    "t": 15.01,
+    "text": "Cambio di fronte, ora PLACIDE.",
+    "event_type": "turnover",
+    "importance": 0.55
+  },
+  {
+    "t": 17.51,
+    "text": "La gioca PIERROT.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 20.01,
-    "text": "WESLEY controlla.",
-    "event_type": "pass",
-    "importance": 0.25
+    "text": "Palla persa, la recupera WESLEY.",
+    "event_type": "turnover",
+    "importance": 0.55
   },
   {
     "t": 21.51,
-    "text": "Apertura per EDERSON.",
+    "text": "EDERSON controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 24.52,
-    "text": "ALEX SANDRO controlla.",
+    "text": "Apertura per ALEX SANDRO.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 25.52,
-    "text": "Apertura per GABRIEL.",
+    "text": "GABRIEL controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 26.52,
-    "text": "MARQUINHOS controlla.",
+    "text": "Apertura per MARQUINHOS.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 27.52,
-    "text": "Apertura per CASEMIRO.",
+    "text": "CASEMIRO controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 28.52,
-    "text": "MARQUINHOS controlla.",
+    "text": "Apertura per MARQUINHOS.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 31.02,
-    "text": "La gioca CASEMIRO.",
+    "t": 30.52,
+    "text": "Cambio di fronte, ora BELLEGARDE.",
+    "event_type": "turnover",
+    "importance": 0.55
+  },
+  {
+    "t": 31.52,
+    "text": "PROVIDENCE controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 32.52,
-    "text": "RAPHINHA controlla.",
+    "t": 32.02,
+    "text": "La gioca JEAN JACQUES.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 35.02,
+    "text": "Apertura per PIERRE.",
     "event_type": "pass",
     "importance": 0.25
   }

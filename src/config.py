@@ -109,10 +109,12 @@ ROSTER_HOME: list[str] = [   # Brasile (home) - COMPLETA con la rosa REALE della
     "RAPHINHA", "VINICIUS", "RODRYGO", "CASEMIRO", "BRUNO GUIMARAES",
     "MARQUINHOS", "DANILO", "ALEX SANDRO", "BREMER", "ANDREAS PEREIRA",
     "LUIZ HENRIQUE", "BARELLA", "BASTONI",
+    "VINI JR", "GABRIEL", "WESLEY", "EDERSON", "CUNHA",  # mancavano dal debug OCR
 ]
 ROSTER_AWAY: list[str] = [   # Haiti (away) - COMPLETA con la rosa REALE della clip
     "BELLEGARDE", "JEAN JACQUES", "DELCROIX", "PIERRE", "PIERROT",
     "NAZON", "SAINTE", "PROVIDENCE", "CASIMIR",
+    "PLACIDE", "MARCUS",  # mancavano dal debug OCR
 ]
 
 # ROSTER combinato giocatore -> squadra ("home"/"away"), derivato dalle due rose.

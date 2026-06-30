@@ -183,9 +183,13 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
     # Finestra scorrevole per il possesso.
     from collections import deque
     POSS_WINDOW_SEC = 2.0          # Ridotto da 4.0 a 2.0 per renderlo REATTIVO ai cambi veloci!
+    INACTIVITY_SEC = 2.0           # Se il lato attivo non cambia per 2s e l'altro si', cambia possesso
     change_log: deque[tuple[float, str]] = deque()
     current_possession: str | None = None
     last_possession: str | None = None
+    last_home_change_t: float = 0.0
+    last_away_change_t: float = 0.0
+    possession_start_t: float | None = None
 
     for timestamp, frame in tqdm(
         iter_sampled_frames(video_path, config.FRAMES_PER_SECOND), desc="OCR HUD"
@@ -237,11 +241,13 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
             active = snap_h if current_possession == "home" else snap_a
             active_side_changed = home_changed if current_possession == "home" else away_changed
         else:
-            # ── Euristica "sticky" ultra rapida ── #
+            # ── Euristica multi-segnale per il possesso ── #
             if home_changed:
                 change_log.append((timestamp, "home"))
+                last_home_change_t = timestamp
             if away_changed:
                 change_log.append((timestamp, "away"))
+                last_away_change_t = timestamp
             while change_log and change_log[0][0] < timestamp - POSS_WINDOW_SEC:
                 change_log.popleft()
                 
@@ -250,16 +256,37 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
             
             # Assegna il possesso iniziale alla prima squadra che cambia
             if current_possession is None:
-                if home_changed: current_possession = "home"
-                elif away_changed: current_possession = "away"
+                if home_changed:
+                    current_possession = "home"
+                    possession_start_t = timestamp
+                elif away_changed:
+                    current_possession = "away"
+                    possession_start_t = timestamp
             
-            # Cambio di possesso: l'avversario deve avere superato l'attuale
-            # portatore palla di un margine per vincere l'inerzia (sticky).
+            prev_possession = current_possession
+            
+            # --- Cambio di possesso --- #
+            # Metodo 1: finestra scorrevole (serve margine per evitare falsi positivi)
             POSS_MIN_MARGIN = 1
             if current_possession == "home" and n_away > n_home + POSS_MIN_MARGIN:
                 current_possession = "away"
             elif current_possession == "away" and n_home > n_away + POSS_MIN_MARGIN:
                 current_possession = "home"
+            
+            # Metodo 3: silenzio reciproco + durata possesso.
+            MIN_POSS_DURATION = 8.0
+            if current_possession is not None and possession_start_t is not None:
+                poss_dur = timestamp - possession_start_t
+                both_home_silent = (timestamp - last_home_change_t) >= INACTIVITY_SEC
+                both_away_silent = (timestamp - last_away_change_t) >= INACTIVITY_SEC
+                if both_home_silent and both_away_silent and poss_dur >= MIN_POSS_DURATION:
+                    current_possession = "away" if current_possession == "home" else "home"
+            
+            # Aggiorna il timestamp di inizio possesso se e' cambiato
+            if current_possession != prev_possession:
+                possession_start_t = timestamp
+            
+
 
             # Registriamo gli eventi SOLO sul lato in possesso
             active = snap_h if current_possession == "home" else snap_a

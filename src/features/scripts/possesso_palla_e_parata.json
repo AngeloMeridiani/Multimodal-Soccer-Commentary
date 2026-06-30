@@ -18,38 +18,44 @@
     "importance": 0.25
   },
   {
+    "t": 8.06,
+    "text": "Cambio di fronte, ora CASIMIR.",
+    "event_type": "turnover",
+    "importance": 0.55
+  },
+  {
     "t": 10.58,
-    "text": "La gioca RAPHINHA.",
+    "text": "La gioca MARCUS.",
+    "event_type": "pass",
+    "importance": 0.25
+  },
+  {
+    "t": 11.58,
+    "text": "PIERRE controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 12.59,
-    "text": "GABRIEL controlla.",
-    "event_type": "pass",
-    "importance": 0.25
-  },
-  {
-    "t": 13.09,
-    "text": "Apertura per CASEMIRO.",
+    "text": "Apertura per JEAN JACQUES.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 14.1,
-    "text": "GABRIEL controlla.",
-    "event_type": "pass",
-    "importance": 0.25
+    "text": "Palla persa, la recupera GABRIEL.",
+    "event_type": "turnover",
+    "importance": 0.55
   },
   {
     "t": 16.62,
-    "text": "Apertura per CUNHA.",
+    "text": "CUNHA controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 17.63,
-    "text": "CASEMIRO controlla.",
+    "text": "Apertura per CASEMIRO.",
     "event_type": "pass",
     "importance": 0.25
   },
@@ -78,38 +84,50 @@
     "importance": 0.25
   },
   {
+    "t": 24.17,
+    "text": "Se ne impossessa CASIMIR.",
+    "event_type": "turnover",
+    "importance": 0.55
+  },
+  {
     "t": 25.18,
-    "text": "Apertura per VINI JR.",
+    "text": "Apertura per MARCUS.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 26.69,
-    "text": "Palla persa, la recupera CASIMIR.",
-    "event_type": "turnover",
-    "importance": 0.55
+    "text": "CASIMIR controlla.",
+    "event_type": "pass",
+    "importance": 0.25
   },
   {
     "t": 27.7,
-    "text": "JEAN JACQUES controlla.",
+    "text": "Apertura per JEAN JACQUES.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 28.71,
-    "text": "Apertura per PIERRE.",
+    "text": "La gioca PIERRE.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
     "t": 30.22,
-    "text": "La gioca DELCROIX.",
+    "text": "DELCROIX controlla.",
     "event_type": "pass",
     "importance": 0.25
   },
   {
-    "t": 33.24,
-    "text": "PLACIDE controlla.",
+    "t": 32.23,
+    "text": "Cambio di fronte, ora LUIZ HENRIQUE.",
+    "event_type": "turnover",
+    "importance": 0.55
+  },
+  {
+    "t": 32.74,
+    "text": "La gioca CUNHA.",
     "event_type": "pass",
     "importance": 0.25
   }
