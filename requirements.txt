@@ -4,8 +4,6 @@
 #                                                                             #
 #  DIPENDENZA DI SISTEMA: FFmpeg (per leggere l'audio dai video).             #
 #    Ubuntu: sudo apt-get install ffmpeg | macOS: brew install ffmpeg         #
-#  pyttsx3 su Linux richiede inoltre 'espeak':                                #
-#    Ubuntu: sudo apt-get install espeak                                      #
 # =========================================================================== #
 
 # --- Core ---
@@ -29,13 +27,8 @@ openai-whisper>=20230918  # trascrizione telecronaca originale
 # --- Fase 3: modello di prosodia ---
 torch>=2.1
 
-# --- Fase 4: sintesi + DSP audio ---
+# --- Fase 4: sintesi audio (TTS espressivo con voice cloning) ---
 librosa>=0.10
 soundfile>=0.12
-pyttsx3>=2.90          # TTS offline di default (sostituibile con Coqui XTTS)
-
-# --- Opzionale: TTS espressivo di qualita' superiore (stile vocale) ---
-# TTS>=0.22            # Coqui TTS / XTTS - decommenta se vuoi voci espressive
-
-pyworld>=0.3.5
-gTTS>=2.5.0
+coqui-tts>=0.27        # Coqui XTTS v2: voice cloning zero-shot, italiano nativo
+transformers<5.0       # XTTS usa transformers 4.x (isin_mps_friendly rimosso in 5.0)

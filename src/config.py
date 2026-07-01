@@ -298,10 +298,25 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
 # --------------------------------------------------------------------------- #
 GAP_BETWEEN_UTTERANCES_S: float = 0.15
 VOICE_STYLE: str = "dark_hero"          # etichetta descrittiva (NON voce clonata)
-TTS_ENGINE: str = "gtts"                # "gtts" | "pyttsx3" | "coqui"
+TTS_ENGINE: str = "coqui"                # "gtts" | "pyttsx3" | "coqui" | "f5tts"
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
-COQUI_SPEAKER_WAV: str | None = None
+COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/ref.wav"  # voce (calma) da clonare
+COQUI_SPEAKER_WAV_EXCITED: str | None = None  # STRADA B: una sola voce; l'enfasi la fa prosody_mlp
+#   (per la strada C, metti qui una 2a clip concitata dello STESSO telecronista)
 COQUI_LANGUAGE: str = "it"
+COQUI_SPEED: float = 1.1                  # passo base (poi modulato da rate_factor di prosody_mlp)
+COQUI_SPEED_CLAMP: tuple[float, float] = (0.9, 1.35)  # limiti di sicurezza sul speed finale
+COQUI_CHUNK_MAX_CHARS: int = 180          # battute unite in blocchi <= N char -> prosodia connessa
+EMPHASIS_IMPORTANCE_THRESHOLD: float = 0.6  # sopra questa soglia = evento "concitato" (gol, parata...)
+ONSET_FADE_MS: int = 80                    # smorza l'attacco rauco d'avvio di XTTS
+# NB: l'enfasi (velocita' + volume) arriva da prosody_mlp (Fase 3):
+#     rate_factor -> speed XTTS,  energy_gain -> volume.  pitch_semitones e'
+#     omesso perche' su XTTS richiederebbe DSP (rischio artefatto metallico).
+
+F5TTS_MODEL: str = "F5TTS_Base"
+F5TTS_NFE_STEP: int = 16                 # passi di denoising: meno = piu' veloce su CPU
+F5TTS_REF_AUDIO: str = "data/raw/commentary/ref.wav"
+F5TTS_REF_TEXT: str = "Situazione che resta di pericolo, parata che potrebbe essere decisiva per il risultato finale. Sembrava tutto apparecchiato per il gol. 1 vs 1, un solo portiere da battere. E invece?"
 
 
 # =========================================================================== #
