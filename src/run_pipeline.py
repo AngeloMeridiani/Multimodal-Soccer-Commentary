@@ -41,6 +41,7 @@ BOLD   = "\033[1m"
 RESET  = "\033[0m"
 
 SRC_DIR = Path(__file__).resolve().parent
+PHASE_ORDER = ["1", "1b", "1c", "2", "2b", "3", "4", "5"]
 
 
 def banner(text: str) -> None:
@@ -50,7 +51,7 @@ def banner(text: str) -> None:
     print(f"{'═' * width}{RESET}\n")
 
 
-def step_header(phase: int, desc: str) -> None:
+def step_header(phase: int | str, desc: str) -> None:
     print(f"{BOLD}{YELLOW}── Fase {phase}: {desc} ──{RESET}")
 
 
@@ -86,72 +87,116 @@ def discover_videos() -> list[str]:
 
 def run_pipeline(
     video: str,
-    phases: list[int],
+    phases: list[str],
     profile: str,
     both_modes: bool,
     engine: str,
     epochs: int,
-) -> dict[int, bool]:
+    no_whisper: bool = False,
+    llm_provider: str | None = None,
+) -> dict[str, bool]:
     """Esegue le fasi selezionate per un singolo video."""
     stem = get_stem(video)
-    events_json  = f"features/events/{stem}.json"
-    script_json  = f"features/scripts/{stem}.json"
-    results: dict[int, bool] = {}
+    events_json   = f"features/events/{stem}.json"
+    enriched_json = f"features/events/{stem}_enriched.json"
+    script_json   = f"features/scripts/{stem}.json"
+    results: dict[str, bool] = {}
 
-    # ── FASE 1: Estrazione eventi ────────────────────────────────────── #
-    if 1 in phases:
+    # ── FASE 1: Estrazione eventi (OCR HUD) ──────────────────────────── #
+    if "1" in phases:
         step_header(1, "Estrazione eventi (OCR HUD)")
         cmd = [sys.executable, "01_extract_events.py", "--video", video]
         if profile:
             cmd += ["--profile", profile]
-        results[1] = run(cmd, "Fase 1")
-        if not results[1]:
+        results["1"] = run(cmd, "Fase 1")
+        if not results["1"]:
             return results
 
-    # ── FASE 2: Generazione testo ────────────────────────────────────── #
-    if 2 in phases:
+    # ── FASE 1b: Analisi visiva (YOLO + Tracking) ────────────────────── #
+    if "1b" in phases:
+        step_header("1b", "Analisi visiva (YOLO + Tracking)")
+        cmd = [sys.executable, "01b_visual_analysis.py", "--video", video]
+        if profile:
+            cmd += ["--profile", profile]
+        if (SRC_DIR / events_json).exists():
+            cmd += ["--merge", events_json]
+        results["1b"] = run(cmd, "Fase 1b")
+        if not results["1b"]:
+            return results
+
+    # ── FASE 1c: Analisi audio (Tifo + Whisper) ──────────────────────── #
+    if "1c" in phases:
+        step_header("1c", "Analisi audio (Tifo + Whisper)")
+        cmd = [sys.executable, "01c_audio_analysis.py", "--video", video]
+        if no_whisper:
+            cmd += ["--no-whisper"]
+        if (SRC_DIR / enriched_json).exists():
+            cmd += ["--events", enriched_json]
+        elif (SRC_DIR / events_json).exists():
+            cmd += ["--events", events_json]
+        results["1c"] = run(cmd, "Fase 1c")
+        if not results["1c"]:
+            return results
+
+    # ── FASE 2: Generazione testo telecronaca (template) ─────────────── #
+    if "2" in phases:
         step_header(2, "Generazione testo telecronaca")
-        results[2] = run(
-            [sys.executable, "02_generate_script.py", "--events", events_json],
+        best_events = enriched_json if (SRC_DIR / enriched_json).exists() else events_json
+        results["2"] = run(
+            [sys.executable, "02_generate_script.py", "--events", best_events],
             "Fase 2",
         )
-        if not results[2]:
+        if not results["2"]:
+            return results
+
+    # ── FASE 2b: Generazione testo con LLM ───────────────────────────── #
+    if "2b" in phases:
+        step_header("2b", "Generazione testo con LLM")
+        best_events = enriched_json if (SRC_DIR / enriched_json).exists() else events_json
+        cmd = [sys.executable, "02b_generate_llm.py", "--events", best_events]
+        if llm_provider:
+            cmd += ["--provider", llm_provider]
+        results["2b"] = run(cmd, "Fase 2b")
+        if not results["2b"]:
             return results
 
     # ── FASE 3: Training prosodia ────────────────────────────────────── #
-    if 3 in phases:
+    if "3" in phases:
         step_header(3, "Addestramento modello prosodia")
         cmd = [sys.executable, "03_train_prosody.py", "--synthetic"]
         if epochs:
             cmd += ["--epochs", str(epochs)]
-        results[3] = run(cmd, "Fase 3")
-        if not results[3]:
+        results["3"] = run(cmd, "Fase 3")
+        if not results["3"]:
             return results
 
     # ── FASE 4: Sintesi audio ────────────────────────────────────────── #
-    if 4 in phases:
+    if "4" in phases:
         step_header(4, "Sintesi audio")
-        # Modalità learned (default)
-        cmd = [sys.executable, "04_synthesize.py", "--script", script_json]
+        llm_script = f"features/scripts/{stem}_llm.json"
+        actual_script = script_json
+        if not (SRC_DIR / script_json).exists() and (SRC_DIR / llm_script).exists():
+            actual_script = llm_script
+        cmd = [sys.executable, "04_synthesize.py", "--script", actual_script]
         if engine:
             cmd += ["--engine", engine]
-        results[4] = run(cmd, "Fase 4 (learned)")
+        results["4"] = run(cmd, "Fase 4 (learned)")
 
         # Anche rule-based se richiesto
         if both_modes:
             cmd_rule = [
                 sys.executable, "04_synthesize.py",
-                "--script", script_json, "--rule-based",
+                "--script", actual_script, "--rule-based",
             ]
             if engine:
                 cmd_rule += ["--engine", engine]
             ok = run(cmd_rule, "Fase 4 (rule-based)")
-            results[4] = results[4] and ok
+            results["4"] = results["4"] and ok
 
     # ── FASE 5: Valutazione A/B ──────────────────────────────────────── #
-    if 5 in phases:
+    if "5" in phases:
         step_header(5, "Preparazione studio A/B")
-        results[5] = run(
+        results["5"] = run(
             [sys.executable, "05_evaluate.py", "make-study", "--names", stem],
             "Fase 5",
         )
@@ -181,8 +226,9 @@ Esempi:
         help="Esegui la pipeline su TUTTI i video in data/raw/gameplay/.",
     )
     parser.add_argument(
-        "--phases", nargs="+", type=int, default=[1, 2, 3, 4],
-        help="Fasi da eseguire (default: 1 2 3 4). Usa 5 per lo studio A/B.",
+        "--phases", nargs="+", type=str,
+        default=["1", "1b", "1c", "2", "2b", "3", "4"],
+        help="Fasi da eseguire (default: 1 1b 1c 2 2b 3 4). Usa 5 per lo studio A/B.",
     )
     parser.add_argument(
         "--profile", type=str, default="auto",
@@ -199,6 +245,15 @@ Esempi:
     parser.add_argument(
         "--epochs", type=int, default=0,
         help="Numero epoche per Fase 3 (default: da config.py).",
+    )
+    parser.add_argument(
+        "--no-whisper", action="store_true",
+        help="Disabilita trascrizione Whisper nella Fase 1c.",
+    )
+    parser.add_argument(
+        "--llm-provider", type=str, default=None,
+        choices=["ollama", "openai", "anthropic"],
+        help="Provider LLM per la Fase 2b (default: da config.py).",
     )
 
     args = parser.parse_args()
@@ -217,25 +272,28 @@ Esempi:
 
     banner("PIPELINE TELECRONACA AI PER EA FC / FIFA")
     print(f"  Video:  {len(videos)}")
-    print(f"  Fasi:   {sorted(args.phases)}")
+    _sort = lambda p: PHASE_ORDER.index(p) if p in PHASE_ORDER else 99
+    print(f"  Fasi:   {sorted(args.phases, key=_sort)}")
     print(f"  Profilo: {args.profile}")
     if args.both_modes:
         print(f"  Modalità: learned + rule-based")
     print()
 
     t_start = time.time()
-    summary: dict[str, dict[int, bool]] = {}
+    summary: dict[str, dict[str, bool]] = {}
 
     for i, video in enumerate(videos, 1):
         stem = get_stem(video)
         banner(f"[{i}/{len(videos)}]  {stem}")
         results = run_pipeline(
             video=video,
-            phases=sorted(args.phases),
+            phases=sorted(args.phases, key=_sort),
             profile=args.profile,
             both_modes=args.both_modes,
             engine=args.engine,
             epochs=args.epochs,
+            no_whisper=args.no_whisper,
+            llm_provider=args.llm_provider,
         )
         summary[stem] = results
 
@@ -244,7 +302,7 @@ Esempi:
     banner("RIEPILOGO")
     for stem, results in summary.items():
         print(f"  {BOLD}{stem}{RESET}")
-        for phase, ok in sorted(results.items()):
+        for phase, ok in sorted(results.items(), key=lambda x: PHASE_ORDER.index(x[0]) if x[0] in PHASE_ORDER else 99):
             icon = f"{GREEN}✓{RESET}" if ok else f"{RED}✗{RESET}"
             print(f"    Fase {phase}: {icon}")
     print(f"\n  Tempo totale: {elapsed_total:.1f}s")

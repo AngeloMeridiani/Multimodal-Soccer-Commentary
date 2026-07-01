@@ -1,0 +1,440 @@
+[
+  {
+    "t": 0.0,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 0.5,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 1.0,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 1.5,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 2.0,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 2.5,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 3.0,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 3.5,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 4.0,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 4.5,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 5.0,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 5.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": null
+  },
+  {
+    "t": 6.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 6.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 7.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 7.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 8.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 8.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 9.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 9.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 10.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 10.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 11.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 11.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 12.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 12.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 13.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "OLISE"
+  },
+  {
+    "t": 13.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "STANISIC"
+  },
+  {
+    "t": 14.01,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "STANISIC"
+  },
+  {
+    "t": 14.51,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "STANISIC"
+  },
+  {
+    "t": 15.02,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "STANISIC"
+  },
+  {
+    "t": 15.52,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "STANISIC"
+  },
+  {
+    "t": 16.02,
+    "possession": "away",
+    "confidence": 1.0,
+    "controlled_player": "STANISIC"
+  },
+  {
+    "t": 16.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 17.02,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 17.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 18.02,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 18.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 19.02,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 19.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 20.02,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 20.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 21.02,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 21.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 22.02,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 22.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 23.02,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 23.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "SEMENYO"
+  },
+  {
+    "t": 24.02,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 24.52,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 25.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 25.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 26.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 26.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 27.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 27.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 28.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 28.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "CHERKI"
+  },
+  {
+    "t": 29.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 29.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 30.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 30.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 31.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 31.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 32.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 32.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 33.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 33.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 34.03,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 34.53,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 35.04,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 35.54,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  },
+  {
+    "t": 36.04,
+    "possession": "home",
+    "confidence": 1.0,
+    "controlled_player": "HAALAND"
+  }
+]

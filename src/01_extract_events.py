@@ -139,13 +139,33 @@ class HudReader:
         x1, y1, x2, y2 = region
         return frame[int(y1 * h):int(y2 * h), int(x1 * w):int(x2 * w)]
 
-    def read_region(self, frame: np.ndarray, region, min_conf: float | None = None) -> str:
+    def read_region(self, frame: np.ndarray, region, min_conf: float | None = None,
+                    allowlist: str | None = None, paragraph: bool = False,
+                    resize: int = 1) -> str:
         crop = self._crop(frame, region)
         if crop.size == 0:
             return ""
+        if resize > 1:
+            import cv2
+            crop = cv2.resize(crop, (0,0), fx=resize, fy=resize)
+            
         floor = self.min_confidence if min_conf is None else min_conf
-        results = self.reader.readtext(crop)
-        tokens = [text for _, text, conf in results if conf >= floor]
+        
+        kwargs = {}
+        if allowlist:
+            kwargs['allowlist'] = allowlist
+        if paragraph:
+            kwargs['paragraph'] = paragraph
+            
+        results = self.reader.readtext(crop, **kwargs)
+        
+        if paragraph:
+            # When paragraph=True, result format is [[bbox, text]]
+            # Sometimes it might return multiple paragraphs or strings
+            tokens = [res[1] for res in results]
+        else:
+            tokens = [text for _, text, conf in results if conf >= floor]
+            
         return " ".join(tokens).strip()
 
 
@@ -209,7 +229,8 @@ def extract_events(video_path: Path, reader: HudReader, limit: int | None,
             profile_applied = True
 
         try:
-            score_txt = reader.read_region(frame, config.HUD_REGIONS["score"])
+            score_txt = reader.read_region(frame, config.HUD_REGIONS["score"],
+                                           allowlist='0123456789 ', paragraph=True, resize=3)
             clock_txt = reader.read_region(frame, config.HUD_REGIONS["clock"])
             home_txt = reader.read_region(frame, config.HUD_REGIONS["active_player_home"], NAME_MIN_CONF)
             away_txt = reader.read_region(frame, config.HUD_REGIONS["active_player_away"], NAME_MIN_CONF)

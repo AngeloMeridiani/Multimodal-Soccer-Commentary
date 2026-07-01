@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import argparse
 import math
+import re
 from collections import deque
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import NamedTuple
 
@@ -122,6 +124,131 @@ class BallTracker:
             if x1 <= nx <= x2 and y1 <= ny <= y2:
                 return name
         return "midfield"
+
+
+class ControlledPlayerDetector:
+    """
+    Rileva il nome bianco che appare sopra il giocatore controllato sul campo.
+    Testo bianco su sfondo verde = contrasto altissimo, facile da filtrare.
+    OCR eseguito periodicamente (ogni N frame) per non rallentare la pipeline.
+    Il risultato viene cachato e persistito tra i frame.
+    """
+
+    def __init__(self, ocr_every: int = 1) -> None:
+        self._reader = None
+        self._ocr_every = ocr_every
+        self._frame_n = 0
+        self.last_name: str | None = None
+        self.last_team: str | None = None
+
+    def _get_reader(self):
+        if self._reader is None:
+            import easyocr
+            self._reader = easyocr.Reader(config.OCR_LANGUAGES, gpu=False)
+        return self._reader
+
+    def detect(self, frame) -> tuple[str | None, str | None]:
+        """Cerca il nome bianco sul campo. Ritorna (nome, squadra) o valori cachati."""
+        import cv2
+        import numpy as np
+
+        h, w = frame.shape[:2]
+        self._frame_n += 1
+
+        # --- 1. Zona campo: escludi HUD sopra (~12%) e sotto (~15%) ---
+        y_top, y_bot = int(h * 0.12), int(h * 0.85)
+        field = frame[y_top:y_bot, :, :]
+        fh, fw = field.shape[:2]
+
+        # --- 2. Maschera per il bianco (scritta) ---
+        # Soglie allargate per beccare scritte semitrasparenti o sfocate per il motion blur
+        hsv = cv2.cvtColor(field, cv2.COLOR_BGR2HSV)
+        lower_white = np.array([0, 0, 160])
+        upper_white = np.array([180, 50, 255])
+        mask = cv2.inRange(hsv, lower_white, upper_white)
+
+        # Unisci lettere vicine orizzontalmente
+        kernel_h = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 1))
+        mask = cv2.dilate(mask, kernel_h, iterations=2)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,
+                                cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
+
+        # --- 3. Trova contorni con forma da testo (largo, basso) ---
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        candidates = []
+        for cnt in contours:
+            x, y, cw, ch = cv2.boundingRect(cnt)
+            ratio = cw / max(ch, 1)
+            # Nome: 40-350px largo, 7-30px alto, ratio > 2
+            if 40 < cw < 350 and 7 < ch < 30 and ratio > 2.0 and cw < fw * 0.25:
+                # Escludiamo zone vicinissime ai bordi laterali estremi se necessario,
+                # ma per ora teniamo tutti i buoni candidati.
+                candidates.append((x, y, cw, ch))
+
+        if not candidates:
+            return self.last_name, self.last_team
+
+        # --- 4. OCR solo ogni N frame (per performance) ---
+        if self._frame_n % self._ocr_every != 0:
+            return self.last_name, self.last_team
+
+        # Ordiniamo per area decrescente, ma testiamo i primi 5
+        candidates.sort(key=lambda b: b[2] * b[3], reverse=True)
+        candidates = candidates[:5]
+
+        for (x, y, cw, ch) in candidates:
+            pad = 5
+            crop = field[max(0, y - pad):y + ch + pad, max(0, x - pad):x + cw + pad]
+            if crop.size == 0:
+                continue
+
+            try:
+                results = self._get_reader().readtext(crop)
+                for _, text, conf in results:
+                    if conf < 0.25:
+                        continue
+                    name = re.sub(r"[^A-Za-z\u00C0-\u024F\s'-]", "", text).strip().upper()
+                    if len(name) < 3:
+                        continue
+                    team = self._match_roster(name)
+                    if team:
+                        self.last_name = name
+                        self.last_team = team
+                        logger.debug("Nome campo trovato a %d,%d: '%s' -> %s", x, y, name, team)
+                        return name, team
+            except Exception as exc:
+                logger.debug("OCR nome campo fallito: %s", exc)
+
+        return self.last_name, self.last_team
+
+    @staticmethod
+    def _match_roster(name: str) -> str | None:
+        """Match del nome letto contro le rose in config."""
+        nc = name.replace(" ", "")
+        # (a) Contenimento diretto
+        for r in config.ROSTER_HOME:
+            rc = r.replace(" ", "")
+            if nc in rc or rc in nc:
+                return "home"
+        for r in config.ROSTER_AWAY:
+            rc = r.replace(" ", "")
+            if nc in rc or rc in nc:
+                return "away"
+        # (b) Fuzzy
+        best_score, best_team = 0.0, None
+        for r in config.ROSTER_HOME:
+            s = SequenceMatcher(None, nc, r.replace(" ", "")).ratio()
+            if s > best_score:
+                best_score, best_team = s, "home"
+        for r in config.ROSTER_AWAY:
+            s = SequenceMatcher(None, nc, r.replace(" ", "")).ratio()
+            if s > best_score:
+                best_score, best_team = s, "away"
+        
+        if best_score > 0.65:
+            return best_team
+        return None
 
 
 class PossessionTracker:
@@ -291,6 +418,7 @@ def analyze_video(video_path: Path, limit: int | None = None,
     tracker = BallTracker()
     classifier = VisualEventClassifier()
     possession = PossessionTracker()
+    ctrl_detector = ControlledPlayerDetector()
 
     visual_events: list[dict] = []
     possession_timeline: list[dict] = []
@@ -304,19 +432,44 @@ def analyze_video(video_path: Path, limit: int | None = None,
         detections = detector.detect(frame)
         ball = tracker.update(timestamp, detections, frame.shape)
 
-        # --- possesso dal colore maglia del giocatore piu' vicino alla palla ---
+        # --- possesso dalla minimappa ---
         poss_team, poss_fill, _ = possession.update(frame, ball, detections)
+
+        # --- nome bianco sul campo (segnale più affidabile) ---
+        ctrl_name, ctrl_team = ctrl_detector.detect(frame)
+        if ctrl_team:
+            poss_team = ctrl_team
+            poss_fill = 1.0
+
         possession_timeline.append({
             "t": round(timestamp, 2),
             "possession": poss_team,
             "confidence": round(poss_fill, 3),
+            "controlled_player": ctrl_name,
         })
 
         event = classifier.classify(timestamp, ball, detections)
         if event is not None:
             event["n_players"] = sum(1 for d in detections if d.class_name == "person")
             event["possession"] = poss_team
+            if ctrl_name:
+                event["controlled_player"] = ctrl_name
             visual_events.append(event)
+
+    # --- Post-processing: back-propagate del primo possesso certo ---
+    # Se all'inizio del video non c'è il nome sul campo (es. cutscene, caricamento),
+    # l'euristica iniziale potrebbe sbagliare. Sovrascriviamo l'inizio col primo possesso certo.
+    first_certain_team = None
+    first_certain_idx = -1
+    for i, p in enumerate(possession_timeline):
+        if p.get("controlled_player"):
+            first_certain_team = p["possession"]
+            first_certain_idx = i
+            break
+
+    if first_certain_team and first_certain_idx > 0:
+        for i in range(first_certain_idx):
+            possession_timeline[i]["possession"] = first_certain_team
 
     if ocr_events:
         visual_events = merge_events(ocr_events, visual_events, possession_timeline)
@@ -346,12 +499,15 @@ def merge_events(ocr_events: list[dict], visual_events: list[dict],
                  possession_timeline: list[dict] | None = None,
                  time_tolerance: float = 1.0) -> list[dict]:
     """
-    Fonde OCR e visivi. Inoltre, usando il possesso (colore maglia), CORREGGE il
-    portatore: sceglie la targhetta della squadra che ha davvero la palla
-    (player_home se possesso=home, player_away se possesso=away).
+    Fonde OCR e visivi. Il visivo ARRICCHISCE gli eventi OCR con dati che l'HUD
+    non fornisce (zona palla, velocità, giocatori vicini). Il possesso visivo
+    (da minimappa) corregge player/team SOLO quando l'OCR non era sicuro
+    (player_resolved=False). Se l'OCR ha già agganciato il nome alla rosa,
+    i suoi dati hanno priorità.
     """
     possession_timeline = possession_timeline or []
     merged: list[dict] = []
+    merged_temp: list[dict] = []
     for ocr_ev in ocr_events:
         m = dict(ocr_ev)
         m.setdefault("source", "ocr")
@@ -359,14 +515,27 @@ def merge_events(ocr_events: list[dict], visual_events: list[dict],
         # --- correzione del portatore in base al possesso visivo ---
         poss = possession_at(possession_timeline, ocr_ev["t"])
         if poss in ("home", "away"):
-            name = m.get("player_home") if poss == "home" else m.get("player_away")
-            if name:
-                m["player"] = name
-                m["player_team"] = poss
-                m["possession"] = poss  # <-- Aggiorna anche il campo possession!
+            if not m.get("possession_certain", False):
+                m["possession"] = poss
                 m["possession_certain"] = True
                 m["possession_source"] = "visual"
+                
+                name = m.get("player_home") if poss == "home" else m.get("player_away")
+                if name:
+                    m["player"] = name
+                    m["player_team"] = poss
+                    
+        # --- fallback al testo sul campo se HUD e' vuoto ---
+        if not m.get("player") or m["player"] == "il giocatore":
+            # Trova l'ultimo controlled_player
+            last_cp = None
+            for p in possession_timeline:
+                if p["t"] <= ocr_ev["t"] and p.get("controlled_player"):
+                    last_cp = p["controlled_player"]
+            if last_cp:
+                m["player"] = last_cp
 
+        # --- arricchimento con dati visivi ---
         for vis in visual_events:
             if abs(vis["t"] - ocr_ev["t"]) <= time_tolerance:
                 m["ball_zone"] = vis.get("ball_zone", "unknown")
@@ -374,12 +543,32 @@ def merge_events(ocr_events: list[dict], visual_events: list[dict],
                 m["players_nearby"] = vis.get("players_nearby", 0)
                 m["source"] = "ocr+visual"
                 break
+        merged_temp.append(m)
+
+    # Re-evaluate turnover/pass based on final possession timeline
+    last_poss = None
+    for m in merged_temp:
+        if last_poss and m["possession"] != last_poss and m["type"] in ("pass", "idle"):
+            m["type"] = "turnover"
+        elif last_poss and m["possession"] == last_poss and m["type"] == "turnover":
+            m["type"] = "pass"
+        if m["type"] not in ("goal", "shot_off", "idle"):
+            last_poss = m["possession"]
         merged.append(m)
 
     ocr_times = {e["t"] for e in ocr_events}
     for vis in visual_events:
         if not any(abs(vis["t"] - ot) <= time_tolerance for ot in ocr_times):
+            # Filtro anti-falso-positivo: ignora i tiri "fantasma" dovuti all'esultanza
+            # se c'e' stato un gol negli ultimi 6 secondi.
+            recent_goal = any(e.get("type") == "goal" and 0 <= vis["t"] - e["t"] <= 6.0 for e in merged)
+            if recent_goal and vis.get("type") in ("shot_off", "shot_on_goal"):
+                continue
+                
             merged.append(vis)
+    
+    # Sort merged events by time to ensure timeline is correct
+    merged.sort(key=lambda x: x["t"])
     return merged
 
 
