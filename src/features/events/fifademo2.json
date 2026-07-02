@@ -1,0 +1,233 @@
+[
+  {
+    "t": 0.0,
+    "type": "pass",
+    "player": "KANE",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "KANE",
+    "player_away": "O REILLY",
+    "importance": 0.25,
+    "score": null,
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 0.5,
+    "type": "pass",
+    "player": "LAIMER",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "LAIMER",
+    "player_away": "DOKU",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 2.0,
+    "type": "pass",
+    "player": "OLISE",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.55,
+    "player_home": "OLISE",
+    "player_away": "RODRI",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 2.5,
+    "type": "pass",
+    "player": "LAIMER",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "LAIMER",
+    "player_away": "RODRI",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 3.5,
+    "type": "pass",
+    "player": "STANISIC",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.47,
+    "player_home": "STANISIC",
+    "player_away": "SEMENYO",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 7.01,
+    "type": "pass",
+    "player": "MUSIALA",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "MUSIALA",
+    "player_away": "KHUSANOV",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 9.51,
+    "type": "pass",
+    "player": "STANISIC",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.47,
+    "player_home": "STANISIC",
+    "player_away": "KHUSANOV",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 10.01,
+    "type": "pass",
+    "player": "KANE",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "KANE",
+    "player_away": "GUEHI",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 12.01,
+    "type": "pass",
+    "player": "MUSIALA",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "MUSIALA",
+    "player_away": "SEMENYO",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 13.01,
+    "type": "pass",
+    "player": "DIAZ",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.46,
+    "player_home": "DIAZ",
+    "player_away": "NUNES",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 13.51,
+    "type": "pass",
+    "player": "KANE",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "KANE",
+    "player_away": "KHUSANOV",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 16.02,
+    "type": "pass",
+    "player": "MUSIALA",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "MUSIALA",
+    "player_away": "SILVA",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 16.52,
+    "type": "pass",
+    "player": "PAVLOVIC",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.43,
+    "player_home": "PAVLOVIC",
+    "player_away": "SILVA",
+    "importance": 0.25,
+    "score": [
+      2,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  }
+]

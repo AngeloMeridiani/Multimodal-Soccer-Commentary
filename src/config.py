@@ -200,6 +200,7 @@ BALL_TRACKING: dict[str, float] = {
     "min_speed_pass": 40.0,    # sopra = passaggio, sotto = possesso
     "save_drop_ratio": 0.35,   # parata: la velocita' crolla sotto questa frazione
     "near_player_px": 100.0,   # raggio per "giocatore vicino alla palla"
+    "max_ball_jump_px": 400.0, # oltre = glitch di tracking, non moto reale (anti tiro-fantasma)
 }
 
 # Zone del campo in coordinate normalizzate (per classificare la posizione palla).
@@ -298,25 +299,10 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
 # --------------------------------------------------------------------------- #
 GAP_BETWEEN_UTTERANCES_S: float = 0.15
 VOICE_STYLE: str = "dark_hero"          # etichetta descrittiva (NON voce clonata)
-TTS_ENGINE: str = "coqui"                # "gtts" | "pyttsx3" | "coqui" | "f5tts"
+TTS_ENGINE: str = "gtts"                # "gtts" | "pyttsx3" | "coqui"
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
-COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/ref.wav"  # voce (calma) da clonare
-COQUI_SPEAKER_WAV_EXCITED: str | None = None  # STRADA B: una sola voce; l'enfasi la fa prosody_mlp
-#   (per la strada C, metti qui una 2a clip concitata dello STESSO telecronista)
+COQUI_SPEAKER_WAV: str | None = None
 COQUI_LANGUAGE: str = "it"
-COQUI_SPEED: float = 1.1                  # passo base (poi modulato da rate_factor di prosody_mlp)
-COQUI_SPEED_CLAMP: tuple[float, float] = (0.9, 1.35)  # limiti di sicurezza sul speed finale
-COQUI_CHUNK_MAX_CHARS: int = 180          # battute unite in blocchi <= N char -> prosodia connessa
-EMPHASIS_IMPORTANCE_THRESHOLD: float = 0.6  # sopra questa soglia = evento "concitato" (gol, parata...)
-ONSET_FADE_MS: int = 80                    # smorza l'attacco rauco d'avvio di XTTS
-# NB: l'enfasi (velocita' + volume) arriva da prosody_mlp (Fase 3):
-#     rate_factor -> speed XTTS,  energy_gain -> volume.  pitch_semitones e'
-#     omesso perche' su XTTS richiederebbe DSP (rischio artefatto metallico).
-
-F5TTS_MODEL: str = "F5TTS_Base"
-F5TTS_NFE_STEP: int = 16                 # passi di denoising: meno = piu' veloce su CPU
-F5TTS_REF_AUDIO: str = "data/raw/commentary/ref.wav"
-F5TTS_REF_TEXT: str = "Situazione che resta di pericolo, parata che potrebbe essere decisiva per il risultato finale. Sembrava tutto apparecchiato per il gol. 1 vs 1, un solo portiere da battere. E invece?"
 
 
 # =========================================================================== #
@@ -342,7 +328,7 @@ HUD_PROFILES: dict[str, dict] = {
     # Tottenham vs Marseille (1920x1080 orizzontale, HUD standard EA FC).
     "tot_om": {
         "regions": {
-            "score":              (0.13, 0.05, 0.16, 0.12),  # cifre "2"/"1" impilate
+            "score":              (0.135, 0.055, 0.155, 0.108),  # cifre "2"/"1" impilate
             "clock":              (0.085, 0.110, 0.140, 0.140),  # "x:05" (best effort)
             "active_player_home": (0.045, 0.886, 0.210, 0.930),  # "23 PORRO"
             "active_player_away": (0.780, 0.886, 0.955, 0.930),  # "PAIXAO 14"
@@ -368,41 +354,9 @@ HUD_PROFILES: dict[str, dict] = {
         "active_side": "home",
         "aspect_min": 0.0,             # fallback (16:9 ~1.78)
     },
-    # Manchester City vs Bayern München (1920x1080, EA FC 26 HUD).
-    "mci_bay": {
-        "regions": {
-            "score":              (0.13, 0.05, 0.16, 0.12),
-            "clock":              (0.060, 0.090, 0.115, 0.120),
-            "active_player_home": (0.040, 0.880, 0.220, 0.930),
-            "active_player_away": (0.780, 0.880, 0.960, 0.930),
-            "minimap":            (0.38, 0.83, 0.62, 0.98),
-        },
-        "roster_home": [   # Manchester City
-            "EDERSON", "WALKER", "DIAS", "AKANJI", "GVARDIOL",
-            "RODRI", "DE BRUYNE", "BERNARDO SILVA", "BERNARDO", "SILVA",
-            "FODEN", "HAALAND", "GREALISH", "DOKU", "KOVACIC",
-            "NUNES", "LEWIS", "STONES", "SAVINHO", "O'REILLY",
-            "SEMENYO", "WRIGHT", "McATEE", "CHERKI",
-        ],
-        "roster_away": [   # Bayern München
-            "NEUER", "KIMMICH", "UPAMECANO", "KIM", "DAVIES",
-            "GORETZKA", "MUSIALA", "SANE", "MULLER", "GNABRY",
-            "KANE", "COMAN", "LAIMER", "GUERREIRO", "PAVLOVIC",
-            "STANIŠIĆ", "STANISIC", "OLISE", "Tel",
-            "PALHINHA", "RAPHAËL GUERREIRO",
-        ],
-        "team_codes": {"home": "MCI", "away": "BAY"},
-        "jersey_hsv": {
-            "home": [((90, 40, 120), (115, 255, 255))],    # azzurro (Man City)
-            "away": [((0, 80, 80), (10, 255, 255)),         # rosso
-                     ((165, 80, 80), (180, 255, 255))],
-        },
-        "active_side": None,   # nessun lato fisso, usa euristica
-        "aspect_min": 1.7,     # priorita' su video 16:9 (~1.77)
-    },
 }
 
-DEFAULT_PROFILE: str = "mci_bay"
+DEFAULT_PROFILE: str = "bra_hai"
 
 
 def select_profile(frame_w: int, frame_h: int, name: str = "auto") -> tuple[str, dict]:
