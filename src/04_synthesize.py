@@ -28,8 +28,14 @@ from pathlib import Path
 import numpy as np
 
 import config
-from utils import (FEATURE_DIM, build_prosody_mlp, ensure_dir,
-                   event_to_features, get_logger, load_json)
+from utils import (
+    FEATURE_DIM,
+    build_prosody_mlp,
+    ensure_dir,
+    event_to_features,
+    get_logger,
+    load_json,
+)
 
 logger = get_logger("fase4_sintesi")
 
@@ -50,16 +56,20 @@ class ProsodyPredictor:
 
     def _try_load_model(self) -> None:
         if not config.PROSODY_MODEL_PATH.exists():
-            logger.warning("Modello non trovato (%s): uso i valori a regole.",
-                           config.PROSODY_MODEL_PATH)
+            logger.warning(
+                "Modello non trovato (%s): uso i valori a regole.", config.PROSODY_MODEL_PATH
+            )
             return
         try:
             import joblib
             import torch
+
             ckpt = torch.load(config.PROSODY_MODEL_PATH, map_location="cpu")
-            self.model = build_prosody_mlp(ckpt.get("feature_dim", FEATURE_DIM),
-                                           tuple(ckpt.get("hidden", config.PROSODY_HIDDEN_DIMS)),
-                                           len(config.PROSODY_TARGETS))
+            self.model = build_prosody_mlp(
+                ckpt.get("feature_dim", FEATURE_DIM),
+                tuple(ckpt.get("hidden", config.PROSODY_HIDDEN_DIMS)),
+                len(config.PROSODY_TARGETS),
+            )
             self.model.load_state_dict(ckpt["state_dict"])
             self.model.eval()
             self.scaler = joblib.load(config.PROSODY_SCALER_PATH)
@@ -70,14 +80,16 @@ class ProsodyPredictor:
     def predict(self, event_type: str, importance: float) -> dict[str, float]:
         if self.model is not None and self.scaler is not None:
             import torch
+
             feat = event_to_features(event_type, importance).reshape(1, -1)
             feat = self.scaler.transform(feat).astype(np.float32)
             with torch.no_grad():
                 out = self.model(torch.tensor(feat)).numpy().ravel()
             values = {k: float(out[i]) for i, k in enumerate(config.PROSODY_TARGETS)}
         else:
-            values = dict(config.RULE_BASED_PROSODY.get(
-                event_type, config.RULE_BASED_PROSODY["idle"]))
+            values = dict(
+                config.RULE_BASED_PROSODY.get(event_type, config.RULE_BASED_PROSODY["idle"])
+            )
         # Clamp di sicurezza (vale per entrambe le modalita').
         for key in config.PROSODY_TARGETS:
             lo, hi = config.PROSODY_CLAMP[key]
@@ -91,8 +103,9 @@ class ProsodyPredictor:
 class TTSEngine:
     """Interfaccia motore TTS. Unica implementazione: CoquiEngine (XTTS v2)."""
 
-    def synth_neutral(self, text: str, speed: float | None = None,
-                      excited: bool = False) -> tuple[np.ndarray, int]:
+    def synth_neutral(
+        self, text: str, speed: float | None = None, excited: bool = False
+    ) -> tuple[np.ndarray, int]:
         raise NotImplementedError
 
 
@@ -102,39 +115,52 @@ class CoquiEngine(TTSEngine):
 
     def __init__(self) -> None:
         import os
+
         # XTTS v2 e' sotto licenza CPML: senza questo, al primo download il
         # loader chiede conferma interattiva e si blocca in modalita' batch.
         os.environ.setdefault("COQUI_TOS_AGREED", "1")
         from TTS.api import TTS
+
         logger.info("TTS: Coqui (%s).", config.COQUI_MODEL)
         self.tts = TTS(config.COQUI_MODEL)
         # Risolve i riferimenti rispetto alla root del progetto (robusto al cwd).
-        self.speaker_wav = (str(config.PROJECT_ROOT / config.COQUI_SPEAKER_WAV)
-                            if config.COQUI_SPEAKER_WAV else None)
+        self.speaker_wav = (
+            str(config.PROJECT_ROOT / config.COQUI_SPEAKER_WAV)
+            if config.COQUI_SPEAKER_WAV
+            else None
+        )
         self.speaker_wav_excited = (
             str(config.PROJECT_ROOT / config.COQUI_SPEAKER_WAV_EXCITED)
-            if config.COQUI_SPEAKER_WAV_EXCITED else None)
+            if config.COQUI_SPEAKER_WAV_EXCITED
+            else None
+        )
 
-    def synth_neutral(self, text: str, speed: float | None = None,
-                      excited: bool = False) -> tuple[np.ndarray, int]:
+    def synth_neutral(
+        self, text: str, speed: float | None = None, excited: bool = False
+    ) -> tuple[np.ndarray, int]:
         # XTTS v2 verbalizza il punto finale ("punto") sulle frasi corte:
         # lo togliamo (l'intonazione di fine frase resta comunque naturale).
         # Virgole interne, ! e ? restano perche' guidano la prosodia.
         text = text.rstrip().rstrip(".").rstrip()
         # split_sentences=False: il blocco (piu' frasi) viene generato in
         # UN'UNICA passata -> prosodia continua/connessa tra le frasi.
-        kwargs = {"text": text, "language": config.COQUI_LANGUAGE,
-                  "speed": config.COQUI_SPEED if speed is None else speed,
-                  "split_sentences": False}
+        kwargs = {
+            "text": text,
+            "language": config.COQUI_LANGUAGE,
+            "speed": config.COQUI_SPEED if speed is None else speed,
+            "split_sentences": False,
+        }
         # Riferimento concitato per gli eventi importanti (se disponibile).
-        ref = self.speaker_wav_excited if (excited and self.speaker_wav_excited) \
-            else self.speaker_wav
+        ref = (
+            self.speaker_wav_excited if (excited and self.speaker_wav_excited) else self.speaker_wav
+        )
         if ref:
             kwargs["speaker_wav"] = ref
         wav = np.asarray(self.tts.tts(**kwargs), dtype=np.float32)
         sr = getattr(self.tts.synthesizer, "output_sample_rate", config.SAMPLE_RATE)
         if sr != config.SAMPLE_RATE:
             import librosa
+
             wav = librosa.resample(wav, orig_sr=sr, target_sr=config.SAMPLE_RATE)
         return wav, config.SAMPLE_RATE
 
@@ -149,8 +175,9 @@ def make_tts_engine(name: str = "coqui") -> TTSEngine:
 # --------------------------------------------------------------------------- #
 # Sintesi della traccia                                                       #
 # --------------------------------------------------------------------------- #
-def _trim_silence(wav: np.ndarray, sr: int, thresh: float = 0.02,
-                  margin_ms: int = 30) -> np.ndarray:
+def _trim_silence(
+    wav: np.ndarray, sr: int, thresh: float = 0.02, margin_ms: int = 30
+) -> np.ndarray:
     """Taglia il silenzio in testa/coda (XTTS aggiunge padding a ogni battuta).
     Soglia sull'ampiezza + piccolo margine per non tagliare gli attacchi."""
     active = np.where(np.abs(wav) > thresh)[0]
@@ -176,8 +203,9 @@ def _is_excited(importance: float) -> bool:
     return importance >= config.EMPHASIS_IMPORTANCE_THRESHOLD
 
 
-def _group_utterances(items: list[tuple[str, str, float]],
-                      max_chars: int) -> list[tuple[str, str, float]]:
+def _group_utterances(
+    items: list[tuple[str, str, float]], max_chars: int
+) -> list[tuple[str, str, float]]:
     """Unisce battute consecutive in blocchi <= max_chars mantenendo la
     punteggiatura interna. Si spezza un blocco anche quando cambia il livello
     emotivo (calmo<->concitato), cosi' un evento importante (es. gol) finisce
@@ -196,7 +224,7 @@ def _group_utterances(items: list[tuple[str, str, float]],
             cur, cur_evt, cur_imp = text, evt, imp
         else:
             cur = candidate
-            if imp > cur_imp:            # rappresentante del blocco = piu' importante
+            if imp > cur_imp:  # rappresentante del blocco = piu' importante
                 cur_evt, cur_imp = evt, imp
     if cur:
         chunks.append((cur, cur_evt, cur_imp))
@@ -217,8 +245,10 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
     # Le battute vengono unite in BLOCCHI e sintetizzate in un'unica passata,
     # cosi' XTTS collega la prosodia tra le frasi (parlato piu' naturale) invece
     # di generare frasi isolate una dopo l'altra.
-    items = [(line.get("text", ""), line.get("event_type", "idle"),
-              float(line.get("importance", 0.0))) for line in script]
+    items = [
+        (line.get("text", ""), line.get("event_type", "idle"), float(line.get("importance", 0.0)))
+        for line in script
+    ]
     chunks = _group_utterances(items, config.COQUI_CHUNK_MAX_CHARS)
     lo, hi = config.COQUI_SPEED_CLAMP
     for i, (chunk, evt, imp) in enumerate(chunks):
@@ -233,28 +263,40 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
             voiced = voiced * float(prosody["energy_gain"])
             pieces.append(voiced)
             pieces.append(gap)
+            # Log SOLO a blocco riuscito: prima veniva stampato "sintetizzato"
+            # anche per i blocchi saltati dall'except, confondendo il conteggio.
+            logger.info(
+                "Sintetizzati %d/%d blocchi (%s, speed=%.2f, gain=%.2f).",
+                i + 1,
+                len(chunks),
+                evt,
+                speed,
+                prosody["energy_gain"],
+            )
         except Exception as exc:
             logger.warning("Blocco %d saltato (%s): %s", i + 1, chunk[:30], exc)
-        logger.info("Sintetizzati %d/%d blocchi (%s, speed=%.2f, gain=%.2f).",
-                    i + 1, len(chunks), evt, speed, prosody["energy_gain"])
 
     if not pieces:
         return np.zeros(sr, np.float32)
     track = np.concatenate(pieces).astype(np.float32)
     peak = float(np.max(np.abs(track))) or 1.0
-    return track / peak * 0.95   # normalizzazione finale
+    return track / peak * 0.95  # normalizzazione finale
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 4 - Sintesi audio")
     parser.add_argument("--script", required=True, help="JSON dello script (Fase 2/2b).")
-    parser.add_argument("--rule-based", action="store_true",
-                        help="Forza la prosodia a regole (condizione baseline dello studio).")
+    parser.add_argument(
+        "--rule-based",
+        action="store_true",
+        help="Forza la prosodia a regole (condizione baseline dello studio).",
+    )
     parser.add_argument("--engine", choices=["coqui"], default="coqui")
     parser.add_argument("--out", type=str, default=None)
     args = parser.parse_args()
 
     import soundfile as sf
+
     script_path = Path(args.script)
     script = load_json(script_path)
     logger.info("Caricate %d battute da %s", len(script), script_path)
@@ -264,7 +306,9 @@ def main() -> None:
     track = synthesize(script, predictor, tts)
 
     suffix = "_rulebased" if args.rule_based else "_model"
-    out_path = Path(args.out) if args.out else config.AUDIO_OUT_DIR / f"{script_path.stem}{suffix}.wav"
+    out_path = (
+        Path(args.out) if args.out else config.AUDIO_OUT_DIR / f"{script_path.stem}{suffix}.wav"
+    )
     ensure_dir(out_path)
     sf.write(str(out_path), track, config.SAMPLE_RATE)
     logger.info("Traccia salvata (%.1fs) -> %s", len(track) / config.SAMPLE_RATE, out_path)

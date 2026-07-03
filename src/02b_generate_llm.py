@@ -6,6 +6,10 @@ FASE 2b - Generazione telecronaca con LLM (alternativa ai template).
 I dati strutturati di ogni evento vengono passati a un LLM che genera la battuta
 come un telecronista italiano esaltato. Provider: ollama (locale), openai, anthropic.
 
+Ogni battuta generata passa da un VALIDATORE anti-allucinazioni: se cita un
+giocatore della rosa che non c'entra con l'evento (nome inventato dall'LLM),
+viene scartata e sostituita dal template equivalente, che non puo' allucinare.
+
 Output: features/scripts/<nome_video>_llm.json
 
 Uso:
@@ -18,7 +22,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import time
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import config
@@ -39,15 +45,21 @@ class OllamaProvider(LLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         import urllib.request, urllib.error
-        payload = json.dumps({
-            "model": self.model,
-            "messages": [{"role": "system", "content": system_prompt},
-                         {"role": "user", "content": user_prompt}],
-            "stream": False,
-            "options": {"temperature": config.LLM_TEMPERATURE},
-        }).encode("utf-8")
-        req = urllib.request.Request(f"{self.base_url}/api/chat", data=payload,
-                                     headers={"Content-Type": "application/json"})
+
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "stream": False,
+                "options": {"temperature": config.LLM_TEMPERATURE},
+            }
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            f"{self.base_url}/api/chat", data=payload, headers={"Content-Type": "application/json"}
+        )
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -64,16 +76,23 @@ class OpenAIProvider(LLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         import urllib.request
-        payload = json.dumps({
-            "model": self.model,
-            "messages": [{"role": "system", "content": system_prompt},
-                         {"role": "user", "content": user_prompt}],
-            "temperature": config.LLM_TEMPERATURE, "max_tokens": 200,
-        }).encode("utf-8")
+
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": config.LLM_TEMPERATURE,
+                "max_tokens": 200,
+            }
+        ).encode("utf-8")
         req = urllib.request.Request(
-            "https://api.openai.com/v1/chat/completions", data=payload,
-            headers={"Content-Type": "application/json",
-                     "Authorization": f"Bearer {self.api_key}"})
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"},
+        )
         with urllib.request.urlopen(req, timeout=60) as resp:
             return json.loads(resp.read())["choices"][0]["message"]["content"].strip()
 
@@ -85,15 +104,25 @@ class AnthropicProvider(LLMProvider):
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         import urllib.request
-        payload = json.dumps({
-            "model": self.model, "system": system_prompt,
-            "messages": [{"role": "user", "content": user_prompt}],
-            "temperature": config.LLM_TEMPERATURE, "max_tokens": 200,
-        }).encode("utf-8")
+
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "system": system_prompt,
+                "messages": [{"role": "user", "content": user_prompt}],
+                "temperature": config.LLM_TEMPERATURE,
+                "max_tokens": 200,
+            }
+        ).encode("utf-8")
         req = urllib.request.Request(
-            "https://api.anthropic.com/v1/messages", data=payload,
-            headers={"Content-Type": "application/json", "x-api-key": self.api_key,
-                     "anthropic-version": "2023-06-01"})
+            "https://api.anthropic.com/v1/messages",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
+            },
+        )
         with urllib.request.urlopen(req, timeout=60) as resp:
             return json.loads(resp.read())["content"][0]["text"].strip()
 
@@ -123,10 +152,13 @@ def build_event_prompt(event: dict, idx: int, total: int) -> str:
         "giocatore": event.get("player", "sconosciuto"),
         "importanza": event.get("importance", 0.5),
     }
-    for src, dst in [("ball_zone", "zona_palla"), ("ball_speed", "velocita_palla"),
-                     ("players_nearby", "giocatori_vicini"),
-                     ("crowd_excitement", "eccitazione_tifo"),
-                     ("original_commentary", "telecronaca_originale")]:
+    for src, dst in [
+        ("ball_zone", "zona_palla"),
+        ("ball_speed", "velocita_palla"),
+        ("players_nearby", "giocatori_vicini"),
+        ("crowd_excitement", "eccitazione_tifo"),
+        ("original_commentary", "telecronaca_originale"),
+    ]:
         if event.get(src):
             data[dst] = event[src]
     if event.get("score"):
@@ -141,6 +173,58 @@ def build_event_prompt(event: dict, idx: int, total: int) -> str:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Validatore anti-allucinazioni (il "Validator" della pipeline di refinery)    #
+# --------------------------------------------------------------------------- #
+# Similarita' minima perche' una parola del testo "sia" un nome della rosa.
+# Alta apposta: deve riconoscere flessioni/refusi (RAPHINA~RAPHINHA = 0.93)
+# senza confondere nomi simili tra loro (PIERRE~PIERROT = 0.77 -> distinti).
+NAME_SIMILARITY = 0.85
+
+
+def mentioned_roster_names(text: str) -> set[str]:
+    """Nomi della rosa (home+away) citati nel testo.
+
+    Confronta ogni parola del testo con le parole dei nomi in rosa: match
+    esatto oppure fuzzy sopra NAME_SIMILARITY. I nomi multi-parola
+    ("BRUNO GUIMARAES") contano se una qualunque loro parola compare.
+    """
+    roster = set(config.ROSTER_HOME) | set(config.ROSTER_AWAY)
+    words = set(re.findall(r"[A-Za-zÀ-ÿ]{3,}", text.upper()))
+    mentioned = set()
+    for name in roster:
+        for part in name.split():
+            if part in words or any(
+                SequenceMatcher(None, w, part).ratio() >= NAME_SIMILARITY for w in words
+            ):
+                mentioned.add(name)
+                break
+    return mentioned
+
+
+def validate_line(text: str, event: dict) -> bool:
+    """True se la battuta cita SOLO giocatori pertinenti all'evento.
+
+    Pertinenti = i nomi presenti nell'evento (player, player_home,
+    player_away) piu' quelli della telecronaca originale (il prompt invita
+    l'LLM a usarli). Qualunque ALTRO nome della rosa nel testo e' inventato
+    dall'LLM -> la battuta va scartata (fallback al template).
+    Una battuta senza nomi ("Che parata!") e' sempre valida.
+    """
+    allowed: set[str] = set()
+    for key in ("player", "player_home", "player_away"):
+        name = str(event.get(key) or "").upper().strip()
+        if name:
+            allowed |= mentioned_roster_names(name) | {name}
+    if event.get("original_commentary"):
+        allowed |= mentioned_roster_names(str(event["original_commentary"]))
+
+    invented = mentioned_roster_names(text) - allowed
+    if invented:
+        logger.debug("Nomi non pertinenti nella battuta: %s", invented)
+    return not invented
+
+
 class LLMScriptGenerator:
     def __init__(self, provider: LLMProvider) -> None:
         self.provider = provider
@@ -150,19 +234,35 @@ class LLMScriptGenerator:
         script: list[dict] = []
         total = len(events)
         for i, event in enumerate(events):
+            source = "llm"
             try:
-                text = self.provider.generate(self.system_prompt,
-                                              build_event_prompt(event, i, total))
+                text = self.provider.generate(
+                    self.system_prompt, build_event_prompt(event, i, total)
+                )
+                # VALIDAZIONE: se l'LLM ha citato un giocatore che non c'entra
+                # con l'evento, la battuta e' un'allucinazione -> template.
+                if not validate_line(text, event):
+                    logger.warning(
+                        "Battuta LLM evento %d scartata (nome inventato): '%s'. Uso template.",
+                        i + 1,
+                        text,
+                    )
+                    text = self._fallback(event)
+                    source = "template_fallback"
             except Exception as exc:
                 logger.warning("Errore LLM evento %d: %s. Uso fallback template.", i + 1, exc)
                 text = self._fallback(event)
-            script.append({
-                "t": event.get("t", 0), "text": text,
-                "event_type": event.get("type", "idle"),
-                "importance": event.get("importance", 0.1),
-                "crowd_excitement": event.get("crowd_excitement", "low"),
-                "source": "llm",
-            })
+                source = "template_fallback"
+            script.append(
+                {
+                    "t": event.get("t", 0),
+                    "text": text,
+                    "event_type": event.get("type", "idle"),
+                    "importance": event.get("importance", 0.1),
+                    "crowd_excitement": event.get("crowd_excitement", "low"),
+                    "source": source,
+                }
+            )
             if i < total - 1:
                 time.sleep(delay)
             if (i + 1) % 10 == 0:
@@ -172,6 +272,7 @@ class LLMScriptGenerator:
     @staticmethod
     def _fallback(event: dict) -> str:
         import random
+
         templates = config.TEMPLATES.get(event.get("type", "idle"), ["Azione in corso."])
         return random.choice(templates).format(player=event.get("player", "il giocatore"))
 
@@ -179,8 +280,9 @@ class LLMScriptGenerator:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 2b - Generazione telecronaca con LLM")
     parser.add_argument("--events", required=True)
-    parser.add_argument("--provider", choices=["ollama", "openai", "anthropic"],
-                        default=config.LLM_PROVIDER)
+    parser.add_argument(
+        "--provider", choices=["ollama", "openai", "anthropic"], default=config.LLM_PROVIDER
+    )
     parser.add_argument("--model", type=str, default=None)
     parser.add_argument("--delay", type=float, default=0.5)
     args = parser.parse_args()
@@ -199,7 +301,7 @@ def main() -> None:
     save_json(script, out_path)
     logger.info("Generate %d battute LLM -> %s", len(script), out_path)
     if script:
-        logger.info("Anteprima: \"%s\"", script[0]["text"])
+        logger.info('Anteprima: "%s"', script[0]["text"])
     logger.info("Fase 2b completata.")
 
 

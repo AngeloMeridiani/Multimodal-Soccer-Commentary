@@ -41,26 +41,27 @@ class CrowdAnalyzer:
 
     def analyze_full(self, audio: np.ndarray) -> list[dict]:
         import librosa
+
         total = len(audio) / self.sr
         win = int(self.window_s * self.sr)
         hop = max(win // 2, 1)
 
-        global_rms = float(np.sqrt(np.mean(audio ** 2))) + 1e-8
-        global_centroid = float(np.mean(
-            librosa.feature.spectral_centroid(y=audio, sr=self.sr))) + 1e-8
+        global_rms = float(np.sqrt(np.mean(audio**2))) + 1e-8
+        global_centroid = (
+            float(np.mean(librosa.feature.spectral_centroid(y=audio, sr=self.sr))) + 1e-8
+        )
 
         results: list[dict] = []
         offset = 0
         while offset < len(audio):
-            chunk = audio[offset:offset + win]
+            chunk = audio[offset : offset + win]
             if len(chunk) < self.sr // 10:
                 break
             t_start = offset / self.sr
             t_end = min((offset + len(chunk)) / self.sr, total)
 
-            rms = float(np.sqrt(np.mean(chunk ** 2)))
-            centroid = float(np.mean(
-                librosa.feature.spectral_centroid(y=chunk, sr=self.sr)))
+            rms = float(np.sqrt(np.mean(chunk**2)))
+            centroid = float(np.mean(librosa.feature.spectral_centroid(y=chunk, sr=self.sr)))
             onset = float(np.mean(librosa.onset.onset_strength(y=chunk, sr=self.sr)))
 
             rms_n = min(rms / global_rms, 3.0) / 3.0
@@ -68,11 +69,14 @@ class CrowdAnalyzer:
             ons_n = min(onset / 5.0, 1.0)
             score = float(np.clip(0.50 * rms_n + 0.30 * cen_n + 0.20 * ons_n, 0.0, 1.0))
 
-            results.append({
-                "t_start": round(t_start, 2), "t_end": round(t_end, 2),
-                "excitement_score": round(score, 3),
-                "excitement_level": self._level(score),
-            })
+            results.append(
+                {
+                    "t_start": round(t_start, 2),
+                    "t_end": round(t_end, 2),
+                    "excitement_score": round(score, 3),
+                    "excitement_level": self._level(score),
+                }
+            )
             offset += hop
         return results
 
@@ -97,37 +101,64 @@ class CrowdAnalyzer:
 class WhisperTranscriber:
     """Trascrive l'audio con OpenAI Whisper -> segmenti {start, end, text}."""
 
-    def __init__(self, model_size: str = config.WHISPER_MODEL_SIZE,
-                 language: str = config.WHISPER_LANGUAGE) -> None:
+    def __init__(
+        self, model_size: str = config.WHISPER_MODEL_SIZE, language: str = config.WHISPER_LANGUAGE
+    ) -> None:
         import whisper
+
         logger.info("Carico Whisper '%s'...", model_size)
         self.model = whisper.load_model(model_size)
         self.language = language
 
     def transcribe(self, audio_path) -> list[dict]:
         logger.info("Trascrizione (lingua=%s)...", self.language)
-        result = self.model.transcribe(str(audio_path), language=self.language,
-                                       task="transcribe", verbose=False)
-        segments = [{"start": round(s["start"], 2), "end": round(s["end"], 2),
-                     "text": s["text"].strip()} for s in result.get("segments", [])]
+        result = self.model.transcribe(
+            str(audio_path), language=self.language, task="transcribe", verbose=False
+        )
+        segments = [
+            {"start": round(s["start"], 2), "end": round(s["end"], 2), "text": s["text"].strip()}
+            for s in result.get("segments", [])
+        ]
         logger.info("Trascritti %d segmenti.", len(segments))
         return segments
 
 
 def extract_audio(video_path: Path) -> Path:
-    out = Path(tempfile.mktemp(suffix=".wav"))
-    cmd = ["ffmpeg", "-y", "-i", str(video_path), "-vn", "-acodec", "pcm_s16le",
-           "-ar", str(config.SAMPLE_RATE), "-ac", "1", str(out)]
+    """Estrae la traccia audio del video in un wav mono temporaneo (via ffmpeg).
+    Il file viene eliminato dal chiamante (analyze_audio) a fine analisi."""
+    # NamedTemporaryFile al posto del deprecato tempfile.mktemp: riserva il
+    # file subito (niente collisioni di nome); ffmpeg poi lo sovrascrive (-y).
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        out = Path(tmp.name)
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-vn",
+        "-acodec",
+        "pcm_s16le",
+        "-ar",
+        str(config.SAMPLE_RATE),
+        "-ac",
+        "1",
+        str(out),
+    ]
     logger.info("Estraggo audio: %s", video_path.name)
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except FileNotFoundError:
+        out.unlink(missing_ok=True)  # niente file orfani se ffmpeg manca
         raise RuntimeError("ffmpeg non trovato (Ubuntu: sudo apt-get install ffmpeg).")
+    except subprocess.CalledProcessError:
+        out.unlink(missing_ok=True)  # idem se ffmpeg fallisce sul video
+        raise
     return out
 
 
 def analyze_audio(video_path: Path, use_whisper: bool = True) -> dict:
     import librosa
+
     audio_path = extract_audio(video_path)
     try:
         audio, sr = librosa.load(str(audio_path), sr=config.SAMPLE_RATE, mono=True)
@@ -173,8 +204,11 @@ def enrich_events_with_audio(events: list[dict], audio_data: dict) -> list[dict]
         exc = analyzer.get_at(excitement, t)
         e["crowd_excitement"] = exc.get("excitement_level", "low")
         e["crowd_score"] = exc.get("excitement_score", 0.0)
-        context = " ".join(s["text"] for s in transcription
-                           if abs(s["start"] - t) <= 3.0 or abs(s["end"] - t) <= 3.0)
+        context = " ".join(
+            s["text"]
+            for s in transcription
+            if abs(s["start"] - t) <= 3.0 or abs(s["end"] - t) <= 3.0
+        )
         e["original_commentary"] = context.strip()
         enriched.append(e)
     return enriched
@@ -184,8 +218,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 1c - Analisi audio (Tifo + Whisper)")
     parser.add_argument("--video", required=True)
     parser.add_argument("--no-whisper", action="store_true")
-    parser.add_argument("--events", type=str, default=None,
-                        help="JSON eventi da arricchire con i dati audio.")
+    parser.add_argument(
+        "--events", type=str, default=None, help="JSON eventi da arricchire con i dati audio."
+    )
     args = parser.parse_args()
 
     video_path = Path(args.video)

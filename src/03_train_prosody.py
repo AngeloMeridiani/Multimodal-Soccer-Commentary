@@ -34,8 +34,14 @@ from pathlib import Path
 import numpy as np
 
 import config
-from utils import (FEATURE_DIM, build_prosody_mlp, ensure_dir, event_to_features,
-                   get_logger, set_seed)
+from utils import (
+    FEATURE_DIM,
+    build_prosody_mlp,
+    ensure_dir,
+    event_to_features,
+    get_logger,
+    set_seed,
+)
 
 logger = get_logger("fase3_prosodia")
 
@@ -46,9 +52,10 @@ logger = get_logger("fase3_prosodia")
 def _measure_segment(audio: np.ndarray, sr: int) -> dict[str, float] | None:
     """Misure grezze (non normalizzate) di un segmento: rate, f0, energy."""
     import librosa
+
     if audio.size < sr // 5:
         return None
-    rms = float(np.sqrt(np.mean(audio ** 2)))
+    rms = float(np.sqrt(np.mean(audio**2)))
     onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
     onsets = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr)
     duration = len(audio) / sr
@@ -64,6 +71,7 @@ def _measure_segment(audio: np.ndarray, sr: int) -> dict[str, float] | None:
 def build_dataset_from_audio() -> tuple[np.ndarray, np.ndarray] | None:
     """Costruisce (X, Y) misurando i target dai segmenti annotati reali."""
     import librosa
+
     csv_path = config.PROSODY_ANNOTATIONS
     if not csv_path.exists():
         logger.warning("Annotazioni non trovate: %s", csv_path)
@@ -79,10 +87,11 @@ def build_dataset_from_audio() -> tuple[np.ndarray, np.ndarray] | None:
         if not clip_path.exists():
             continue
         if row["clip"] not in audio_cache:
-            audio_cache[row["clip"]] = librosa.load(str(clip_path), sr=config.SAMPLE_RATE,
-                                                    mono=True)
+            audio_cache[row["clip"]] = librosa.load(
+                str(clip_path), sr=config.SAMPLE_RATE, mono=True
+            )
         audio, sr = audio_cache[row["clip"]]
-        seg = audio[int(float(row["start"]) * sr):int(float(row["end"]) * sr)]
+        seg = audio[int(float(row["start"]) * sr) : int(float(row["end"]) * sr)]
         m = _measure_segment(seg, sr)
         if m is None:
             continue
@@ -102,10 +111,10 @@ def build_dataset_from_audio() -> tuple[np.ndarray, np.ndarray] | None:
     for m in measures:
         et = m["event_type"]
         rate_factor = float(np.clip(m["rate"] / med_rate, *config.PROSODY_CLAMP["rate_factor"]))
-        pitch_semi = float(np.clip(12.0 * np.log2(m["f0"] / med_f0),
-                                   *config.PROSODY_CLAMP["pitch_semitones"]))
-        energy_gain = float(np.clip(m["energy"] / med_energy,
-                                    *config.PROSODY_CLAMP["energy_gain"]))
+        pitch_semi = float(
+            np.clip(12.0 * np.log2(m["f0"] / med_f0), *config.PROSODY_CLAMP["pitch_semitones"])
+        )
+        energy_gain = float(np.clip(m["energy"] / med_energy, *config.PROSODY_CLAMP["energy_gain"]))
         X.append(event_to_features(et, config.EVENT_IMPORTANCE.get(et, 0.1)))
         Y.append([rate_factor, pitch_semi, energy_gain])
     logger.info("Dataset da audio reale: %d campioni.", len(X))
@@ -117,8 +126,9 @@ def build_dataset_synthetic(n_per_type: int = 40) -> tuple[np.ndarray, np.ndarra
     rng = np.random.default_rng(config.RANDOM_SEED)
     X, Y = [], []
     for et, params in config.RULE_BASED_PROSODY.items():
-        base = np.array([params["rate_factor"], params["pitch_semitones"],
-                         params["energy_gain"]], np.float32)
+        base = np.array(
+            [params["rate_factor"], params["pitch_semitones"], params["energy_gain"]], np.float32
+        )
         importance = config.EVENT_IMPORTANCE.get(et, 0.1)
         for _ in range(n_per_type):
             noise = rng.normal(0.0, [0.04, 0.4, 0.06]).astype(np.float32)
@@ -149,8 +159,10 @@ def train(X: np.ndarray, Y: np.ndarray, epochs: int) -> None:
     split = max(int(n * 0.85), 1)
     tr, va = idx[:split], idx[split:] if n > 1 else idx[:1]
 
-    Xt = torch.tensor(Xs[tr]); Yt = torch.tensor(Y[tr])
-    Xv = torch.tensor(Xs[va]); Yv = torch.tensor(Y[va])
+    Xt = torch.tensor(Xs[tr])
+    Yt = torch.tensor(Y[tr])
+    Xv = torch.tensor(Xs[va])
+    Yv = torch.tensor(Y[va])
 
     model = build_prosody_mlp(FEATURE_DIM, config.PROSODY_HIDDEN_DIMS, len(config.PROSODY_TARGETS))
     opt = torch.optim.Adam(model.parameters(), lr=config.PROSODY_LR)
@@ -161,7 +173,7 @@ def train(X: np.ndarray, Y: np.ndarray, epochs: int) -> None:
         model.train()
         perm = torch.randperm(len(Xt))
         for i in range(0, len(Xt), config.PROSODY_BATCH_SIZE):
-            b = perm[i:i + config.PROSODY_BATCH_SIZE]
+            b = perm[i : i + config.PROSODY_BATCH_SIZE]
             opt.zero_grad()
             loss = loss_fn(model(Xt[b]), Yt[b])
             loss.backward()
@@ -179,12 +191,19 @@ def train(X: np.ndarray, Y: np.ndarray, epochs: int) -> None:
     logger.info("Miglior val_loss: %.4f", best_val)
 
     ensure_dir(config.PROSODY_MODEL_PATH)
-    torch.save({"state_dict": model.state_dict(), "feature_dim": FEATURE_DIM,
-                "hidden": list(config.PROSODY_HIDDEN_DIMS),
-                "targets": config.PROSODY_TARGETS}, config.PROSODY_MODEL_PATH)
+    torch.save(
+        {
+            "state_dict": model.state_dict(),
+            "feature_dim": FEATURE_DIM,
+            "hidden": list(config.PROSODY_HIDDEN_DIMS),
+            "targets": config.PROSODY_TARGETS,
+        },
+        config.PROSODY_MODEL_PATH,
+    )
     joblib.dump(scaler, config.PROSODY_SCALER_PATH)
-    logger.info("Modello -> %s | scaler -> %s",
-                config.PROSODY_MODEL_PATH, config.PROSODY_SCALER_PATH)
+    logger.info(
+        "Modello -> %s | scaler -> %s", config.PROSODY_MODEL_PATH, config.PROSODY_SCALER_PATH
+    )
 
 
 def main() -> None:

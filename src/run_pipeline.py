@@ -33,12 +33,12 @@ import time
 from pathlib import Path
 
 # ── Colori per output leggibile ──────────────────────────────────────────── #
-GREEN  = "\033[92m"
-RED    = "\033[91m"
+GREEN = "\033[92m"
+RED = "\033[91m"
 YELLOW = "\033[93m"
-CYAN   = "\033[96m"
-BOLD   = "\033[1m"
-RESET  = "\033[0m"
+CYAN = "\033[96m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
 
 SRC_DIR = Path(__file__).resolve().parent
 PHASE_ORDER = ["1", "1b", "1c", "2", "2b", "3", "4", "5"]
@@ -79,7 +79,8 @@ def discover_videos() -> list[str]:
     gameplay_dir = SRC_DIR / "data" / "raw" / "gameplay"
     exts = {".mov", ".mp4", ".avi", ".mkv", ".webm"}
     videos = sorted(
-        str(p) for p in gameplay_dir.iterdir()
+        str(p)
+        for p in gameplay_dir.iterdir()
         if p.suffix.lower() in exts and not p.name.startswith(".")
     )
     return videos
@@ -97,9 +98,9 @@ def run_pipeline(
 ) -> dict[str, bool]:
     """Esegue le fasi selezionate per un singolo video."""
     stem = get_stem(video)
-    events_json   = f"features/events/{stem}.json"
+    events_json = f"features/events/{stem}.json"
     enriched_json = f"features/events/{stem}_enriched.json"
-    script_json   = f"features/scripts/{stem}.json"
+    script_json = f"features/scripts/{stem}.json"
     results: dict[str, bool] = {}
 
     # ── FASE 1: Estrazione eventi (OCR HUD) ──────────────────────────── #
@@ -185,8 +186,11 @@ def run_pipeline(
         # Anche rule-based se richiesto
         if both_modes:
             cmd_rule = [
-                sys.executable, "04_synthesize.py",
-                "--script", actual_script, "--rule-based",
+                sys.executable,
+                "04_synthesize.py",
+                "--script",
+                actual_script,
+                "--rule-based",
             ]
             if engine:
                 cmd_rule += ["--engine", engine]
@@ -218,40 +222,56 @@ Esempi:
         """,
     )
     parser.add_argument(
-        "--video", type=str, default=None,
+        "--video",
+        type=str,
+        default=None,
         help="Percorso del video di gameplay.",
     )
     parser.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Esegui la pipeline su TUTTI i video in data/raw/gameplay/.",
     )
     parser.add_argument(
-        "--phases", nargs="+", type=str,
+        "--phases",
+        nargs="+",
+        type=str,
         default=["1", "1b", "1c", "2", "2b", "3", "4"],
         help="Fasi da eseguire (default: 1 1b 1c 2 2b 3 4). Usa 5 per lo studio A/B.",
     )
     parser.add_argument(
-        "--profile", type=str, default="auto",
+        "--profile",
+        type=str,
+        default="auto",
         help="Profilo HUD (default: auto). Vedi config.HUD_PROFILES.",
     )
     parser.add_argument(
-        "--both-modes", action="store_true",
+        "--both-modes",
+        action="store_true",
         help="Genera sia learned che rule-based (per confronto/studio).",
     )
     parser.add_argument(
-        "--engine", type=str, default=None, choices=["gtts", "pyttsx3", "coqui"],
-        help="Motore TTS (default: da config.py).",
+        "--engine",
+        type=str,
+        default=None,
+        choices=["coqui"],
+        help="Motore TTS (unico supportato: coqui / XTTS v2).",
     )
     parser.add_argument(
-        "--epochs", type=int, default=0,
+        "--epochs",
+        type=int,
+        default=0,
         help="Numero epoche per Fase 3 (default: da config.py).",
     )
     parser.add_argument(
-        "--no-whisper", action="store_true",
+        "--no-whisper",
+        action="store_true",
         help="Disabilita trascrizione Whisper nella Fase 1c.",
     )
     parser.add_argument(
-        "--llm-provider", type=str, default=None,
+        "--llm-provider",
+        type=str,
+        default=None,
         choices=["ollama", "openai", "anthropic"],
         help="Provider LLM per la Fase 2b (default: da config.py).",
     )
@@ -302,7 +322,9 @@ Esempi:
     banner("RIEPILOGO")
     for stem, results in summary.items():
         print(f"  {BOLD}{stem}{RESET}")
-        for phase, ok in sorted(results.items(), key=lambda x: PHASE_ORDER.index(x[0]) if x[0] in PHASE_ORDER else 99):
+        for phase, ok in sorted(
+            results.items(), key=lambda x: PHASE_ORDER.index(x[0]) if x[0] in PHASE_ORDER else 99
+        ):
             icon = f"{GREEN}✓{RESET}" if ok else f"{RED}✗{RESET}"
             print(f"    Fase {phase}: {icon}")
     print(f"\n  Tempo totale: {elapsed_total:.1f}s")

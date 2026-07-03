@@ -34,10 +34,12 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter(
-            "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
-            datefmt="%H:%M:%S",
-        ))
+        handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
+                datefmt="%H:%M:%S",
+            )
+        )
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
     return logger
@@ -51,6 +53,7 @@ def set_seed(seed: int) -> None:
     np.random.seed(seed)
     try:
         import torch
+
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
@@ -90,10 +93,21 @@ def _probe_rotation(video_path: Path) -> int:
     """
     try:
         out = subprocess.run(
-            ["ffprobe", "-v", "error", "-select_streams", "v:0",
-             "-show_entries", "stream_side_data=rotation:stream_tags=rotate",
-             "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)],
-            capture_output=True, text=True, check=True,
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream_side_data=rotation:stream_tags=rotate",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(video_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout
         vals = [int(float(v)) for v in out.split() if v.strip().lstrip("-").isdigit()]
         if vals:
@@ -114,8 +128,8 @@ def _detect_letterbox_bbox(frame: np.ndarray) -> tuple[int, int, int, int]:
     thr = config.LETTERBOX_BLACK_THRESHOLD
     min_fill = config.LETTERBOX_MIN_FILL
 
-    col_fill = (gray > thr).mean(axis=0)   # frazione di pixel "accesi" per colonna
-    row_fill = (gray > thr).mean(axis=1)   # ... per riga
+    col_fill = (gray > thr).mean(axis=0)  # frazione di pixel "accesi" per colonna
+    row_fill = (gray > thr).mean(axis=1)  # ... per riga
 
     cols = np.where(col_fill > min_fill)[0]
     rows = np.where(row_fill > min_fill)[0]
@@ -140,7 +154,7 @@ def open_capture(video_path: Path):
     auto_prop = getattr(cv2, "CAP_PROP_ORIENTATION_AUTO", None)
     auto_applied = False
     if auto_prop is not None:
-        cap.set(auto_prop, 1)   # OpenCV moderno: raddrizza lui i frame
+        cap.set(auto_prop, 1)  # OpenCV moderno: raddrizza lui i frame
         auto_applied = True
     return cap, auto_applied
 
@@ -154,6 +168,7 @@ class VideoNormalizer:
 
     def __init__(self, video_path: Path, auto_applied: bool = True) -> None:
         import cv2
+
         self.cv2 = cv2
 
         # Rotazione manuale da applicare NOI (oltre a quella eventuale di OpenCV).
@@ -182,15 +197,23 @@ class VideoNormalizer:
         h, w = rotated.shape[:2]
         if mode is None:
             self._crop = (0, 0, w, h)
-        elif isinstance(mode, tuple):                       # coordinate normalizzate fisse
+        elif isinstance(mode, tuple):  # coordinate normalizzate fisse
             x1, y1, x2, y2 = mode
             self._crop = (int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h))
-        else:                                               # "auto"
+        else:  # "auto"
             self._crop = _detect_letterbox_bbox(rotated)
         self._crop_ready = True
         x1, y1, x2, y2 = self._crop
-        logger.info("Normalizzazione: rotazione=%d°, crop=(%d,%d,%d,%d) da frame %dx%d",
-                    self.rotation, x1, y1, x2, y2, w, h)
+        logger.info(
+            "Normalizzazione: rotazione=%d°, crop=(%d,%d,%d,%d) da frame %dx%d",
+            self.rotation,
+            x1,
+            y1,
+            x2,
+            y2,
+            w,
+            h,
+        )
 
     def apply(self, frame: np.ndarray) -> np.ndarray:
         rotated = self._rotate(frame)
@@ -200,7 +223,9 @@ class VideoNormalizer:
 
 
 def iter_sampled_frames(
-    video_path: Path, frames_per_second: float, normalize: bool = True,
+    video_path: Path,
+    frames_per_second: float,
+    normalize: bool = True,
 ) -> Iterator[tuple[float, np.ndarray]]:
     """
     Genera (timestamp_s, frame_BGR) campionando a `frames_per_second`.
@@ -324,11 +349,11 @@ def apply_prosody(
         new_length = int(len(f0) / float(rate_factor))
         old_indices = np.arange(len(f0))
         new_indices = np.linspace(0, len(f0) - 1, new_length)
-        
+
         f0_interp = scipy.interpolate.interp1d(old_indices, f0)(new_indices)
         sp_interp = scipy.interpolate.interp1d(old_indices, sp, axis=0)(new_indices)
         ap_interp = scipy.interpolate.interp1d(old_indices, ap, axis=0)(new_indices)
-        
+
         f0 = np.ascontiguousarray(f0_interp)
         sp = np.ascontiguousarray(sp_interp)
         ap = np.ascontiguousarray(ap_interp)
@@ -340,6 +365,6 @@ def apply_prosody(
     # 5. Modifica del volume
     out = out * float(energy_gain)
     peak = float(np.max(np.abs(out))) if out.size else 0.0
-    if peak > 1.0:                       # evita clipping
+    if peak > 1.0:  # evita clipping
         out = out / peak
     return out
