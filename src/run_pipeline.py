@@ -95,6 +95,7 @@ def run_pipeline(
     epochs: int,
     no_whisper: bool = False,
     llm_provider: str | None = None,
+    use_llm_text: bool = False,
 ) -> dict[str, bool]:
     """Esegue le fasi selezionate per un singolo video."""
     stem = get_stem(video)
@@ -175,9 +176,15 @@ def run_pipeline(
     if "4" in phases:
         step_header(4, "Sintesi audio")
         llm_script = f"features/scripts/{stem}_llm.json"
-        actual_script = script_json
-        if not (SRC_DIR / script_json).exists() and (SRC_DIR / llm_script).exists():
-            actual_script = llm_script
+        # Scelta del TESTO da sintetizzare. Prima il template vinceva sempre
+        # (lo script LLM veniva usato solo se il template mancava): la Fase 2b
+        # girava per niente. Ora l'LLM ha la precedenza quando e' richiesto
+        # esplicitamente (--llm-text) o quando la 2b fa parte di questa run;
+        # in ogni caso si ripiega sull'altro file se il preferito non esiste.
+        prefer_llm = use_llm_text or "2b" in phases
+        candidates = [llm_script, script_json] if prefer_llm else [script_json, llm_script]
+        actual_script = next((c for c in candidates if (SRC_DIR / c).exists()), script_json)
+        print(f"  {CYAN}Testo:{RESET} {actual_script}")
         cmd = [sys.executable, "04_synthesize.py", "--script", actual_script]
         if engine:
             cmd += ["--engine", engine]
@@ -275,6 +282,12 @@ Esempi:
         choices=["ollama", "openai", "anthropic"],
         help="Provider LLM per la Fase 2b (default: da config.py).",
     )
+    parser.add_argument(
+        "--llm-text",
+        action="store_true",
+        help="La Fase 4 sintetizza il testo dell'LLM (<nome>_llm.json) invece del "
+        "template. Automatico quando la Fase 2b e' tra le fasi eseguite.",
+    )
 
     args = parser.parse_args()
 
@@ -314,6 +327,7 @@ Esempi:
             epochs=args.epochs,
             no_whisper=args.no_whisper,
             llm_provider=args.llm_provider,
+            use_llm_text=args.llm_text,
         )
         summary[stem] = results
 

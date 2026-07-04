@@ -211,6 +211,9 @@ YOLO_CLASS_MAP: dict[str, str] = {
     "goalkeeper": "goalkeeper",
     "referee": "referee",  # arbitro
     "ball": "sports_ball",  # pallone
+    # NB: la classe "goalpost" del modello e' stata provata come segnale di
+    # "porta inquadrata" per il tiro e SCARTATA: falsi positivi del palo a
+    # centrocampo riportavano i tiri fantasma (retest 4 clip, 4 lug 2026).
 }
 YOLO_CONFIDENCE: float = 0.35
 # La palla e' piccola e spesso sfocata dal motion blur: con la soglia dei
@@ -261,7 +264,35 @@ BALL_TRACKING: dict[str, float] = {
     # YOLO la perde: nella parata il motion blur nasconde la palla per diversi
     # frame e senza memoria il "crollo di velocita'" non viene mai visto.
     "ball_memory_s": 1.0,
+    # Memoria dell'ultima POSIZIONE del portiere, usata SOLO dalla parata:
+    # nel tuffo YOLO perde il GK proprio nei frame decisivi, ma la sua
+    # posizione a schermo resta valida per un paio di secondi. Il TIRO invece
+    # richiede il portiere visto ORA (con la memoria tornerebbero i tiri
+    # fantasma filtrati su possesso_palla_1).
+    "gk_memory_s": 2.0,
+    # Via SEQUENZIALE alla parata (indipendente dalla camera): se entro questa
+    # finestra da un TIRO rilevato la palla si ferma quasi del tutto, e' una
+    # parata anche senza portiere visibile (su camera larga YOLO confonde o
+    # perde i GK e le distanze in px non sono affidabili).
+    "shot_to_save_max_s": 2.5,
 }
+
+# Copia PRISTINA dei default: apply_profile fonde gli override del profilo
+# partendo sempre da qui, cosi' cambiare profilo non eredita i valori del
+# profilo applicato prima.
+_BALL_TRACKING_DEFAULTS: dict[str, float] = dict(BALL_TRACKING)
+
+# Colori dei SEGNALINI sulla minimappa/radar (non le maglie: il radar usa
+# colori stilizzati suoi). Range HSV OpenCV (H 0-179); ogni voce e' una LISTA
+# di intervalli perche' il rosso sta a cavallo dello 0/180. Override
+# per-profilo con la chiave "radar_hsv" (vedi HUD_PROFILES).
+# Default = radar di bra_hai: palla arancione, home giallo, away rosso.
+RADAR_HSV: dict[str, list[tuple[tuple[int, int, int], tuple[int, int, int]]]] = {
+    "ball": [((10, 100, 150), (25, 255, 255))],
+    "home": [((25, 30, 150), (45, 255, 255))],
+    "away": [((0, 50, 100), (10, 255, 255)), ((160, 50, 100), (180, 255, 255))],
+}
+_RADAR_HSV_DEFAULTS = dict(RADAR_HSV)
 
 # Due eventi visivi dello STESSO tipo entro questa finestra sono la stessa
 # azione: a 8 fps una parata soddisfa la condizione su piu' frame consecutivi
@@ -333,7 +364,9 @@ TEMPLATES: dict[str, list[str]] = {
 # --------------------------------------------------------------------------- #
 LLM_PROVIDER: str = "ollama"  # "ollama" (locale) | "openai" | "anthropic"
 LLM_CONFIG: dict[str, dict] = {
-    "ollama": {"model": "gemma3:4b", "base_url": "http://localhost:11434"},
+    # llama3.2:3b invece di llama3 (8B): entra comodo nei 7.6 GB di RAM
+    # disponibili e resta abbastanza veloce su CPU per generare le battute.
+    "ollama": {"model": "llama3.2:3b", "base_url": "http://localhost:11434"},
     "openai": {"model": "gpt-4o-mini", "api_key_env": "OPENAI_API_KEY"},
     "anthropic": {"model": "claude-haiku-4-5-20251001", "api_key_env": "ANTHROPIC_API_KEY"},
 }
@@ -393,7 +426,9 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
 GAP_BETWEEN_UTTERANCES_S: float = 0.15
 TTS_ENGINE: str = "coqui"  # unico motore supportato: Coqui XTTS v2
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
-COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/ref.wav"  # voce (calma) da clonare
+# Voce da clonare: clip CONCITATA (esultanza da gol) al posto della calma
+# ref.wav — prova per dare piu' enfasi a tutta la telecronaca.
+COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/gol_saliente.wav"
 COQUI_SPEAKER_WAV_EXCITED: str | None = (
     None  # 2a clip concitata dello STESSO telecronista (opzionale)
 )
@@ -479,6 +514,89 @@ HUD_PROFILES: dict[str, dict] = {
         "active_side": "home",
         "aspect_min": 0.0,  # fallback (16:9 ~1.78)
     },
+    # Manchester City vs Bayern München (1920x1080, EA FC 26 HUD).
+    "mci_bay": {
+        "regions": {
+            "score": (0.13, 0.05, 0.16, 0.12),
+            "clock": (0.060, 0.090, 0.115, 0.120),
+            "active_player_home": (0.040, 0.880, 0.220, 0.930),
+            "active_player_away": (0.780, 0.880, 0.960, 0.930),
+            "minimap": (0.38, 0.83, 0.62, 0.98),
+        },
+        "roster_home": [  # Manchester City
+            "EDERSON",
+            "WALKER",
+            "DIAS",
+            "AKANJI",
+            "GVARDIOL",
+            "RODRI",
+            "DE BRUYNE",
+            "BERNARDO SILVA",
+            "BERNARDO",
+            "SILVA",
+            "FODEN",
+            "HAALAND",
+            "GREALISH",
+            "DOKU",
+            "KOVACIC",
+            "NUNES",
+            "LEWIS",
+            "STONES",
+            "SAVINHO",
+            "O'REILLY",
+            "SEMENYO",
+            "WRIGHT",
+            "McATEE",
+            "CHERKI",
+        ],
+        "roster_away": [  # Bayern München
+            "NEUER",
+            "KIMMICH",
+            "UPAMECANO",
+            "KIM",
+            "DAVIES",
+            "GORETZKA",
+            "MUSIALA",
+            "SANE",
+            "MULLER",
+            "GNABRY",
+            "KANE",
+            "COMAN",
+            "LAIMER",
+            "GUERREIRO",
+            "PAVLOVIC",
+            "STANIŠIĆ",
+            "STANISIC",
+            "OLISE",
+            "Tel",
+            "PALHINHA",
+            "RAPHAËL GUERREIRO",
+        ],
+        "team_codes": {"home": "MCI", "away": "BAY"},
+        "jersey_hsv": {
+            "home": [((90, 40, 120), (115, 255, 255))],  # azzurro (Man City)
+            "away": [((0, 80, 80), (10, 255, 255)), ((165, 80, 80), (180, 255, 255))],  # rosso
+        },
+        "active_side": None,  # nessun lato fisso, usa euristica
+        "aspect_min": 1.7,  # priorita' su video 16:9 (~1.77)
+        # Soglie di tracking TARATE su questa camera (1080p, inquadratura larga:
+        # le distanze in px sono maggiori che sui video bra_hai 1706x886).
+        # Telemetria: tiri veri con GK a 937/1118 px (vs 259-374 su bra_hai);
+        # a t=13.4 il tiratore era oltre i 100 px del raggio di default.
+        "ball_tracking": {
+            "shot_goal_view_px": 1200.0,
+            "near_player_px": 160.0,
+            "near_goalkeeper_px": 300.0,
+        },
+        # Segnalini del radar di QUESTA interfaccia, misurati sui frame reali:
+        # triangoli azzurri = City (home), cerchi cremisi bordati di bianco =
+        # Bayern (away), croce giallo-ocra = palla.
+        "radar_hsv": {
+            "ball": [((20, 120, 120), (35, 255, 255))],
+            "home": [((90, 60, 120), (115, 255, 255))],
+            "away": [((165, 60, 60), (180, 255, 230)), ((0, 60, 60), (8, 255, 230))],
+        },
+    },
 }
 
 DEFAULT_PROFILE: str = "bra_hai"
@@ -503,7 +621,7 @@ def select_profile(frame_w: int, frame_h: int, name: str = "auto") -> tuple[str,
 def apply_profile(prof: dict) -> None:
     """Riscrive le costanti globali usate dalle fasi con i valori del profilo."""
     global HUD_REGIONS, ROSTER_HOME, ROSTER_AWAY, TEAM_CODES, TEAM_JERSEY_HSV
-    global HUD_ACTIVE_SIDE, ROSTER
+    global HUD_ACTIVE_SIDE, ROSTER, BALL_TRACKING, RADAR_HSV
     HUD_REGIONS = prof["regions"]
     ROSTER_HOME = prof["roster_home"]
     ROSTER_AWAY = prof["roster_away"]
@@ -511,3 +629,8 @@ def apply_profile(prof: dict) -> None:
     TEAM_JERSEY_HSV = prof["jersey_hsv"]
     HUD_ACTIVE_SIDE = prof["active_side"]
     ROSTER = {**{n: "home" for n in ROSTER_HOME}, **{n: "away" for n in ROSTER_AWAY}}
+    # Soglie di tracking per-camera: default pristini + override del profilo
+    # (le distanze in px dipendono da risoluzione e zoom dell'inquadratura).
+    BALL_TRACKING = {**_BALL_TRACKING_DEFAULTS, **prof.get("ball_tracking", {})}
+    # Colori dei segnalini radar di questa interfaccia (default = bra_hai).
+    RADAR_HSV = {**_RADAR_HSV_DEFAULTS, **prof.get("radar_hsv", {})}

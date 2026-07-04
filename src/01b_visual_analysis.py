@@ -35,7 +35,6 @@ logger = get_logger("fase1b_visivo")
 
 
 class Detection(NamedTuple):
-    class_id: int
     class_name: str
     confidence: float
     x1: int
@@ -55,6 +54,11 @@ class BallState(NamedTuple):
     speed: float
     zone: str
     direction_deg: float
+
+
+def _dist(point: tuple[int, int], ball: BallState) -> float:
+    """Distanza punto->palla in px: l'unica formula di distanza del modulo."""
+    return math.hypot(point[0] - ball.x, point[1] - ball.y)
 
 
 class YoloDetector:
@@ -91,17 +95,7 @@ class YoloDetector:
                 if float(box.conf[0]) < floor:
                     continue
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                detections.append(
-                    Detection(
-                        class_id=cls_id,
-                        class_name=mapped_name,
-                        confidence=float(box.conf[0]),
-                        x1=x1,
-                        y1=y1,
-                        x2=x2,
-                        y2=y2,
-                    )
-                )
+                detections.append(Detection(mapped_name, float(box.conf[0]), x1, y1, x2, y2))
         return detections
 
 
@@ -152,9 +146,10 @@ class BallTracker:
 class PossessionTracker:
     """
     Legge il possesso palla analizzando la minimappa (radar).
-    - Maschera i colori delle squadre (giallo = home, rosso/magenta = away)
-    - Cerca la palla (arancione intenso)
-    - Assegna il possesso alla squadra più vicina all'ultima posizione nota della palla.
+    - Maschera i SEGNALINI delle squadre e della palla coi colori del profilo
+      attivo (config.RADAR_HSV: ogni interfaccia ha i suoi).
+    - Assegna il possesso alla squadra piu' vicina all'ultima posizione nota
+      della palla, con isteresi + debounce anti-flicker.
     """
 
     HYSTERESIS_PX = 8.0  # bonus (px) alla squadra gia' in possesso: anti-flicker
@@ -183,28 +178,22 @@ class PossessionTracker:
         radar = frame[ry1:ry2, rx1:rx2]
         hsv = cv2.cvtColor(radar, cv2.COLOR_BGR2HSV)
 
-        # Blob colorati sul radar: palla (arancione), home (giallo),
-        # away (rosso, che in HSV sta a cavallo dello 0/180).
-        orange = self._blobs(cv2.inRange(hsv, (10, 100, 150), (25, 255, 255)))
-        yellow = self._blobs(cv2.inRange(hsv, (25, 30, 150), (45, 255, 255)))
-        red = self._blobs(
-            cv2.bitwise_or(
-                cv2.inRange(hsv, (0, 50, 100), (10, 255, 255)),
-                cv2.inRange(hsv, (160, 50, 100), (180, 255, 255)),
-            )
-        )
+        # Segnalini di palla e squadre, coi colori del PROFILO attivo.
+        ball_dots = self._blobs(self._mask(hsv, config.RADAR_HSV["ball"]))
+        home_dots = self._blobs(self._mask(hsv, config.RADAR_HSV["home"]))
+        away_dots = self._blobs(self._mask(hsv, config.RADAR_HSV["away"]))
 
-        # La palla e' il blob arancione con l'area maggiore (la croce vera);
-        # se sparisce per qualche frame vale l'ultima posizione nota.
-        if orange:
-            self.last_ball_pos = max(orange, key=lambda b: b[1])[0]
+        # La palla e' il blob del suo colore con l'area maggiore (la croce
+        # vera); se sparisce per qualche frame vale l'ultima posizione nota.
+        if ball_dots:
+            self.last_ball_pos = max(ball_dots, key=lambda b: b[1])[0]
         if self.last_ball_pos is None:
             return self.current, 0.0
 
         # Squadra col giocatore piu' vicino alla palla, con una piccola
         # isteresi a favore di chi ha gia' il possesso (anti-flicker).
-        dist_home = self._nearest(yellow, self.last_ball_pos)
-        dist_away = self._nearest(red, self.last_ball_pos)
+        dist_home = self._nearest(home_dots, self.last_ball_pos)
+        dist_away = self._nearest(away_dots, self.last_ball_pos)
         if self.current == "home":
             dist_home -= self.HYSTERESIS_PX
         elif self.current == "away":
@@ -219,6 +208,17 @@ class PossessionTracker:
         if self.count >= self.confirm:
             self.current = self.pending
         return self.current, 1.0
+
+    @staticmethod
+    def _mask(hsv, ranges) -> "object":
+        """Maschera binaria = OR degli intervalli HSV (piu' di uno quando il
+        colore sta a cavallo dello 0/180, come il rosso)."""
+        import cv2
+
+        mask = cv2.inRange(hsv, *ranges[0])
+        for lo, hi in ranges[1:]:
+            mask = cv2.bitwise_or(mask, cv2.inRange(hsv, lo, hi))
+        return mask
 
     @staticmethod
     def _blobs(mask) -> list[tuple[tuple[int, int], float]]:
@@ -242,121 +242,161 @@ class PossessionTracker:
         )
 
 
+class FrameContext(NamedTuple):
+    """Misure del frame corrente, calcolate UNA volta in _context() e lette
+    da tutte le regole evento e dalla telemetria (niente ricalcoli sparsi)."""
+
+    nearby: int  # giocatori (portiere incluso) entro near_player_px dalla palla
+    in_box: bool  # palla in una penalty_area delle FIELD_ZONES
+    gk_dist: float  # portiere visto in QUESTO frame (criterio del TIRO)
+    gk_mem: float  # portiere visto ora O ricordato entro gk_memory_s (PARATA)
+
+
 class VisualEventClassifier:
-    """Classifica eventi da detection + ball tracking (complementare all'OCR)."""
+    """Classifica eventi dal moto della palla (complementare all'OCR).
+
+    PATTERN: una regola per evento = un metodo dedicato (_is_save, _shot_type,
+    _is_dribble, _is_corner) che legge il FrameContext; classify() misura il
+    contesto una volta, prova le regole in ordine di priorita' e applica il
+    cooldown anti-duplicati. Le soglie vengono da config.BALL_TRACKING
+    (default + override del profilo camera attivo).
+    """
 
     def __init__(self) -> None:
+        self.t = config.BALL_TRACKING
         self.prev_ball: BallState | None = None
         self.prev_near = 0
         self.prev_gk_dist = float("inf")
-        # Ultimo timestamp per tipo di evento: serve al cooldown anti-duplicati
-        # (a 8 fps la stessa azione soddisfa la condizione su piu' frame).
+        # Ultima posizione NOTA del portiere (timestamp, (x, y)): nel tuffo
+        # della parata YOLO lo perde proprio nei frame decisivi.
+        self._gk_seen: tuple[float, tuple[int, int]] | None = None
+        # Ultimo timestamp per tipo di evento (cooldown anti-duplicati: a
+        # 8 fps la stessa azione soddisfa la condizione su piu' frame).
         self._last_event_t: dict[str, float] = {}
-        self.t = config.BALL_TRACKING
+        self.last_ctx: FrameContext | None = None  # esposto per la telemetria
 
-    @staticmethod
-    def _players_near(ball: BallState, detections: list[Detection], radius: float) -> int:
-        # Il portiere conta come giocatore ai fini della densita' intorno alla palla.
-        players = [d for d in detections if d.class_name in ("person", "goalkeeper")]
-        return sum(
-            1 for p in players if math.hypot(p.center[0] - ball.x, p.center[1] - ball.y) < radius
+    # ------------------------- misure di contesto ------------------------ #
+    def _context(
+        self, timestamp: float, ball: BallState, detections: list[Detection]
+    ) -> FrameContext:
+        gks = [d.center for d in detections if d.class_name == "goalkeeper"]
+        if gks:
+            self._gk_seen = (timestamp, min(gks, key=lambda c: _dist(c, ball)))
+        gk_dist = min((_dist(c, ball) for c in gks), default=float("inf"))
+        # Memoria del portiere: la posizione resta valida per gk_memory_s.
+        gk_mem = float("inf")
+        if self._gk_seen and timestamp - self._gk_seen[0] <= self.t["gk_memory_s"]:
+            gk_mem = _dist(self._gk_seen[1], ball)
+        # Il portiere conta come giocatore nella densita' intorno alla palla.
+        people = [d.center for d in detections if d.class_name in ("person", "goalkeeper")]
+        nearby = sum(1 for c in people if _dist(c, ball) < self.t["near_player_px"])
+        return FrameContext(nearby, "penalty_area" in ball.zone, gk_dist, gk_mem)
+
+    # ------------------- regole (una per tipo di evento) ----------------- #
+    def _is_save(self, timestamp: float, ball: BallState, ctx: FrameContext) -> bool:
+        """PARATA = palla che arrivava a velocita' da tiro e CROLLA. Contesto
+        richiesto (uno dei due): portiere vicino, visto o ricordato (il tuffo
+        lo nasconde a YOLO); oppure la via SEQUENZIALE tiro-recente + palla
+        quasi ferma, che non dipende da distanze in px (robusta al cambio di
+        camera) e non promuove a parata i rimbalzi che restano in moto."""
+        if self.prev_ball is None or self.prev_ball.speed <= self.t["min_speed_shot"]:
+            return False
+        if ball.speed >= self.prev_ball.speed * self.t["save_drop_ratio"]:
+            return False
+        last_shot_t = max(
+            self._last_event_t.get("shot_on_goal", float("-inf")),
+            self._last_event_t.get("shot_off", float("-inf")),
+        )
+        after_shot = (
+            timestamp - last_shot_t <= self.t["shot_to_save_max_s"]
+            and ball.speed < self.t["min_speed_pass"]
+        )
+        return ctx.gk_mem < self.t["near_goalkeeper_px"] or after_shot
+
+    def _shot_type(self, ball: BallState, ctx: FrameContext) -> str | None:
+        """TIRO = calcio improvviso (lento -> veloce) con qualcuno addosso
+        alla palla e la porta inquadrata: portiere visto ORA o al campione
+        prima (niente memoria lunga: riporterebbe i tiri fantasma)."""
+        # NB: il palo (classe goalpost) come segnale alternativo di "porta
+        # inquadrata" e' stato PROVATO e SCARTATO: nel retest riportava tiri
+        # e parate fantasma sulle clip di solo possesso (falsi positivi del
+        # palo a centrocampo). Resta solo il criterio del portiere.
+        if not (
+            self.prev_ball is not None
+            and self.prev_ball.speed < self.t["min_speed_shot"] < ball.speed
+            and ctx.nearby >= 1
+            and min(ctx.gk_dist, self.prev_gk_dist) < self.t["shot_goal_view_px"]
+        ):
+            return None
+        if ctx.in_box:
+            return "shot_on_goal"
+        # Fuori area il tiro deve andare verso una porta (moto ~orizzontale).
+        goalward = abs(math.cos(math.radians(ball.direction_deg))) > 0.5
+        return "shot_off" if goalward else None
+
+    def _is_dribble(self, ball: BallState, ctx: FrameContext) -> bool:
+        """DRIBBLING = traffico di giocatori persistente + palla a velocita' media."""
+        return (
+            ctx.nearby >= 3
+            and self.prev_near >= 3
+            and self.t["min_speed_pass"] < ball.speed < self.t["min_speed_shot"]
         )
 
-    @staticmethod
-    def _goalkeeper_dist(ball: BallState, detections: list[Detection]) -> float:
-        """Distanza (px) dal portiere piu' vicino; inf se YOLO non ne vede."""
-        dists = [
-            math.hypot(d.center[0] - ball.x, d.center[1] - ball.y)
-            for d in detections
-            if d.class_name == "goalkeeper"
-        ]
-        return min(dists) if dists else float("inf")
+    def _is_corner(self, ball: BallState, ctx: FrameContext) -> bool:
+        """CORNER = palla ferma in area dopo essere arrivata veloce."""
+        return (
+            ball.speed < 5.0
+            and ctx.in_box
+            and self.prev_ball is not None
+            and self.prev_ball.speed > self.t["min_speed_pass"]
+        )
 
+    # ------------------------------ dispatch ----------------------------- #
     def classify(
         self, timestamp: float, ball: BallState | None, detections: list[Detection]
     ) -> dict | None:
         if ball is None:
-            # NON si azzera subito la memoria: a 8 fps YOLO perde la palla
-            # per qualche frame proprio nei momenti concitati (motion blur
-            # del tiro). Si dimentica solo se il buco supera ball_memory_s;
-            # il timestamp dell'ultimo avvistamento e' gia' in BallState.
+            # La palla si dimentica solo se il buco supera ball_memory_s: il
+            # motion blur del tiro la nasconde proprio nei frame decisivi.
             if (
                 self.prev_ball is not None
                 and timestamp - self.prev_ball.timestamp > self.t["ball_memory_s"]
             ):
                 self.prev_ball = None
+            self.last_ctx = None
             return None
 
-        nearby = self._players_near(ball, detections, self.t["near_player_px"])
-        in_box = "penalty_area" in ball.zone
+        ctx = self.last_ctx = self._context(timestamp, ball, detections)
+
+        # Regole in ordine di priorita' (la prima che scatta vince).
+        if self._is_save(timestamp, ball, ctx):
+            etype, label = "save", "blocked"
+        elif shot := self._shot_type(ball, ctx):
+            etype, label = shot, "very_high" if shot == "shot_on_goal" else "high"
+        elif self._is_dribble(ball, ctx):
+            etype, label = "dribble", "medium"
+        elif self._is_corner(ball, ctx):
+            etype, label = "corner", "stopped"
+        else:
+            etype, label = None, ""
+
         event = None
+        if etype and self._cooldown_ok(etype, timestamp):
+            event = self._mk(timestamp, etype, ball, ctx.nearby, label)
 
-        # --- PARATA: la palla arrivava veloce (tiro) e CROLLA di velocita'
-        #     addosso al PORTIERE (classe YOLO dedicata) -> presa/respinta.
-        #     Vale il portiere vicino ORA o al campione PRECEDENTE: al momento
-        #     del crollo la palla puo' essere gia' rimbalzata via dal corpo.
-        #     Fallback senza portiere rilevato: crollo in area con un giocatore
-        #     vicino (vecchio criterio, per i frame in cui YOLO perde il GK). ---
-        gk_dist = self._goalkeeper_dist(ball, detections)
-        near_gk = min(gk_dist, self.prev_gk_dist) < self.t["near_goalkeeper_px"]
-        if (
-            self.prev_ball is not None
-            and self.prev_ball.speed > self.t["min_speed_shot"]
-            and ball.speed < self.prev_ball.speed * self.t["save_drop_ratio"]
-            and (near_gk or (in_box and nearby >= 1))
-        ):
-            event = self._mk(timestamp, "save", ball, nearby, "blocked")
-
-        # --- TIRO: accelerazione brusca causata da un giocatore, col PORTIERE
-        #     in vista (la porta e' inquadrata). Senza questo vincolo i
-        #     passaggi forti a centrocampo (380-550 px/s, GK assente)
-        #     diventano tiri fantasma. ---
-        elif (
-            ball.speed > self.t["min_speed_shot"]
-            and self.prev_ball is not None
-            and self.prev_ball.speed
-            < self.t["min_speed_shot"]  # e' un CALCIO, non moto gia' in volo o un salto isolato
-            and nearby >= 1  # c'e' qualcuno che l'ha colpita
-            and min(gk_dist, self.prev_gk_dist) < self.t["shot_goal_view_px"]
-        ):
-            if in_box:
-                event = self._mk(timestamp, "shot_on_goal", ball, nearby, "very_high")
-            else:
-                # fuori area accettiamo il tiro solo se va verso una porta (moto ~orizzontale)
-                goalward = abs(math.cos(math.radians(ball.direction_deg))) > 0.5
-                if goalward:
-                    event = self._mk(timestamp, "shot_off", ball, nearby, "high")
-
-        # --- DRIBBLING: molti giocatori vicini + palla a velocita' media ---
-        elif (
-            nearby >= 3
-            and self.prev_near >= 3
-            and self.t["min_speed_pass"] < ball.speed < self.t["min_speed_shot"]
-        ):
-            event = self._mk(timestamp, "dribble", ball, nearby, "medium")
-
-        # --- CORNER: palla ferma in area dopo essere arrivata veloce ---
-        elif (
-            ball.speed < 5.0
-            and in_box
-            and self.prev_ball
-            and self.prev_ball.speed > self.t["min_speed_pass"]
-        ):
-            event = self._mk(timestamp, "corner", ball, nearby, "stopped")
-
-        # Cooldown: lo stesso tipo di evento entro VISUAL_EVENT_COOLDOWN_S e'
-        # la stessa azione vista su piu' frame -> si tiene solo la prima.
-        if event is not None:
-            last_t = self._last_event_t.get(event["type"], float("-inf"))
-            if timestamp - last_t < config.VISUAL_EVENT_COOLDOWN_S:
-                event = None
-            else:
-                self._last_event_t[event["type"]] = timestamp
-
-        self.prev_ball = ball
-        self.prev_near = nearby
-        self.prev_gk_dist = gk_dist
+        self.prev_ball, self.prev_near, self.prev_gk_dist = ball, ctx.nearby, ctx.gk_dist
         return event
+
+    def _cooldown_ok(self, etype: str, timestamp: float) -> bool:
+        """Lo stesso tipo di evento entro il cooldown e' la stessa azione
+        vista su piu' frame: si tiene solo la prima occorrenza."""
+        if (
+            timestamp - self._last_event_t.get(etype, float("-inf"))
+            < config.VISUAL_EVENT_COOLDOWN_S
+        ):
+            return False
+        self._last_event_t[etype] = timestamp
+        return True
 
     @staticmethod
     def _mk(t: float, etype: str, ball: BallState, nearby: int, speed_label: str) -> dict:
@@ -473,38 +513,28 @@ class ControlledPlayerDetector:
 
     @staticmethod
     def _match_roster(name: str) -> str | None:
-        """Match del nome letto contro le rose in config."""
+        """Squadra del nome letto: contenimento diretto, poi fuzzy (>0.65)."""
         from difflib import SequenceMatcher
 
         nc = name.replace(" ", "")
-        # (a) Contenimento diretto
-        for r in config.ROSTER_HOME:
-            rc = r.replace(" ", "")
-            if nc in rc or rc in nc:
-                return "home"
-        for r in config.ROSTER_AWAY:
-            rc = r.replace(" ", "")
-            if nc in rc or rc in nc:
-                return "away"
-        # (b) Fuzzy
-        best_score, best_team = 0.0, None
-        for r in config.ROSTER_HOME:
-            s = SequenceMatcher(None, nc, r.replace(" ", "")).ratio()
-            if s > best_score:
-                best_score, best_team = s, "home"
-        for r in config.ROSTER_AWAY:
-            s = SequenceMatcher(None, nc, r.replace(" ", "")).ratio()
-            if s > best_score:
-                best_score, best_team = s, "away"
-
-        if best_score > 0.65:
-            return best_team
-        return None
+        rosters = ((config.ROSTER_HOME, "home"), (config.ROSTER_AWAY, "away"))
+        # (a) Contenimento diretto (frammenti tronchi: "INHOS" in "MARQUINHOS").
+        for roster, team in rosters:
+            if any(nc in r.replace(" ", "") or r.replace(" ", "") in nc for r in roster):
+                return team
+        # (b) Miglior somiglianza fuzzy tra TUTTI i nomi delle due rose.
+        best_score, best_team = max(
+            (SequenceMatcher(None, nc, r.replace(" ", "")).ratio(), team)
+            for roster, team in rosters
+            for r in roster
+        )
+        return best_team if best_score > 0.65 else None
 
 
 def analyze_video(
     video_path: Path, limit: int | None = None, ocr_events: list[dict] | None = None
-) -> tuple[list[dict], list[dict]]:
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """Ritorna (eventi_arricchiti, timeline_possesso, telemetria_palla)."""
     detector = YoloDetector()
     tracker = BallTracker()
     classifier = VisualEventClassifier()
@@ -533,20 +563,6 @@ def analyze_video(
         detections = detector.detect(frame)
         ball = tracker.update(timestamp, detections, frame.shape)
 
-        if ball is not None:
-            gk_dist = VisualEventClassifier._goalkeeper_dist(ball, detections)
-            ball_timeline.append(
-                {
-                    "t": round(timestamp, 2),
-                    "speed_px_s": round(ball.speed, 1),
-                    "zone": ball.zone,
-                    "gk_dist_px": None if math.isinf(gk_dist) else round(gk_dist, 1),
-                    "players_near": VisualEventClassifier._players_near(
-                        ball, detections, config.BALL_TRACKING["near_player_px"]
-                    ),
-                }
-            )
-
         # --- possesso dai colori squadra sulla minimappa (radar) ---
         poss_team, poss_fill = possession.update(frame)
         possession_timeline.append(
@@ -561,6 +577,22 @@ def analyze_video(
         carrier_name, carrier_team = controlled.detect(frame)
 
         event = classifier.classify(timestamp, ball, detections)
+
+        # Telemetria: le stesse misure gia' calcolate da classify() (FrameContext),
+        # senza ricalcoli. Serve a calibrare BALL_TRACKING sui numeri reali.
+        if ball is not None and classifier.last_ctx is not None:
+            ctx = classifier.last_ctx
+            ball_timeline.append(
+                {
+                    "t": round(timestamp, 2),
+                    "speed_px_s": round(ball.speed, 1),
+                    "zone": ball.zone,
+                    "gk_dist_px": None if math.isinf(ctx.gk_dist) else round(ctx.gk_dist, 1),
+                    "gk_mem_px": None if math.isinf(ctx.gk_mem) else round(ctx.gk_mem, 1),
+                    "players_near": ctx.nearby,
+                }
+            )
+
         if event is not None:
             event["n_players"] = sum(
                 1 for d in detections if d.class_name in ("person", "goalkeeper")
