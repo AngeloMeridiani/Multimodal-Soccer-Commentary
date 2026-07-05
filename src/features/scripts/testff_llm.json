@@ -1,0 +1,122 @@
+[
+  {
+    "t": 0.0,
+    "text": "La gioca CHERKI.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 4.5,
+    "text": "HAALAND controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 6.01,
+    "text": "SEMENYO controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 7.51,
+    "text": "La gioca GUEHI.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 10.51,
+    "text": "Apertura per RODRI.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 11.01,
+    "text": "CHERKI controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 11.51,
+    "text": "RODRI controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 12.51,
+    "text": "GUEHI controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 15.52,
+    "text": "La gioca SILVA.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 16.02,
+    "text": "CHERKI controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 18.52,
+    "text": "La gioca RODRI.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 25.53,
+    "text": "La gioca GUEHI.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 27.53,
+    "text": "La gioca DONNARUMMA.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 30.53,
+    "text": "KHUSANOV controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 34.53,
+    "text": "La gioca HAALAND.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  }
+]

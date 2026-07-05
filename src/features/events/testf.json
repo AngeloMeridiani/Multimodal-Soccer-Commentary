@@ -1,0 +1,107 @@
+[
+  {
+    "t": 5.0,
+    "type": "pass",
+    "player": "MUSIALA",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "MUSIALA",
+    "player_away": "CHERKI",
+    "importance": 0.25,
+    "score": null,
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 7.01,
+    "type": "pass",
+    "player": "KANE",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "KANE",
+    "player_away": "HAALAND",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 9.01,
+    "type": "pass",
+    "player": "PAVLOVIC",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.43,
+    "player_home": "PAVLOVIC",
+    "player_away": "SILVA",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 15.02,
+    "type": "pass",
+    "player": "STANISIC",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.47,
+    "player_home": "STANISIC",
+    "player_away": "SEMENYO",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 19.52,
+    "type": "pass",
+    "player": "NEUER",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.46,
+    "player_home": "NEUER",
+    "player_away": "HAALAND",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 21.02,
+    "type": "pass",
+    "player": "OLISE",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.55,
+    "player_home": "OLISE",
+    "player_away": "DOKU",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  }
+]

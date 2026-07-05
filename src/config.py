@@ -299,10 +299,34 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
 # --------------------------------------------------------------------------- #
 GAP_BETWEEN_UTTERANCES_S: float = 0.15
 VOICE_STYLE: str = "dark_hero"          # etichetta descrittiva (NON voce clonata)
-TTS_ENGINE: str = "gtts"                # "gtts" | "pyttsx3" | "coqui"
+TTS_ENGINE: str = "coqui"               # unico motore realmente supportato (XTTS v2)
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
-COQUI_SPEAKER_WAV: str | None = None
 COQUI_LANGUAGE: str = "it"
+
+# --- Voce clonata (voice cloning zero-shot XTTS v2) ------------------------- #
+# Riferimento vocale BASE: il tono "di lavoro" del telecronista (voce calda,
+# presente ma non urlata). XTTS clona timbro e stile da questo file.
+# WAV mono, pulito, ~10-20s. Percorso relativo alla root del progetto.
+COQUI_SPEAKER_WAV: str | None = "data/raw/voice/mia_voce.wav"
+# Riferimento vocale CONCITATO (opzionale): usato SOLO sugli eventi importanti
+# (importanza >= EMPHASIS_IMPORTANCE_THRESHOLD), es. gol/parate. Se None, per
+# tutti gli eventi si usa COQUI_SPEAKER_WAV. Consigliato per un effetto "boato".
+COQUI_SPEAKER_WAV_EXCITED: str | None = None
+# Es. per attivarlo: "data/raw/voice/mia_voce_concitata.wav"
+
+# --- Parametri di sintesi XTTS --------------------------------------------- #
+# Velocità base del parlato (1.0 = naturale). Il modello di prosodia (Fase 3)
+# la modula per evento tramite rate_factor; COQUI_SPEED_CLAMP la tiene in range.
+COQUI_SPEED: float = 1.0
+COQUI_SPEED_CLAMP: tuple[float, float] = (0.85, 1.35)
+# Lunghezza massima (caratteri) di un blocco di battute unite e sintetizzate in
+# un'unica passata -> prosodia connessa. XTTS regge bene ~200-250 caratteri.
+COQUI_CHUNK_MAX_CHARS: int = 220
+# Sopra questa importanza l'evento e' "concitato": attiva la voce excited (se
+# presente) e permette al blocco di ricevere enfasi propria.
+EMPHASIS_IMPORTANCE_THRESHOLD: float = 0.70
+# Rampa di fade-in (ms) in testa a ogni blocco: smorza l'attacco "rauco" di XTTS.
+ONSET_FADE_MS: int = 15
 
 
 # =========================================================================== #

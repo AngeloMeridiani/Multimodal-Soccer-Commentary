@@ -1,0 +1,50 @@
+[
+  {
+    "t": 5.0,
+    "text": "La gioca MUSIALA.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 7.01,
+    "text": "KANE controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 9.01,
+    "text": "PAVLOVIC controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 15.02,
+    "text": "La gioca STANISIC.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 19.52,
+    "text": "Apertura per NEUER.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  },
+  {
+    "t": 21.02,
+    "text": "OLISE controlla.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "medium",
+    "source": "llm"
+  }
+]
