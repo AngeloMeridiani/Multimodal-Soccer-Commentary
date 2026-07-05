@@ -30,8 +30,8 @@ logger = get_logger("calibrazione_hud")
 
 # Colore per ogni regione (BGR) — solo per l'anteprima.
 _COLORS = {
-    "score":              (60, 200, 60),
-    "clock":              (60, 200, 200),
+    "score": (60, 200, 60),
+    "clock": (60, 200, 200),
     "active_player_home": (220, 120, 60),
     "active_player_away": (120, 60, 220),
 }
@@ -45,18 +45,27 @@ def draw_regions(frame, regions: dict) -> "cv2.Mat":
         p2 = (int(x2 * w), int(y2 * h))
         color = _COLORS.get(name, (0, 0, 255))
         cv2.rectangle(annotated, p1, p2, color, 2)
-        cv2.putText(annotated, name, (p1[0], max(p1[1] - 6, 12)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
+        cv2.putText(
+            annotated,
+            name,
+            (p1[0], max(p1[1] - 6, 12)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            color,
+            1,
+            cv2.LINE_AA,
+        )
     return annotated
 
 
 def run_ocr(frame, regions: dict) -> dict[str, str]:
     import easyocr
+
     reader = easyocr.Reader(config.OCR_LANGUAGES, gpu=False)
     h, w = frame.shape[:2]
     results: dict[str, str] = {}
     for name, (x1, y1, x2, y2) in regions.items():
-        crop = frame[int(y1 * h):int(y2 * h), int(x1 * w):int(x2 * w)]
+        crop = frame[int(y1 * h) : int(y2 * h), int(x1 * w) : int(x2 * w)]
         if crop.size == 0:
             results[name] = ""
             continue
@@ -68,11 +77,16 @@ def run_ocr(frame, regions: dict) -> dict[str, str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Calibrazione regioni HUD")
     parser.add_argument("--video", required=True, help="Percorso del video.")
-    parser.add_argument("--time", type=float, default=None,
-                        help="Secondo da cui estrarre il frame (default: meta' clip).")
+    parser.add_argument(
+        "--time",
+        type=float,
+        default=None,
+        help="Secondo da cui estrarre il frame (default: meta' clip).",
+    )
     parser.add_argument("--ocr", action="store_true", help="Esegui anche l'OCR sulle regioni.")
-    parser.add_argument("--raw", action="store_true",
-                        help="NON normalizzare (mostra il frame grezzo).")
+    parser.add_argument(
+        "--raw", action="store_true", help="NON normalizzare (mostra il frame grezzo)."
+    )
     args = parser.parse_args()
 
     video_path = Path(args.video)
@@ -106,8 +120,10 @@ def main() -> None:
         except ImportError:
             logger.warning("EasyOCR non installato: salto l'OCR. (pip install easyocr)")
 
-    logger.info("Apri l'immagine e, se le box non combaciano, correggi "
-                "config.HUD_REGIONS (coordinate normalizzate sul frame normalizzato).")
+    logger.info(
+        "Apri l'immagine e, se le box non combaciano, correggi "
+        "config.HUD_REGIONS (coordinate normalizzate sul frame normalizzato)."
+    )
 
 
 if __name__ == "__main__":

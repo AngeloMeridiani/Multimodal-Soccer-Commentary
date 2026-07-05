@@ -52,12 +52,14 @@ class ScriptGenerator:
             else:
                 player = ev.get("player", "il giocatore")
             text = template.format(player=player)
-            script.append({
-                "t": ev["t"],
-                "text": text,
-                "event_type": ev["type"],
-                "importance": ev["importance"],
-            })
+            script.append(
+                {
+                    "t": ev["t"],
+                    "text": text,
+                    "event_type": ev["type"],
+                    "importance": ev["importance"],
+                }
+            )
         return script
 
 
@@ -77,7 +79,7 @@ def main() -> None:
 
     logger.info("Generate %d battute -> %s", len(script), out_path)
     if script:
-        logger.info("Anteprima: \"%s\"", script[0]["text"])
+        logger.info('Anteprima: "%s"', script[0]["text"])
     logger.info("Fase 2 completata.")
 
 

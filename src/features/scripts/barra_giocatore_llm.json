@@ -1,39 +1,39 @@
 [
   {
-    "t": 0.25,
-    "text": "La gioca TAH.",
+    "t": 0.0,
+    "text": "Tah lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 3.25,
-    "text": "TAH controlla.",
+    "t": 3.0,
+    "text": "Kimmich.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
-    "t": 5.26,
-    "text": "KIMMICH controlla.",
+    "t": 5.0,
+    "text": "Olise.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
     "t": 6.01,
-    "text": "La gioca OLISE.",
+    "text": "Tah.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
-    "t": 7.76,
-    "text": "Apertura per TAH.",
+    "t": 7.51,
+    "text": "Olise conduce.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -41,63 +41,63 @@
   },
   {
     "t": 9.51,
-    "text": "OLISE controlla.",
+    "text": "Ollie conduce.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 11.26,
-    "text": "OLISE controlla.",
+    "t": 11.01,
+    "text": "Tah lancia in profondità.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 12.26,
-    "text": "TAH controlla.",
+    "t": 12.01,
+    "text": "Pavlovic.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
-    "t": 14.26,
-    "text": "La gioca PAVLOVIC.",
+    "t": 14.01,
+    "text": "Stanisic.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
     "t": 15.02,
-    "text": "STANISIC controlla.",
+    "text": "Stanisic.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
-    "t": 16.77,
-    "text": "Cambio di fronte, ora CHERKI.",
+    "t": 16.52,
+    "text": "Cherki conduce.",
     "event_type": "turnover",
     "importance": 0.25,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 17.27,
-    "text": "La gioca CHERKI.",
+    "t": 17.02,
+    "text": "Haaland.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
     "t": 18.52,
-    "text": "La gioca HAALAND.",
+    "text": "Cherki smarca.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -105,79 +105,79 @@
   },
   {
     "t": 19.02,
-    "text": "CHERKI controlla.",
+    "text": "Semenyo.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
     "t": 21.52,
-    "text": "La gioca SEMENYO.",
+    "text": "Semenyo lancia verso l’area!",
     "event_type": "pass",
     "importance": 0.55,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 23.27,
-    "text": "Apertura per SEMENYO.",
+    "t": 23.02,
+    "text": "Cherki.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "name_only"
+  },
+  {
+    "t": 24.52,
+    "text": "Semenyo conduce.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 24.77,
-    "text": "CHERKI controlla.",
+    "t": 25.53,
+    "text": "Cherki lancia…",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 25.78,
-    "text": "SEMENYO controlla.",
+    "t": 27.03,
+    "text": "Rodri.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
-    "source": "llm"
-  },
-  {
-    "t": 27.28,
-    "text": "CHERKI controlla.",
-    "event_type": "pass",
-    "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "llm"
+    "source": "name_only"
   },
   {
     "t": 28.53,
-    "text": "CHERKI controlla.",
+    "text": "Haaland avanza.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 29.28,
-    "text": "HAALAND controlla.",
+    "t": 29.03,
+    "text": "Haaland lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 31.28,
-    "text": "La gioca HAALAND.",
+    "t": 31.03,
+    "text": "Haaland distribuisce verso l'area!",
     "event_type": "pass",
     "importance": 0.55,
     "crowd_excitement": "low",
     "source": "llm"
   },
   {
-    "t": 31.78,
-    "text": "HAALAND la mette dentro! GOL!",
+    "t": 32.03,
+    "text": "Haaland insacca! Un colpo magistrale che fa esplodere lo Stadio!",
     "event_type": "goal",
     "importance": 1.0,
     "crowd_excitement": "low",

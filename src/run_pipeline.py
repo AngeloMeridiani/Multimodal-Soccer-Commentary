@@ -33,12 +33,12 @@ import time
 from pathlib import Path
 
 # ── Colori per output leggibile ──────────────────────────────────────────── #
-GREEN  = "\033[92m"
-RED    = "\033[91m"
+GREEN = "\033[92m"
+RED = "\033[91m"
 YELLOW = "\033[93m"
-CYAN   = "\033[96m"
-BOLD   = "\033[1m"
-RESET  = "\033[0m"
+CYAN = "\033[96m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
 
 SRC_DIR = Path(__file__).resolve().parent
 PHASE_ORDER = ["1", "1b", "1c", "2", "2b", "3", "4", "5"]
@@ -79,7 +79,8 @@ def discover_videos() -> list[str]:
     gameplay_dir = SRC_DIR / "data" / "raw" / "gameplay"
     exts = {".mov", ".mp4", ".avi", ".mkv", ".webm"}
     videos = sorted(
-        str(p) for p in gameplay_dir.iterdir()
+        str(p)
+        for p in gameplay_dir.iterdir()
         if p.suffix.lower() in exts and not p.name.startswith(".")
     )
     return videos
@@ -94,12 +95,13 @@ def run_pipeline(
     epochs: int,
     no_whisper: bool = False,
     llm_provider: str | None = None,
+    use_llm_text: bool = False,
 ) -> dict[str, bool]:
     """Esegue le fasi selezionate per un singolo video."""
     stem = get_stem(video)
-    events_json   = f"features/events/{stem}.json"
+    events_json = f"features/events/{stem}.json"
     enriched_json = f"features/events/{stem}_enriched.json"
-    script_json   = f"features/scripts/{stem}.json"
+    script_json = f"features/scripts/{stem}.json"
     results: dict[str, bool] = {}
 
     # ── FASE 1: Estrazione eventi (OCR HUD) ──────────────────────────── #
@@ -174,9 +176,15 @@ def run_pipeline(
     if "4" in phases:
         step_header(4, "Sintesi audio")
         llm_script = f"features/scripts/{stem}_llm.json"
-        actual_script = script_json
-        if not (SRC_DIR / script_json).exists() and (SRC_DIR / llm_script).exists():
-            actual_script = llm_script
+        # Scelta del TESTO da sintetizzare. Prima il template vinceva sempre
+        # (lo script LLM veniva usato solo se il template mancava): la Fase 2b
+        # girava per niente. Ora l'LLM ha la precedenza quando e' richiesto
+        # esplicitamente (--llm-text) o quando la 2b fa parte di questa run;
+        # in ogni caso si ripiega sull'altro file se il preferito non esiste.
+        prefer_llm = use_llm_text or "2b" in phases
+        candidates = [llm_script, script_json] if prefer_llm else [script_json, llm_script]
+        actual_script = next((c for c in candidates if (SRC_DIR / c).exists()), script_json)
+        print(f"  {CYAN}Testo:{RESET} {actual_script}")
         cmd = [sys.executable, "04_synthesize.py", "--script", actual_script]
         if engine:
             cmd += ["--engine", engine]
@@ -185,8 +193,11 @@ def run_pipeline(
         # Anche rule-based se richiesto
         if both_modes:
             cmd_rule = [
-                sys.executable, "04_synthesize.py",
-                "--script", actual_script, "--rule-based",
+                sys.executable,
+                "04_synthesize.py",
+                "--script",
+                actual_script,
+                "--rule-based",
             ]
             if engine:
                 cmd_rule += ["--engine", engine]
@@ -218,42 +229,64 @@ Esempi:
         """,
     )
     parser.add_argument(
-        "--video", type=str, default=None,
+        "--video",
+        type=str,
+        default=None,
         help="Percorso del video di gameplay.",
     )
     parser.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Esegui la pipeline su TUTTI i video in data/raw/gameplay/.",
     )
     parser.add_argument(
-        "--phases", nargs="+", type=str,
+        "--phases",
+        nargs="+",
+        type=str,
         default=["1", "1b", "1c", "2", "2b", "3", "4"],
         help="Fasi da eseguire (default: 1 1b 1c 2 2b 3 4). Usa 5 per lo studio A/B.",
     )
     parser.add_argument(
-        "--profile", type=str, default="auto",
+        "--profile",
+        type=str,
+        default="auto",
         help="Profilo HUD (default: auto). Vedi config.HUD_PROFILES.",
     )
     parser.add_argument(
-        "--both-modes", action="store_true",
+        "--both-modes",
+        action="store_true",
         help="Genera sia learned che rule-based (per confronto/studio).",
     )
     parser.add_argument(
-        "--engine", type=str, default=None, choices=["gtts", "pyttsx3", "coqui"],
-        help="Motore TTS (default: da config.py).",
+        "--engine",
+        type=str,
+        default=None,
+        choices=["coqui"],
+        help="Motore TTS (unico supportato: coqui / XTTS v2).",
     )
     parser.add_argument(
-        "--epochs", type=int, default=0,
+        "--epochs",
+        type=int,
+        default=0,
         help="Numero epoche per Fase 3 (default: da config.py).",
     )
     parser.add_argument(
-        "--no-whisper", action="store_true",
+        "--no-whisper",
+        action="store_true",
         help="Disabilita trascrizione Whisper nella Fase 1c.",
     )
     parser.add_argument(
-        "--llm-provider", type=str, default=None,
+        "--llm-provider",
+        type=str,
+        default=None,
         choices=["ollama", "openai", "anthropic"],
         help="Provider LLM per la Fase 2b (default: da config.py).",
+    )
+    parser.add_argument(
+        "--llm-text",
+        action="store_true",
+        help="La Fase 4 sintetizza il testo dell'LLM (<nome>_llm.json) invece del "
+        "template. Automatico quando la Fase 2b e' tra le fasi eseguite.",
     )
 
     args = parser.parse_args()
@@ -294,6 +327,7 @@ Esempi:
             epochs=args.epochs,
             no_whisper=args.no_whisper,
             llm_provider=args.llm_provider,
+            use_llm_text=args.llm_text,
         )
         summary[stem] = results
 
@@ -302,7 +336,9 @@ Esempi:
     banner("RIEPILOGO")
     for stem, results in summary.items():
         print(f"  {BOLD}{stem}{RESET}")
-        for phase, ok in sorted(results.items(), key=lambda x: PHASE_ORDER.index(x[0]) if x[0] in PHASE_ORDER else 99):
+        for phase, ok in sorted(
+            results.items(), key=lambda x: PHASE_ORDER.index(x[0]) if x[0] in PHASE_ORDER else 99
+        ):
             icon = f"{GREEN}✓{RESET}" if ok else f"{RED}✗{RESET}"
             print(f"    Fase {phase}: {icon}")
     print(f"\n  Tempo totale: {elapsed_total:.1f}s")

@@ -1,7 +1,7 @@
 [
   {
     "t": 0.0,
-    "text": "La gioca KANE.",
+    "text": "Kane verticalizza.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -9,7 +9,7 @@
   },
   {
     "t": 0.5,
-    "text": "LAIMER controlla.",
+    "text": "Laimer conduce.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -17,7 +17,7 @@
   },
   {
     "t": 2.0,
-    "text": "OLISE controlla.",
+    "text": "Olimise triangola.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -25,7 +25,7 @@
   },
   {
     "t": 2.5,
-    "text": "La gioca LAIMER.",
+    "text": "Laimer filtra.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -33,7 +33,7 @@
   },
   {
     "t": 3.5,
-    "text": "Apertura per STANISIC.",
+    "text": "Stanisic lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -41,7 +41,7 @@
   },
   {
     "t": 7.01,
-    "text": "MUSIALA controlla.",
+    "text": "Musiala verticalizza.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -49,7 +49,7 @@
   },
   {
     "t": 9.51,
-    "text": "STANISIC controlla.",
+    "text": "Stanisic dialoga.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -57,7 +57,7 @@
   },
   {
     "t": 10.01,
-    "text": "KANE controlla.",
+    "text": "Kane triangola.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -65,7 +65,7 @@
   },
   {
     "t": 12.01,
-    "text": "La gioca MUSIALA.",
+    "text": "Musiala lancia il pallone!",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -73,7 +73,7 @@
   },
   {
     "t": 13.01,
-    "text": "DIAZ controlla.",
+    "text": "Diaz conduce.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -81,7 +81,7 @@
   },
   {
     "t": 13.51,
-    "text": "La gioca KANE.",
+    "text": "Kane verticalizza!",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -89,7 +89,7 @@
   },
   {
     "t": 16.02,
-    "text": "La gioca MUSIALA.",
+    "text": "Musiala filtra!",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",
@@ -97,7 +97,7 @@
   },
   {
     "t": 16.52,
-    "text": "La gioca PAVLOVIC.",
+    "text": "Pavlovic lancia il pallone.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "medium",

@@ -46,12 +46,14 @@ def make_study(model_wav: Path, rule_wav: Path, n_raters: int) -> None:
     for rid in range(1, n_raters + 1):
         # Per ogni ascoltatore randomizziamo quale traccia e' "A" (anti-bias d'ordine).
         model_is_a = random.random() < 0.5
-        rows.append({
-            "rater_id": rid,
-            "track_A": str(model_wav if model_is_a else rule_wav),
-            "track_B": str(rule_wav if model_is_a else model_wav),
-            "model_label": "A" if model_is_a else "B",
-        })
+        rows.append(
+            {
+                "rater_id": rid,
+                "track_A": str(model_wav if model_is_a else rule_wav),
+                "track_B": str(rule_wav if model_is_a else model_wav),
+                "model_label": "A" if model_is_a else "B",
+            }
+        )
 
     with open(MANIFEST_JSON, "w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False, indent=2)
@@ -61,8 +63,9 @@ def make_study(model_wav: Path, rule_wav: Path, n_raters: int) -> None:
         writer.writeheader()
         for r in rows:
             # 'preference' va compilato dall'ascoltatore con 'A' o 'B'.
-            writer.writerow({"rater_id": r["rater_id"], "preference": "",
-                             "model_label": r["model_label"]})
+            writer.writerow(
+                {"rater_id": r["rater_id"], "preference": "", "model_label": r["model_label"]}
+            )
 
     logger.info("Manifest -> %s", MANIFEST_JSON)
     logger.info("Foglio risposte da compilare (colonna 'preference' = A/B) -> %s", RESPONSES_CSV)
@@ -80,13 +83,15 @@ def analyze(responses_csv: Path) -> dict:
     n = len(rows)
     # Conta quante volte e' stata preferita la traccia del MODELLO (gestendo la
     # randomizzazione A/B: model_label dice quale lettera era il modello).
-    model_pref = sum(1 for r in rows
-                     if r["preference"].strip().upper() == r["model_label"].strip().upper())
+    model_pref = sum(
+        1 for r in rows if r["preference"].strip().upper() == r["model_label"].strip().upper()
+    )
     rule_pref = n - model_pref
     prop = model_pref / n
 
     try:
         from scipy.stats import binomtest
+
         p_value = binomtest(model_pref, n, 0.5, alternative="two-sided").pvalue
     except Exception:  # fallback senza scipy
         p_value = _binom_two_sided(model_pref, n, 0.5)
@@ -118,7 +123,8 @@ def analyze(responses_csv: Path) -> dict:
 def _binom_two_sided(k: int, n: int, p: float) -> float:
     """Test binomiale a due code senza scipy (somma delle code <= prob osservata)."""
     from math import comb
-    probs = [comb(n, i) * (p ** i) * ((1 - p) ** (n - i)) for i in range(n + 1)]
+
+    probs = [comb(n, i) * (p**i) * ((1 - p) ** (n - i)) for i in range(n + 1)]
     observed = probs[k]
     return float(min(1.0, sum(pr for pr in probs if pr <= observed + 1e-12)))
 

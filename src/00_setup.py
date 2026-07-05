@@ -19,27 +19,32 @@ from utils import ensure_dir, get_logger
 logger = get_logger("setup")
 
 REQUIRED_DIRS = [
-    config.GAMEPLAY_DIR, config.COMMENTARY_DIR, config.NORMALIZED_DIR,
-    config.EVENTS_DIR, config.SCRIPTS_DIR, config.PROSODY_DIR,
-    config.MODELS_DIR, config.AUDIO_OUT_DIR, config.STUDY_DIR,
+    config.GAMEPLAY_DIR,
+    config.COMMENTARY_DIR,
+    config.NORMALIZED_DIR,
+    config.EVENTS_DIR,
+    config.SCRIPTS_DIR,
+    config.PROSODY_DIR,
+    config.MODELS_DIR,
+    config.AUDIO_OUT_DIR,
+    config.STUDY_DIR,
 ]
 
 # (modulo, descrizione, obbligatorio)
 DEPENDENCIES = [
-    ("cv2",         "OpenCV (opencv-python)",          True),
-    ("numpy",       "NumPy",                           True),
-    ("easyocr",     "EasyOCR (OCR deep learning)",     True),
-    ("librosa",     "Librosa (audio)",                 True),
-    ("soundfile",   "SoundFile (audio I/O)",           True),
-    ("pyttsx3",     "pyttsx3 (TTS offline)",           True),
-    ("torch",       "PyTorch",                         True),
-    ("pandas",      "Pandas",                          True),
-    ("sklearn",     "scikit-learn",                    True),
-    ("scipy",       "SciPy",                           True),
-    ("tqdm",        "tqdm",                            True),
-    ("ultralytics", "Ultralytics YOLOv8 (opzionale)",  False),
-    ("whisper",     "OpenAI Whisper (opzionale)",      False),
-    ("TTS",         "Coqui TTS (opzionale)",           False),
+    ("cv2", "OpenCV (opencv-python)", True),
+    ("numpy", "NumPy", True),
+    ("easyocr", "EasyOCR (OCR deep learning)", True),
+    ("librosa", "Librosa (audio)", True),
+    ("soundfile", "SoundFile (audio I/O)", True),
+    ("torch", "PyTorch", True),
+    ("pandas", "Pandas", True),
+    ("sklearn", "scikit-learn", True),
+    ("scipy", "SciPy", True),
+    ("tqdm", "tqdm", True),
+    ("ultralytics", "Ultralytics YOLOv8 (opzionale)", False),
+    ("whisper", "OpenAI Whisper (opzionale)", False),
+    ("TTS", "Coqui TTS / XTTS v2 (Fase 4)", True),
 ]
 
 
@@ -73,8 +78,8 @@ def create_example_annotations() -> None:
         return
     ensure_dir(csv_path)
     rows = [
-        {"clip": "esempio.wav", "start": "0.0",  "end": "3.5",  "event_type": "goal"},
-        {"clip": "esempio.wav", "start": "5.0",  "end": "7.2",  "event_type": "pass"},
+        {"clip": "esempio.wav", "start": "0.0", "end": "3.5", "event_type": "goal"},
+        {"clip": "esempio.wav", "start": "5.0", "end": "7.2", "event_type": "pass"},
         {"clip": "esempio.wav", "start": "10.1", "end": "12.0", "event_type": "turnover"},
         {"clip": "esempio.wav", "start": "15.0", "end": "17.5", "event_type": "idle"},
     ]
@@ -93,8 +98,9 @@ def main() -> None:
     ok, missing = check_dependencies()
     create_example_annotations()
     if missing:
-        logger.warning("Dipendenze mancanti (%d): installa con  pip install -r requirements.txt",
-                       len(missing))
+        logger.warning(
+            "Dipendenze mancanti (%d): installa con  pip install -r requirements.txt", len(missing)
+        )
     else:
         logger.info("Tutte le dipendenze sono installate.")
     print("\nProssimo passo:")
