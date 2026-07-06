@@ -2,9 +2,9 @@
   {
     "t": 0.0,
     "type": "pass",
-    "player": "PAVLOVIC",
-    "player_team": "away",
-    "possession": "away",
+    "player": "SEMENYO",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "SEMENYO",
@@ -13,23 +13,6 @@
     "score": null,
     "clock": null,
     "source": "ocr",
-    "possession_certain": true,
-    "possession_source": "visual"
-  },
-  {
-    "t": 0.7,
-    "type": "turnover",
-    "player": "HAALAND",
-    "player_team": "home",
-    "possession": "home",
-    "player_resolved": true,
-    "name_confidence": 1.0,
-    "player_home": "HAALAND",
-    "player_away": "UPAMECANO",
-    "importance": 0.55,
-    "score": null,
-    "clock": null,
-    "source": "visual",
     "possession_certain": true,
     "possession_source": "visual"
   },
@@ -55,46 +38,6 @@
   },
   {
     "t": 4.13,
-    "type": "carry",
-    "player": "HAALAND",
-    "player_team": "home",
-    "possession": "home",
-    "player_resolved": true,
-    "name_confidence": 1.0,
-    "player_home": "HAALAND",
-    "player_away": "UPAMECANO",
-    "importance": 0.2,
-    "score": [
-      1,
-      0
-    ],
-    "clock": null,
-    "source": "visual",
-    "possession_certain": true,
-    "possession_source": "visual"
-  },
-  {
-    "t": 7.25,
-    "type": "carry",
-    "player": "HAALAND",
-    "player_team": "home",
-    "possession": "home",
-    "player_resolved": true,
-    "name_confidence": 1.0,
-    "player_home": "HAALAND",
-    "player_away": "UPAMECANO",
-    "importance": 0.2,
-    "score": [
-      1,
-      0
-    ],
-    "clock": null,
-    "source": "visual",
-    "possession_certain": true,
-    "possession_source": "visual"
-  },
-  {
-    "t": 10.38,
     "type": "carry",
     "player": "HAALAND",
     "player_team": "home",

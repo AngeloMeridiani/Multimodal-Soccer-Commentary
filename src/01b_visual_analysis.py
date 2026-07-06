@@ -6,7 +6,7 @@ FASE 1b - Modulo Visivo: Object Detection (YOLO) + Event Detection (OpenCV).
 Complementa la Fase 1 (OCR HUD) con la comprensione VISIVA del campo:
   - YOLO rileva giocatori e pallone.
   - Si traccia la palla e si stima velocita'/zona del campo.
-  - Si classificano eventi che l'HUD non mostra: tiri, dribbling, PARATE, corner.
+  - Si classificano eventi che l'HUD non mostra: tiri, PARATE, corner.
 
 Lavora su frame GIA' normalizzati (rotazione + crop). L'output puo' essere fuso
 con gli eventi OCR della Fase 1.
@@ -159,10 +159,10 @@ class PossessionTracker:
       della palla, con isteresi + debounce anti-flicker.
     """
 
-    HYSTERESIS_PX = 8.0  # bonus (px) alla squadra gia' in possesso: anti-flicker
-
     def __init__(self) -> None:
         self.confirm = config.POSSESSION_CONFIRM_FRAMES
+        self.margin = config.POSSESSION_MARGIN_PX
+        self.hysteresis = config.POSSESSION_HYSTERESIS_PX
         self.current: str | None = None
         self.pending: str | None = None
         self.count = 0
@@ -197,23 +197,37 @@ class PossessionTracker:
         if self.last_ball_pos is None:
             return self.current, 0.0
 
-        # Squadra col giocatore piu' vicino alla palla, con una piccola
+        # Distanza del pallino piu' vicino di ogni squadra dalla palla, con
         # isteresi a favore di chi ha gia' il possesso (anti-flicker).
         dist_home = self._nearest(home_dots, self.last_ball_pos)
         dist_away = self._nearest(away_dots, self.last_ball_pos)
         if self.current == "home":
-            dist_home -= self.HYSTERESIS_PX
+            dist_home -= self.hysteresis
         elif self.current == "away":
-            dist_away -= self.HYSTERESIS_PX
-        team = "home" if dist_home < dist_away else "away"
+            dist_away -= self.hysteresis
 
-        # Debounce: il cambio vale solo dopo `confirm` frame coerenti.
-        if team == self.pending:
-            self.count += 1
+        # MARGINE + HOLD: si sceglie una squadra solo se il suo pallino piu'
+        # vicino batte l'altro di almeno `margin` px. Nel grappolo misto (o se
+        # manca un colore) il verdetto e' ambiguo e si MANTIENE il possesso
+        # corrente, invece di ribaltarlo sul rumore da 1px.
+        if math.isinf(dist_home) and math.isinf(dist_away):
+            candidate = self.current
+        elif abs(dist_home - dist_away) < self.margin:
+            candidate = self.current
         else:
-            self.pending, self.count = team, 1
-        if self.count >= self.confirm:
-            self.current = self.pending
+            candidate = "home" if dist_home < dist_away else "away"
+
+        # Debounce: si accumula solo verso un candidato DIVERSO dal possesso
+        # corrente; il cambio scatta dopo `confirm` frame coerenti. Un candidato
+        # pari al possesso corrente (o ambiguo) azzera l'accumulo.
+        if candidate is None or candidate == self.current:
+            self.pending, self.count = self.current, 0
+        elif candidate == self.pending:
+            self.count += 1
+            if self.count >= self.confirm:
+                self.current, self.count = candidate, 0
+        else:
+            self.pending, self.count = candidate, 1
         return self.current, 1.0
 
     @staticmethod
@@ -263,7 +277,7 @@ class VisualEventClassifier:
     """Classifica eventi dal moto della palla (complementare all'OCR).
 
     PATTERN: una regola per evento = un metodo dedicato (_is_save, _shot_type,
-    _is_dribble, _is_corner) che legge il FrameContext; classify() misura il
+    _is_corner) che legge il FrameContext; classify() misura il
     contesto una volta, prova le regole in ordine di priorita' e applica il
     cooldown anti-duplicati. Le soglie vengono da config.BALL_TRACKING
     (default + override del profilo camera attivo).
@@ -334,14 +348,6 @@ class VisualEventClassifier:
         goalward = abs(math.cos(math.radians(ball.direction_deg))) > 0.5
         return "shot_off" if goalward else None
 
-    def _is_dribble(self, ball: BallState, ctx: FrameContext) -> bool:
-        """DRIBBLING = traffico di giocatori persistente + palla a velocita' media."""
-        return (
-            ctx.nearby >= 3
-            and self.prev_near >= 3
-            and self.t["min_speed_pass"] < ball.speed < self.t["min_speed_shot"]
-        )
-
     def _is_corner(self, ball: BallState, ctx: FrameContext) -> bool:
         """CORNER = palla ferma in area dopo essere arrivata veloce."""
         return (
@@ -385,8 +391,6 @@ class VisualEventClassifier:
             etype, label = "save", "blocked"
         elif shot := self._shot_type(ball, ctx):
             etype, label = shot, "very_high" if shot == "shot_on_goal" else "high"
-        elif self._is_dribble(ball, ctx):
-            etype, label = "dribble", "medium"
         elif self._is_corner(ball, ctx):
             etype, label = "corner", "stopped"
         else:
@@ -525,22 +529,29 @@ class ControlledPlayerDetector:
 
     @staticmethod
     def _match_roster(name: str) -> str | None:
-        """Squadra del nome letto: contenimento diretto, poi fuzzy (>0.65)."""
+        """Squadra del nome letto: contenimento diretto (solo per frammenti
+        abbastanza lunghi), poi fuzzy sopra soglia. Soglie STRETTE: una lettura
+        garbled ('NEXE'->NEUER a 0.67, 'NES' sottostringa di 'NUNES') NON deve
+        agganciare la rosa sbagliata -> meglio nessun match (si tiene il nome
+        cachato) che uno errato, che flipperebbe possesso e attribuzione."""
         from difflib import SequenceMatcher
 
         nc = name.replace(" ", "")
         rosters = ((config.ROSTER_HOME, "home"), (config.ROSTER_AWAY, "away"))
         # (a) Contenimento diretto (frammenti tronchi: "INHOS" in "MARQUINHOS").
-        for roster, team in rosters:
-            if any(nc in r.replace(" ", "") or r.replace(" ", "") in nc for r in roster):
-                return team
+        # Solo se il frammento e' abbastanza lungo: "NES" e' sottostringa di
+        # "NUNES"/"STONES" ma e' rumore, non un nome troncato.
+        if len(nc) >= config.CARRIER_NAME_MIN_LEN:
+            for roster, team in rosters:
+                if any(nc in r.replace(" ", "") or r.replace(" ", "") in nc for r in roster):
+                    return team
         # (b) Miglior somiglianza fuzzy tra TUTTI i nomi delle due rose.
         best_score, best_team = max(
             (SequenceMatcher(None, nc, r.replace(" ", "")).ratio(), team)
             for roster, team in rosters
             for r in roster
         )
-        return best_team if best_score > 0.65 else None
+        return best_team if best_score >= config.CARRIER_NAME_MIN_FUZZY else None
 
 
 def analyze_video(
@@ -551,10 +562,11 @@ def analyze_video(
     tracker = BallTracker()
     classifier = VisualEventClassifier()
     possession = PossessionTracker()
-    # Legge il nome sopra il portatore di palla. L'OCR e' costoso: lo si fa
-    # ~1 volta ogni 1.5s di video (il passo si adatta al frame rate visivo);
-    # tra una lettura e l'altra vale il nome cachato.
-    ocr_every = max(1, round(1.5 * config.VISUAL_FRAMES_PER_SECOND))
+    # Legge il nome sopra il portatore di palla: e' il segnale PRIMARIO di
+    # possesso (piu' affidabile del radar). L'OCR e' costoso, quindi lo si fa
+    # ogni CARRIER_OCR_INTERVAL_S secondi (il passo si adatta al frame rate
+    # visivo); tra una lettura e l'altra vale il nome cachato.
+    ocr_every = max(1, round(config.CARRIER_OCR_INTERVAL_S * config.VISUAL_FRAMES_PER_SECOND))
     controlled = ControlledPlayerDetector(ocr_every=ocr_every)
 
     visual_events: list[dict] = []
@@ -575,18 +587,25 @@ def analyze_video(
         detections = detector.detect(frame)
         ball = tracker.update(timestamp, detections, frame.shape)
 
-        # --- possesso dai colori squadra sulla minimappa (radar) ---
-        poss_team, poss_fill = possession.update(frame)
+        # --- possesso: FUSIONE nome-portatore (primario) + radar (fallback) ---
+        # Il nome bianco sopra il portatore identifica DIRETTAMENTE chi ha la
+        # palla: e' il segnale piu' affidabile. Il radar (colori sulla
+        # minimappa) e' ambiguo quando le squadre si ammassano intorno alla
+        # palla, quindi lo usiamo solo quando il nome non e' leggibile.
+        carrier_name, carrier_team = controlled.detect(frame)
+        poss_radar, poss_fill = possession.update(frame)
+        if carrier_team in ("home", "away"):
+            poss_team, poss_conf, poss_src = carrier_team, 1.0, "carrier"
+        else:
+            poss_team, poss_conf, poss_src = poss_radar, round(poss_fill, 3), "radar"
         possession_timeline.append(
             {
                 "t": round(timestamp, 2),
                 "possession": poss_team,
-                "confidence": round(poss_fill, 3),
+                "confidence": poss_conf,
+                "source": poss_src,
             }
         )
-
-        # --- nome del portatore di palla (scritta bianca sopra il giocatore) ---
-        carrier_name, carrier_team = controlled.detect(frame)
 
         event = classifier.classify(timestamp, ball, detections)
 
@@ -632,7 +651,31 @@ def analyze_video(
     # e carry quando un giocatore porta palla a lungo senza eventi.
     visual_events = _fill_event_gaps(visual_events, possession_timeline)
     visual_events.sort(key=lambda e: e["t"])
+    visual_events = _collapse_consecutive(visual_events)
     return visual_events, possession_timeline, ball_timeline
+
+
+def _collapse_consecutive(events: list[dict]) -> list[dict]:
+    """Collassa i pass/carry consecutivi con lo STESSO giocatore, tenendo solo
+    il primo. Dopo la correzione del possesso (merge_events) la regola di Fase 1
+    'pass = giocatore cambiato' si rompe: la rietichettatura per possesso puo'
+    produrre pass consecutivi sullo stesso nome (es. la targhetta che sfarfalla
+    a inizio clip -> 3 pass identici su OLISE). Senza questo, la telecronaca
+    ripeterebbe 'Olise. Olise. Olise.'. Si toccano solo gli eventi di routine
+    (pass, carry): gol/parate/tiri/turnover restano sempre."""
+    ROUTINE = {"pass", "carry"}
+    collapsed: list[dict] = []
+    for ev in events:
+        prev = collapsed[-1] if collapsed else None
+        if (
+            prev is not None
+            and ev.get("type") in ROUTINE
+            and ev.get("type") == prev.get("type")
+            and ev.get("player") == prev.get("player")
+        ):
+            continue  # duplicato consecutivo stesso tipo+giocatore: scarta
+        collapsed.append(ev)
+    return collapsed
 
 
 def possession_at(timeline: list[dict], t: float, tol: float = 3.0) -> str | None:
@@ -816,9 +859,17 @@ def _fill_event_gaps(
                 if abs(switch_t - t_end) < 0.1:
                     switch_t -= 0.1
 
-            # Giocatore: chi riceve la palla (dal prossimo evento)
-            turnover_player = next_ev.get("player", "il giocatore")
-            turnover_team = next_ev.get("player_team", poss_end)
+            # Giocatore che RECUPERA (non chi riceve dopo): la targhetta del
+            # NUOVO team in possesso all'istante del cambio. curr_ev e' l'ultimo
+            # evento prima dello switch e porta gia' la targhetta del team che
+            # rientra in possesso (l'HUD mostra sempre entrambe le targhette).
+            # Prima si usava next_ev.player = chi tocca palla PIU' TARDI, non il
+            # recuperatore -> il turnover finiva sul giocatore sbagliato.
+            recover_plate = (
+                curr_ev.get("player_home") if poss_end == "home" else curr_ev.get("player_away")
+            )
+            turnover_player = recover_plate or next_ev.get("player", "il giocatore")
+            turnover_team = poss_end
 
             extras.append({
                 "t": round(switch_t, 2),
@@ -826,10 +877,10 @@ def _fill_event_gaps(
                 "player": turnover_player,
                 "player_team": turnover_team,
                 "possession": poss_end,
-                "player_resolved": next_ev.get("player_resolved", False),
+                "player_resolved": bool(recover_plate) or next_ev.get("player_resolved", False),
                 "name_confidence": next_ev.get("name_confidence", 0.5),
-                "player_home": next_ev.get("player_home", ""),
-                "player_away": next_ev.get("player_away", ""),
+                "player_home": curr_ev.get("player_home", ""),
+                "player_away": curr_ev.get("player_away", ""),
                 "importance": config.EVENT_IMPORTANCE.get("turnover", 0.55),
                 "score": curr_ev.get("score"),
                 "clock": None,

@@ -204,37 +204,47 @@ def _is_excited(importance: float) -> bool:
 
 
 def _group_utterances(
-    items: list[tuple[str, str, float]], max_chars: int
-) -> list[tuple[str, str, float]]:
+    items: list[tuple[str, str, float, float]], max_chars: int, max_gap_s: float
+) -> list[tuple[str, str, float, float]]:
     """Unisce battute consecutive in blocchi <= max_chars mantenendo la
-    punteggiatura interna. Si spezza un blocco anche quando cambia il livello
+    punteggiatura interna. Si spezza un blocco quando: cambia il livello
     emotivo (calmo<->concitato), cosi' un evento importante (es. gol) finisce
-    in un blocco a se' e puo' ricevere enfasi propria.
-    Ogni item e' (testo, event_type, importanza); il blocco eredita event_type
-    e importanza della battuta PIU' importante (il suo "carattere")."""
-    chunks: list[tuple[str, str, float]] = []
-    cur, cur_evt, cur_imp = "", "idle", -1.0
-    for text, evt, imp in items:
+    in un blocco a se' e puo' ricevere enfasi propria; OPPURE due battute sono
+    lontane nel tempo piu' di max_gap_s (le fonderemmo perdendo la sincronia).
+    Ogni item e' (testo, event_type, importanza, t); il blocco eredita
+    event_type/importanza della battuta PIU' importante (il suo "carattere") e
+    il timestamp della PRIMA battuta (quando parte sulla timeline)."""
+    chunks: list[tuple[str, str, float, float]] = []
+    cur, cur_evt, cur_imp, cur_t = "", "idle", -1.0, 0.0
+    prev_t: float | None = None
+    for text, evt, imp, t in items:
         text = text.strip()
         if not text:
             continue
         candidate = f"{cur} {text}".strip()
-        if cur and (_is_excited(imp) != _is_excited(cur_imp) or len(candidate) > max_chars):
-            chunks.append((cur, cur_evt, cur_imp))
-            cur, cur_evt, cur_imp = text, evt, imp
+        gap_too_big = prev_t is not None and (t - prev_t) > max_gap_s
+        if cur and (
+            _is_excited(imp) != _is_excited(cur_imp)
+            or len(candidate) > max_chars
+            or gap_too_big
+        ):
+            chunks.append((cur, cur_evt, cur_imp, cur_t))
+            cur, cur_evt, cur_imp, cur_t = text, evt, imp, t
         else:
+            if not cur:  # prima battuta del blocco: ne fissa il timestamp
+                cur_t = t
             cur = candidate
             if imp > cur_imp:  # rappresentante del blocco = piu' importante
                 cur_evt, cur_imp = evt, imp
+        prev_t = t
     if cur:
-        chunks.append((cur, cur_evt, cur_imp))
+        chunks.append((cur, cur_evt, cur_imp, cur_t))
     return chunks
 
 
 def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) -> np.ndarray:
     sr = config.SAMPLE_RATE
-    gap = np.zeros(int(config.GAP_BETWEEN_UTTERANCES_S * sr), np.float32)
-    pieces: list[np.ndarray] = []
+    min_gap = int(config.GAP_BETWEEN_UTTERANCES_S * sr)
 
     # NOTA: la prosodia NON viene piu' applicata via DSP (WORLD/pyworld).
     # Passare una voce neurale gia' sintetica in un secondo vocoder la
@@ -246,12 +256,25 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
     # cosi' XTTS collega la prosodia tra le frasi (parlato piu' naturale) invece
     # di generare frasi isolate una dopo l'altra.
     items = [
-        (line.get("text", ""), line.get("event_type", "idle"), float(line.get("importance", 0.0)))
+        (
+            line.get("text", ""),
+            line.get("event_type", "idle"),
+            float(line.get("importance", 0.0)),
+            float(line.get("t", 0.0)),
+        )
         for line in script
     ]
-    chunks = _group_utterances(items, config.COQUI_CHUNK_MAX_CHARS)
+    chunks = _group_utterances(
+        items, config.COQUI_CHUNK_MAX_CHARS, config.SYNC_MERGE_MAX_GAP_S
+    )
     lo, hi = config.COQUI_SPEED_CLAMP
-    for i, (chunk, evt, imp) in enumerate(chunks):
+
+    # Sintesi + posizionamento sulla TIMELINE: ogni blocco parte al timestamp
+    # del suo evento; se il precedente non e' ancora finito, si accoda (cursor)
+    # per non sovrapporre le voci. La traccia finisce con l'ultima battuta.
+    placed: list[tuple[int, np.ndarray]] = []  # (campione d'inizio, audio)
+    cursor = 0  # fine (in campioni) dell'ultimo blocco piazzato
+    for i, (chunk, evt, imp, t) in enumerate(chunks):
         # ENFASI DAL MODELLO (Fase 3): rate_factor -> speed, energy_gain -> volume.
         prosody = predictor.predict(evt, imp)
         speed = float(np.clip(config.COQUI_SPEED * prosody["rate_factor"], lo, hi))
@@ -261,24 +284,31 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
             voiced = _trim_silence(voiced, sr)
             voiced = _fade_in(voiced, sr, config.ONSET_FADE_MS)
             voiced = voiced * float(prosody["energy_gain"])
-            pieces.append(voiced)
-            pieces.append(gap)
-            # Log SOLO a blocco riuscito: prima veniva stampato "sintetizzato"
-            # anche per i blocchi saltati dall'except, confondendo il conteggio.
-            logger.info(
-                "Sintetizzati %d/%d blocchi (%s, speed=%.2f, gain=%.2f).",
-                i + 1,
-                len(chunks),
-                evt,
-                speed,
-                prosody["energy_gain"],
-            )
         except Exception as exc:
             logger.warning("Blocco %d saltato (%s): %s", i + 1, chunk[:30], exc)
+            continue
+        start = max(int(round(t * sr)), cursor)
+        placed.append((start, voiced))
+        cursor = start + len(voiced) + min_gap
+        # Log SOLO a blocco riuscito: prima veniva stampato "sintetizzato"
+        # anche per i blocchi saltati dall'except, confondendo il conteggio.
+        logger.info(
+            "Sintetizzati %d/%d blocchi a t=%.2fs (inizio reale %.2fs, %s, speed=%.2f, gain=%.2f).",
+            i + 1,
+            len(chunks),
+            t,
+            start / sr,
+            evt,
+            speed,
+            prosody["energy_gain"],
+        )
 
-    if not pieces:
+    if not placed:
         return np.zeros(sr, np.float32)
-    track = np.concatenate(pieces).astype(np.float32)
+    total = max(start + len(voiced) for start, voiced in placed)
+    track = np.zeros(total, np.float32)
+    for start, voiced in placed:
+        track[start : start + len(voiced)] += voiced
     peak = float(np.max(np.abs(track))) or 1.0
     return track / peak * 0.95  # normalizzazione finale
 

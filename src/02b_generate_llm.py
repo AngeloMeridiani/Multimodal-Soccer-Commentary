@@ -180,7 +180,6 @@ def build_event_prompt(
         "save": "USA SOLO verbi da parata: para, dice di no, vola sul pallone, blocca, devia, respinge.",
         "shot_on_goal": "USA verbi da tiro: calcia, conclude, ci prova, tenta la conclusione, scarica il destro/sinistro.",
         "shot_off": "REGOLA SPECIALE ASSOLUTA: Rispondi SOLO con una di queste 3 frasi: 'Tiro sul fondo!', 'Palla fuori!', 'Conclusione a lato!'. NON usare nessun'altra parola.",
-        "dribble": "Dribbling: salta l'uomo, si libera, supera, sguscia via.",
         "foul": "Fallo: viene atterrato, steso, trattenuto, il direttore di gara fischia.",
         "corner": "Corner: calcio d'angolo, batte il corner, palla in area.",
         "free_kick": "Punizione: si incarica, prova la punizione diretta.",

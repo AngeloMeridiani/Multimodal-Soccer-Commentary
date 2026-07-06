@@ -13,7 +13,7 @@ che e' anche la root del progetto. Le cartelle dati vengono create QUI dentro.
 Pipeline "a staffetta":
     Fase 0  (norm.)    -> raddrizza il video (rotazione) e ritaglia le bande nere.
     Fase 1  (eventi)   -> OCR dell'HUD (punteggio + targhette) -> log eventi JSON.
-    Fase 1b (visivo)   -> YOLO + OpenCV: tiri, dribbling, parate, corner.
+    Fase 1b (visivo)   -> YOLO + OpenCV: tiri, parate, corner.
     Fase 1c (audio)    -> eccitazione del tifo (Librosa) + trascrizione (Whisper).
     Fase 2  (script)   -> eventi -> testo di telecronaca (template).
     Fase 2b (LLM)      -> eventi -> testo di telecronaca (LLM, alternativa).
@@ -178,7 +178,6 @@ EVENT_IMPORTANCE: dict[str, float] = {
     "free_kick": 0.50,
     "turnover": 0.55,  # palla persa / intercetto
     "foul": 0.40,
-    "dribble": 0.50,
     "carry": 0.20,  # porta palla / conduzione
     "pass": 0.25,
     "idle": 0.10,  # gioco a centrocampo
@@ -195,7 +194,6 @@ EVENT_TYPES: list[str] = [
     "free_kick",
     "turnover",
     "foul",
-    "dribble",
     "carry",
     "pass",
     "idle",
@@ -244,8 +242,33 @@ JERSEY_MIN_FILL: float = 0.12
 JERSEY_MIN_MARGIN: float = 1.3
 # Raggio massimo (px sul frame normalizzato) entro cui un giocatore "ha" la palla.
 POSSESSION_MAX_DIST_PX: float = 90.0
-# Il possesso cambia squadra solo dopo N frame coerenti (anti-flicker).
-POSSESSION_CONFIRM_FRAMES: int = 2
+# Il possesso cambia squadra solo dopo N frame coerenti (anti-flicker). A
+# VISUAL_FRAMES_PER_SECOND=8, 8 frame ~= 1s: un cambio deve reggere ~1s per
+# valere, cosi' le incursioni brevi nel grappolo misto non lo ribaltano.
+POSSESSION_CONFIRM_FRAMES: int = 8
+# Sul radar, durante una fase di possesso, la palla sta in un grappolo con
+# pallini di ENTRAMBE le squadre a ridosso: "il pallino piu' vicino" ribalta
+# sul rumore. Si assegna una squadra solo se il suo pallino piu' vicino batte
+# quello avversario di ALMENO questo margine (px sul radar ritagliato); sotto
+# soglia (o palla non rilevata) il possesso corrente viene MANTENUTO.
+POSSESSION_MARGIN_PX: float = 12.0
+# Bonus (px) alla squadra gia' in possesso quando si confrontano le distanze:
+# ulteriore freno anti-flicker a favore della continuita'.
+POSSESSION_HYSTERESIS_PX: float = 15.0
+# Possesso PRIMARIO dal nome bianco sopra il portatore (segnale diretto: il
+# radar e' ambiguo nei grappoli). L'OCR di quel nome e' costoso, quindi lo si
+# fa ogni CARRIER_OCR_INTERVAL_S secondi (tra una lettura e l'altra vale il nome
+# cachato). Il nome puo' essere sbiadito/semi-trasparente e la lettura e' flaky
+# frame per frame: solo l'OCR su OGNI frame (~0.125s a 8 fps -> ocr_every=1)
+# cattura in tempo i cambi di portatore, tenendo la transizione di possesso il
+# piu' vicina possibile al reale (costo: Fase 1b piu' lenta).
+CARRIER_OCR_INTERVAL_S: float = 0.125
+# Aggancio del nome letto alla rosa. Soglie STRETTE: una lettura garbled
+# ('NEXE'->NEUER a 0.67, 'NES' sottostringa di 'NUNES') non deve agganciare la
+# rosa sbagliata -> meglio NESSUN match (si tiene il nome cachato) che uno
+# errato, che flipperebbe il possesso e sballerebbe l'attribuzione.
+CARRIER_NAME_MIN_FUZZY: float = 0.80  # somiglianza minima per il match fuzzy
+CARRIER_NAME_MIN_LEN: int = 4  # frammento minimo per il match per contenimento
 
 # Soglie di tracking della palla sul frame normalizzato.
 # Le velocita' sono in PIXEL AL SECONDO (px/s), NON per frame: cosi' restano
@@ -354,10 +377,6 @@ TEMPLATES: dict[str, list[str]] = {
         "Cambio di fronte, ora {player}.",
     ],
     "foul": ["Fallo su {player}! Intervento duro.", "{player} viene atterrato."],
-    "dribble": [
-        "{player} salta l'uomo! Che dribbling!",
-        "Numero di {player}, supera il difensore!",
-    ],
     "carry": [
         "{player} avanza con il pallone.",
         "{player} porta palla.",
@@ -423,7 +442,6 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
     "free_kick": {"rate_factor": 1.10, "pitch_semitones": 1.5, "energy_gain": 1.2},
     "turnover": {"rate_factor": 1.15, "pitch_semitones": 1.5, "energy_gain": 1.2},
     "foul": {"rate_factor": 1.10, "pitch_semitones": 1.0, "energy_gain": 1.1},
-    "dribble": {"rate_factor": 1.20, "pitch_semitones": 2.0, "energy_gain": 1.3},
     "carry": {"rate_factor": 1.00, "pitch_semitones": 0.0, "energy_gain": 1.0},
     "pass": {"rate_factor": 1.00, "pitch_semitones": 0.0, "energy_gain": 1.0},
     "idle": {"rate_factor": 0.92, "pitch_semitones": -0.5, "energy_gain": 0.9},
@@ -433,6 +451,12 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
 # Fase 4 - Sintesi audio                                                       #
 # --------------------------------------------------------------------------- #
 GAP_BETWEEN_UTTERANCES_S: float = 0.15
+# Sincronizzazione: ogni battuta parte al timestamp del suo evento (traccia
+# allineata all'azione). Se il blocco precedente non e' finito, la successiva
+# si ACCODA subito dopo (nessuna voce sovrapposta). Due battute piu' vicine di
+# questa soglia vengono unite in un unico blocco (prosodia connessa); oltre, il
+# blocco si spezza e la seconda parte al proprio timestamp con silenzio in mezzo.
+SYNC_MERGE_MAX_GAP_S: float = 1.5
 TTS_ENGINE: str = "coqui"  # unico motore supportato: Coqui XTTS v2
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
 COQUI_LANGUAGE: str = "it"
