@@ -58,6 +58,10 @@ class ScriptGenerator:
                     "text": text,
                     "event_type": ev["type"],
                     "importance": ev["importance"],
+                    # Eccitazione REALE del pubblico (Fase 1c), se presente:
+                    # la Fase 4 la usa come feature della prosodia. 0.5 (neutro)
+                    # se l'evento non e' stato arricchito con l'audio.
+                    "audio_energy": ev.get("audio_energy", 0.5),
                 }
             )
         return script
@@ -73,7 +77,12 @@ def main() -> None:
     events = load_json(events_path)
 
     script = ScriptGenerator(config.TEMPLATES).generate(events)
-    out_path = config.SCRIPTS_DIR / events_path.name
+    # Nome dello script = <stem>.json, SENZA i suffissi del file eventi
+    # (_enriched/_audio): cosi' combacia con cio' che la Fase 4 si aspetta
+    # (run_pipeline cerca features/scripts/<stem>.json). Stessa normalizzazione
+    # che fa gia' la Fase 2b. Senza, la sintesi non trovava lo script.
+    stem = events_path.stem.replace("_enriched", "").replace("_audio", "")
+    out_path = config.SCRIPTS_DIR / f"{stem}.json"
     ensure_dir(out_path)
     save_json(script, out_path)
 

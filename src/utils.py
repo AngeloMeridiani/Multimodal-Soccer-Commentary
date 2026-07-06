@@ -271,16 +271,25 @@ def get_frame_at(video_path: Path, timestamp_s: float, normalize: bool = True) -
 # --------------------------------------------------------------------------- #
 # Eventi -> feature per il modello di prosodia (UNA sola codifica)             #
 # --------------------------------------------------------------------------- #
-def event_to_features(event_type: str, importance: float) -> np.ndarray:
+def event_to_features(event_type: str, importance: float, audio_energy: float = 0.5) -> np.ndarray:
     """
-    Vettore di input del modello: [importanza, one-hot su config.EVENT_TYPES].
-    Identico in training (Fase 3) e sintesi (Fase 4): ogni tipo ha la sua colonna.
+    Vettore di input del modello: [importanza, audio_energy, one-hot su
+    config.EVENT_TYPES]. Identico in training (Fase 3) e sintesi (Fase 4):
+    ogni tipo ha la sua colonna.
+
+    audio_energy e' l'eccitazione REALE del pubblico misurata dalla Fase 1c
+    (AudioEnergyAnalyzer: RMS + centroide spettrale + onset, in [0,1]) nella
+    finestra audio dell'evento. Prima veniva calcolata e poi ignorata dal
+    modello di prosodia (finiva solo nel prompt testuale della Fase 2b):
+    ora e' una feature vera, cosi' la prosodia risponde a QUANTO il pubblico
+    ha reagito in quel momento specifico, non solo al tipo astratto di evento.
+    Default 0.5 (neutro) quando la Fase 1c non e' stata eseguita.
     """
     one_hot = [1.0 if event_type == t else 0.0 for t in config.EVENT_TYPES]
-    return np.asarray([importance, *one_hot], dtype=np.float32)
+    return np.asarray([importance, audio_energy, *one_hot], dtype=np.float32)
 
 
-FEATURE_DIM: int = 1 + len(config.EVENT_TYPES)  # importanza + one-hot
+FEATURE_DIM: int = 2 + len(config.EVENT_TYPES)  # importanza + audio_energy + one-hot
 
 
 # --------------------------------------------------------------------------- #

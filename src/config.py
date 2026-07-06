@@ -335,17 +335,28 @@ FIELD_ZONES: dict[str, tuple[float, float, float, float]] = {
 }
 
 # --------------------------------------------------------------------------- #
-# Fase 1c - Modulo Uditivo (Crowd Excitement + Whisper)                        #
+# Fase 1c - Modulo Uditivo (Audio Energy + Whisper)                            #
 # --------------------------------------------------------------------------- #
 SAMPLE_RATE: int = 22050  # usato da audio e sintesi
-WHISPER_MODEL_SIZE: str = "base"  # tiny/base/small/medium/large
+# 'small' invece di 'base': su audio di gioco (musica + effetti sopra il
+# commento) 'base' produce trascrizioni illeggibili; 'small' e' molto piu'
+# accurato in italiano. Costo: ~5x piu' lento su CPU (accettabile per clip corte).
+WHISPER_MODEL_SIZE: str = "small"  # tiny/base/small/medium/large
 WHISPER_LANGUAGE: str = "it"  # lingua della telecronaca originale
 AUDIO_ANALYSIS_WINDOW_S: float = 2.0
-CROWD_EXCITEMENT_THRESHOLDS: dict[str, float] = {
+# Le soglie partizionano lo score di eccitazione, che ora e' RI-SCALATO ai
+# percentili della clip (0 = momento piu' calmo, 1 = piu' acceso): cosi' i
+# livelli hanno senso e "peak" scatta davvero (prima lo score stava ~0.33 e
+# non arrivava mai a 0.75). Il neutro e' 0.5.
+AUDIO_ENERGY_THRESHOLDS: dict[str, float] = {
     "low": 0.25,
     "medium": 0.50,
     "high": 0.75,  # sopra 0.75 = "peak"
 }
+# Range dinamico minimo dello score grezzo perche' la ri-scalatura ai percentili
+# "stiri" la clip a [0,1]. Sotto questo (clip PIATTA, senza momenti caldi), non
+# si stira: si evita di promuovere il rumore di fondo a "peak" fittizi.
+AUDIO_ENERGY_MIN_RANGE: float = 0.20
 
 # --------------------------------------------------------------------------- #
 # Fase 2 - Generazione testo (template)                                        #
@@ -396,6 +407,14 @@ LLM_CONFIG: dict[str, dict] = {
     "ollama": {"model": "gemma3:4b", "base_url": "http://localhost:11434"},
     "openai": {"model": "gpt-4o-mini", "api_key_env": "OPENAI_API_KEY"},
     "anthropic": {"model": "claude-haiku-4-5-20251001", "api_key_env": "ANTHROPIC_API_KEY"},
+    # Groq: endpoint OpenAI-compatibile, free tier. Llama 70B gira sui loro
+    # server (niente RAM locale), molto piu' capace del 3-4B che entra nei
+    # 7.6 GB della macchina -> meno allucinazioni di stile/ruolo.
+    "groq": {
+        "model": "llama-3.3-70b-versatile",
+        "api_key_env": "GROQ_API_KEY",
+        "base_url": "https://api.groq.com/openai/v1/chat/completions",
+    },
 }
 LLM_SYSTEM_PROMPT: str = (
     "Sei un telecronista sportivo italiano professionista, stile Pierluigi Pardo o Fabio Caressa. "
@@ -466,17 +485,23 @@ COQUI_LANGUAGE: str = "it"
 # XTTS". Il merge aveva duplicato quelle costanti qui: duplicazione rimossa.
 
 # --- Voce clonata (voice cloning zero-shot XTTS v2) ------------------------- #
-# Riferimento vocale BASE: il tono "di lavoro" del telecronista (voce calda,
-# presente ma non urlata). XTTS clona timbro e stile da questo file.
-# WAV mono, pulito, ~10-20s. Percorso relativo alla root del progetto.
-COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/ref.wav"
-# Riferimento vocale CONCITATO (opzionale): usato SOLO sugli eventi importanti
-# (importanza >= EMPHASIS_IMPORTANCE_THRESHOLD), es. gol/parate. Se None, per
-# tutti gli eventi si usa COQUI_SPEAKER_WAV. Consigliato per un effetto "boato".
-COQUI_SPEAKER_WAV_EXCITED: str | None = None
-# Es. per attivarlo: "data/raw/voice/mia_voce_concitata.wav"
+# Riferimento vocale BASE: il tono "di lavoro" del telecronista (voce presente
+# ma NON urlata). Deve essere WAV MONO, pulito (lo stereo degrada la clonazione).
+# Voce di Lele Adani, telecronista vero: come base evita la raucedine che dava
+# gol_saliente (che e' un'esultanza URLATA -> XTTS ne clona lo strozzato anche
+# sui passaggi tranquilli). Percorso relativo alla root del progetto.
+COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/lele_adani_mono.wav"
+# Riferimento vocale CONCITATO: usato SOLO sugli eventi importanti (importanza
+# >= EMPHASIS_IMPORTANCE_THRESHOLD), es. gol/parate. Qui l'esultanza urlata e'
+# al posto GIUSTO -> "boato" sui momenti clou, voce calma sul resto.
+COQUI_SPEAKER_WAV_EXCITED: str | None = "data/raw/commentary/gol_saliente_mono.wav"
 
 # --- Parametri di sintesi XTTS --------------------------------------------- #
+# Sample rate dell'audio SINTETIZZATO (Fase 4). XTTS produce nativamente 24 kHz:
+# tenerli evita di ricampionare giu' a SAMPLE_RATE (22050), che tagliava le alte
+# frequenze del parlato facendolo suonare "ovattato". NB: distinto da
+# SAMPLE_RATE, che resta 22050 per l'ANALISI audio (Fase 1c), cosa a se'.
+COQUI_OUTPUT_SAMPLE_RATE: int = 24000
 # Velocità base del parlato (1.0 = naturale). Il modello di prosodia (Fase 3)
 # la modula per evento tramite rate_factor; COQUI_SPEED_CLAMP la tiene in range.
 COQUI_SPEED: float = 1.0

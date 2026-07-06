@@ -279,7 +279,7 @@ Esempi:
         "--llm-provider",
         type=str,
         default=None,
-        choices=["ollama", "openai", "anthropic"],
+        choices=["ollama", "openai", "anthropic", "groq"],
         help="Provider LLM per la Fase 2b (default: da config.py).",
     )
     parser.add_argument(

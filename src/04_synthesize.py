@@ -77,11 +77,13 @@ class ProsodyPredictor:
             logger.warning("Caricamento modello fallito (%s): uso le regole.", exc)
             self.model = None
 
-    def predict(self, event_type: str, importance: float) -> dict[str, float]:
+    def predict(
+        self, event_type: str, importance: float, audio_energy: float = 0.5
+    ) -> dict[str, float]:
         if self.model is not None and self.scaler is not None:
             import torch
 
-            feat = event_to_features(event_type, importance).reshape(1, -1)
+            feat = event_to_features(event_type, importance, audio_energy).reshape(1, -1)
             feat = self.scaler.transform(feat).astype(np.float32)
             with torch.no_grad():
                 out = self.model(torch.tensor(feat)).numpy().ravel()
@@ -103,6 +105,8 @@ class ProsodyPredictor:
 class TTSEngine:
     """Interfaccia motore TTS. Unica implementazione: CoquiEngine (XTTS v2)."""
 
+    output_sample_rate: int = config.SAMPLE_RATE  # rate dell'audio prodotto
+
     def synth_neutral(
         self, text: str, speed: float | None = None, excited: bool = False
     ) -> tuple[np.ndarray, int]:
@@ -123,6 +127,9 @@ class CoquiEngine(TTSEngine):
 
         logger.info("TTS: Coqui (%s).", config.COQUI_MODEL)
         self.tts = TTS(config.COQUI_MODEL)
+        # Rate dell'audio prodotto: 24 kHz nativi di XTTS (config), NON i 22050
+        # dell'analisi audio -> niente downsampling che "ovatta" il parlato.
+        self.output_sample_rate = config.COQUI_OUTPUT_SAMPLE_RATE
         # Risolve i riferimenti rispetto alla root del progetto (robusto al cwd).
         self.speaker_wav = (
             str(config.PROJECT_ROOT / config.COQUI_SPEAKER_WAV)
@@ -157,12 +164,14 @@ class CoquiEngine(TTSEngine):
         if ref:
             kwargs["speaker_wav"] = ref
         wav = np.asarray(self.tts.tts(**kwargs), dtype=np.float32)
-        sr = getattr(self.tts.synthesizer, "output_sample_rate", config.SAMPLE_RATE)
-        if sr != config.SAMPLE_RATE:
+        # Rate reale di XTTS; si ricampiona SOLO se non coincide col target di
+        # sintesi (di norma entrambi 24 kHz -> nessun resampling, max qualita').
+        sr = getattr(self.tts.synthesizer, "output_sample_rate", self.output_sample_rate)
+        if sr != self.output_sample_rate:
             import librosa
 
-            wav = librosa.resample(wav, orig_sr=sr, target_sr=config.SAMPLE_RATE)
-        return wav, config.SAMPLE_RATE
+            wav = librosa.resample(wav, orig_sr=sr, target_sr=self.output_sample_rate)
+        return wav, self.output_sample_rate
 
 
 def make_tts_engine(name: str = "coqui") -> TTSEngine:
@@ -204,46 +213,45 @@ def _is_excited(importance: float) -> bool:
 
 
 def _group_utterances(
-    items: list[tuple[str, str, float, float]], max_chars: int, max_gap_s: float
-) -> list[tuple[str, str, float, float]]:
+    items: list[tuple[str, str, float, float, float]], max_chars: int, max_gap_s: float
+) -> list[tuple[str, str, float, float, float]]:
     """Unisce battute consecutive in blocchi <= max_chars mantenendo la
     punteggiatura interna. Si spezza un blocco quando: cambia il livello
     emotivo (calmo<->concitato), cosi' un evento importante (es. gol) finisce
     in un blocco a se' e puo' ricevere enfasi propria; OPPURE due battute sono
     lontane nel tempo piu' di max_gap_s (le fonderemmo perdendo la sincronia).
-    Ogni item e' (testo, event_type, importanza, t); il blocco eredita
-    event_type/importanza della battuta PIU' importante (il suo "carattere") e
-    il timestamp della PRIMA battuta (quando parte sulla timeline)."""
-    chunks: list[tuple[str, str, float, float]] = []
-    cur, cur_evt, cur_imp, cur_t = "", "idle", -1.0, 0.0
+    Ogni item e' (testo, event_type, importanza, t, audio_energy); il blocco
+    eredita event_type/importanza/audio_energy della battuta PIU' importante
+    (il suo "carattere") e il timestamp della PRIMA battuta (quando parte
+    sulla timeline)."""
+    chunks: list[tuple[str, str, float, float, float]] = []
+    cur, cur_evt, cur_imp, cur_t, cur_energy = "", "idle", -1.0, 0.0, 0.5
     prev_t: float | None = None
-    for text, evt, imp, t in items:
+    for text, evt, imp, t, energy in items:
         text = text.strip()
         if not text:
             continue
         candidate = f"{cur} {text}".strip()
         gap_too_big = prev_t is not None and (t - prev_t) > max_gap_s
         if cur and (
-            _is_excited(imp) != _is_excited(cur_imp)
-            or len(candidate) > max_chars
-            or gap_too_big
+            _is_excited(imp) != _is_excited(cur_imp) or len(candidate) > max_chars or gap_too_big
         ):
-            chunks.append((cur, cur_evt, cur_imp, cur_t))
-            cur, cur_evt, cur_imp, cur_t = text, evt, imp, t
+            chunks.append((cur, cur_evt, cur_imp, cur_t, cur_energy))
+            cur, cur_evt, cur_imp, cur_t, cur_energy = text, evt, imp, t, energy
         else:
             if not cur:  # prima battuta del blocco: ne fissa il timestamp
                 cur_t = t
             cur = candidate
             if imp > cur_imp:  # rappresentante del blocco = piu' importante
-                cur_evt, cur_imp = evt, imp
+                cur_evt, cur_imp, cur_energy = evt, imp, energy
         prev_t = t
     if cur:
-        chunks.append((cur, cur_evt, cur_imp, cur_t))
+        chunks.append((cur, cur_evt, cur_imp, cur_t, cur_energy))
     return chunks
 
 
 def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) -> np.ndarray:
-    sr = config.SAMPLE_RATE
+    sr = tts.output_sample_rate  # 24 kHz nativi XTTS (non i 22050 dell'analisi)
     min_gap = int(config.GAP_BETWEEN_UTTERANCES_S * sr)
 
     # NOTA: la prosodia NON viene piu' applicata via DSP (WORLD/pyworld).
@@ -261,12 +269,13 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
             line.get("event_type", "idle"),
             float(line.get("importance", 0.0)),
             float(line.get("t", 0.0)),
+            # audio_energy: eccitazione REALE del pubblico (Fase 1c), se la
+            # battuta ce l'ha; 0.5 (neutro) se la Fase 1c non e' girata.
+            float(line.get("audio_energy", 0.5)),
         )
         for line in script
     ]
-    chunks = _group_utterances(
-        items, config.COQUI_CHUNK_MAX_CHARS, config.SYNC_MERGE_MAX_GAP_S
-    )
+    chunks = _group_utterances(items, config.COQUI_CHUNK_MAX_CHARS, config.SYNC_MERGE_MAX_GAP_S)
     lo, hi = config.COQUI_SPEED_CLAMP
 
     # Sintesi + posizionamento sulla TIMELINE: ogni blocco parte al timestamp
@@ -274,9 +283,12 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
     # per non sovrapporre le voci. La traccia finisce con l'ultima battuta.
     placed: list[tuple[int, np.ndarray]] = []  # (campione d'inizio, audio)
     cursor = 0  # fine (in campioni) dell'ultimo blocco piazzato
-    for i, (chunk, evt, imp, t) in enumerate(chunks):
+    for i, (chunk, evt, imp, t, energy) in enumerate(chunks):
         # ENFASI DAL MODELLO (Fase 3): rate_factor -> speed, energy_gain -> volume.
-        prosody = predictor.predict(evt, imp)
+        # energy (Fase 1c) e' una feature IN PIU': a parita' di evento, la
+        # prosodia ora reagisce anche a quanto il pubblico si e' davvero
+        # eccitato in quel momento, non solo al tipo/importanza dell'evento.
+        prosody = predictor.predict(evt, imp, energy)
         speed = float(np.clip(config.COQUI_SPEED * prosody["rate_factor"], lo, hi))
         excited = _is_excited(imp)
         try:
@@ -335,13 +347,14 @@ def main() -> None:
     tts = make_tts_engine(args.engine)
     track = synthesize(script, predictor, tts)
 
+    sr = tts.output_sample_rate  # rate reale della traccia (24 kHz), non 22050
     suffix = "_rulebased" if args.rule_based else "_model"
     out_path = (
         Path(args.out) if args.out else config.AUDIO_OUT_DIR / f"{script_path.stem}{suffix}.wav"
     )
     ensure_dir(out_path)
-    sf.write(str(out_path), track, config.SAMPLE_RATE)
-    logger.info("Traccia salvata (%.1fs) -> %s", len(track) / config.SAMPLE_RATE, out_path)
+    sf.write(str(out_path), track, sr)
+    logger.info("Traccia salvata (%.1fs) -> %s", len(track) / sr, out_path)
     logger.info("Fase 4 completata.")
 
 

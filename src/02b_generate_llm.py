@@ -71,9 +71,16 @@ class OllamaProvider(LLMProvider):
 
 
 class OpenAIProvider(LLMProvider):
-    def __init__(self, model: str, api_key: str) -> None:
+    """Client per l'API 'chat completions' stile OpenAI. base_url configurabile:
+    stesso client serve OpenAI vero e qualunque endpoint compatibile (Groq,
+    LM Studio, Gemini...), cambia solo l'URL e la chiave."""
+
+    DEFAULT_BASE_URL = "https://api.openai.com/v1/chat/completions"
+
+    def __init__(self, model: str, api_key: str, base_url: str | None = None) -> None:
         self.model, self.api_key = model, api_key
-        logger.info("Provider: OpenAI (model=%s)", model)
+        self.base_url = base_url or self.DEFAULT_BASE_URL
+        logger.info("Provider: OpenAI-compatibile (model=%s, url=%s)", model, self.base_url)
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         import urllib.request
@@ -90,7 +97,7 @@ class OpenAIProvider(LLMProvider):
             }
         ).encode("utf-8")
         req = urllib.request.Request(
-            "https://api.openai.com/v1/chat/completions",
+            self.base_url,
             data=payload,
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"},
         )
@@ -138,8 +145,10 @@ def create_provider(provider_name: str, model: str | None = None) -> LLMProvider
     api_key = os.environ.get(cfg.get("api_key_env", ""), "")
     if not api_key:
         raise EnvironmentError(f"API key mancante: esporta {cfg.get('api_key_env')}.")
-    if provider_name == "openai":
-        return OpenAIProvider(actual_model, api_key)
+    if provider_name in ("openai", "groq"):
+        # Groq espone un endpoint OpenAI-compatibile: stessa classe, solo
+        # base_url e chiave diversi (letti da LLM_CONFIG).
+        return OpenAIProvider(actual_model, api_key, base_url=cfg.get("base_url"))
     if provider_name == "anthropic":
         return AnthropicProvider(actual_model, api_key)
     raise ValueError(f"Provider non supportato: {provider_name}")
@@ -163,7 +172,7 @@ def build_event_prompt(
         ("ball_zone", "zona_palla"),
         ("ball_speed", "velocita_palla"),
         ("players_nearby", "giocatori_vicini"),
-        ("crowd_excitement", "eccitazione_tifo"),
+        ("audio_energy_level", "eccitazione_tifo"),
         ("original_commentary", "telecronaca_originale"),
     ]:
         if event.get(src):
@@ -211,7 +220,11 @@ def build_event_prompt(
         for ne in next_events[:2]:
             ne_type = ne.get("type", "?")
             ne_player = str(ne.get("player") or "").strip()
-            ne_player = ne_player if ne_player and ne_player.lower() not in ("il giocatore", "sconosciuto", "") else "?"
+            ne_player = (
+                ne_player
+                if ne_player and ne_player.lower() not in ("il giocatore", "sconosciuto", "")
+                else "?"
+            )
             hints.append(f"  - [{ne_type}] {ne_player}")
         lookahead_block = (
             "Prossimi eventi (usali SOLO per il filo narrativo, NON citarli esplicitamente):\n"
@@ -371,14 +384,17 @@ class LLMScriptGenerator:
                     text = name + "."
                     source = "name_only"
                     recent.append(text)
-                    script.append({
-                        "t": event.get("t", 0),
-                        "text": text,
-                        "event_type": event.get("type", "idle"),
-                        "importance": event.get("importance", 0.1),
-                        "crowd_excitement": event.get("crowd_excitement", "low"),
-                        "source": source,
-                    })
+                    script.append(
+                        {
+                            "t": event.get("t", 0),
+                            "text": text,
+                            "event_type": event.get("type", "idle"),
+                            "importance": event.get("importance", 0.1),
+                            "audio_energy_level": event.get("audio_energy_level", "low"),
+                            "audio_energy": event.get("audio_energy", 0.5),
+                            "source": source,
+                        }
+                    )
                     continue
             try:
                 text = self.provider.generate(
@@ -408,7 +424,8 @@ class LLMScriptGenerator:
                     "text": text,
                     "event_type": event.get("type", "idle"),
                     "importance": event.get("importance", 0.1),
-                    "crowd_excitement": event.get("crowd_excitement", "low"),
+                    "audio_energy_level": event.get("audio_energy_level", "low"),
+                    "audio_energy": event.get("audio_energy", 0.5),
                     "source": source,
                 }
             )
@@ -430,7 +447,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 2b - Generazione telecronaca con LLM")
     parser.add_argument("--events", required=True)
     parser.add_argument(
-        "--provider", choices=["ollama", "openai", "anthropic"], default=config.LLM_PROVIDER
+        "--provider",
+        choices=["ollama", "openai", "anthropic", "groq"],
+        default=config.LLM_PROVIDER,
     )
     parser.add_argument("--model", type=str, default=None)
     parser.add_argument("--delay", type=float, default=0.5)

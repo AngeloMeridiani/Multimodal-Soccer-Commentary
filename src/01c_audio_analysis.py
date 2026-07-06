@@ -1,10 +1,15 @@
 """
 01c_audio_analysis.py
 ====================
-FASE 1c - Modulo Uditivo: Crowd Excitement + Trascrizione Whisper.
+FASE 1c - Modulo Uditivo: Audio Energy + Trascrizione Whisper.
 
-A) CROWD EXCITEMENT: misura l'eccitazione del pubblico (RMS, centroide
+A) AUDIO ENERGY: misura l'ENERGIA/ATTIVITA' dell'audio (RMS, centroide
    spettrale, densita' di onset) -> livello low/medium/high/peak nel tempo.
+   NB: si chiama "energy", non "crowd", di proposito. Test alla mano (AST su
+   AudioSet, SER dimensionale) hanno mostrato che questo audio NON contiene
+   tifo rilevabile: e' voce (commento) + effetti. Quindi il descrittore
+   misura l'energia audio - che correla coi momenti caldi - non il pubblico.
+   E' un proxy acustico dichiarato, non una misura di "crowd excitement".
 B) TRASCRIZIONE: trascrive la telecronaca originale del gioco con Whisper
    (utile per i nomi dei giocatori che l'OCR non vede, es. il portiere).
 
@@ -31,12 +36,13 @@ from utils import ensure_dir, get_logger, load_json, save_json
 logger = get_logger("fase1c_audio")
 
 
-class CrowdAnalyzer:
-    """Misura l'eccitazione del pubblico su finestre temporali."""
+class AudioEnergyAnalyzer:
+    """Misura l'energia/attivita' dell'audio su finestre temporali (NON il tifo:
+    vedi docstring del modulo)."""
 
     def __init__(self, sample_rate: int = config.SAMPLE_RATE) -> None:
         self.sr = sample_rate
-        self.thresholds = config.CROWD_EXCITEMENT_THRESHOLDS
+        self.thresholds = config.AUDIO_ENERGY_THRESHOLDS
         self.window_s = config.AUDIO_ANALYSIS_WINDOW_S
 
     def analyze_full(self, audio: np.ndarray) -> list[dict]:
@@ -51,7 +57,10 @@ class CrowdAnalyzer:
             float(np.mean(librosa.feature.spectral_centroid(y=audio, sr=self.sr))) + 1e-8
         )
 
-        results: list[dict] = []
+        # 1) SCORE GREZZO per finestra: energia (RMS) + brillantezza (centroide)
+        #    + densita' di attacchi (onset), pesati. Normalizzati sulla media
+        #    della clip, quindi un valore "medio" cade intorno a ~0.33.
+        windows: list[tuple[float, float, float]] = []  # (t_start, t_end, raw)
         offset = 0
         while offset < len(audio):
             chunk = audio[offset : offset + win]
@@ -67,17 +76,30 @@ class CrowdAnalyzer:
             rms_n = min(rms / global_rms, 3.0) / 3.0
             cen_n = min(centroid / global_centroid, 3.0) / 3.0
             ons_n = min(onset / 5.0, 1.0)
-            score = float(np.clip(0.50 * rms_n + 0.30 * cen_n + 0.20 * ons_n, 0.0, 1.0))
-
-            results.append(
-                {
-                    "t_start": round(t_start, 2),
-                    "t_end": round(t_end, 2),
-                    "excitement_score": round(score, 3),
-                    "excitement_level": self._level(score),
-                }
-            )
+            raw = float(np.clip(0.50 * rms_n + 0.30 * cen_n + 0.20 * ons_n, 0.0, 1.0))
+            windows.append((t_start, t_end, raw))
             offset += hop
+
+        # 2) RI-SCALATURA ai percentili della clip: mappa [p5, p95] -> [0,1], cosi'
+        #    lo score copre tutto il range e i livelli (low/medium/high/peak)
+        #    partizionano davvero (prima lo score stava ~0.33 e "peak" non
+        #    scattava mai). Il guard AUDIO_ENERGY_MIN_RANGE evita che su una clip
+        #    PIATTA il rumore di fondo venga stirato a "peak" fittizi.
+        results: list[dict] = []
+        if windows:
+            raws = np.array([w[2] for w in windows])
+            p5, p95 = np.percentile(raws, [5, 95])
+            span = max(float(p95 - p5), config.AUDIO_ENERGY_MIN_RANGE)
+            for t_start, t_end, raw in windows:
+                score = float(np.clip((raw - p5) / span, 0.0, 1.0))
+                results.append(
+                    {
+                        "t_start": round(t_start, 2),
+                        "t_end": round(t_end, 2),
+                        "energy_score": round(score, 3),
+                        "energy_level": self._level(score),
+                    }
+                )
         return results
 
     def get_at(self, data: list[dict], timestamp: float) -> dict:
@@ -86,7 +108,10 @@ class CrowdAnalyzer:
                 return e
         if data:
             return min(data, key=lambda e: abs(e["t_start"] - timestamp))
-        return {"excitement_score": 0.0, "excitement_level": "low"}
+        # Nessun dato audio: neutro (0.5), COERENTE col default della feature
+        # di prosodia (event_to_features). Uno 0.0 direbbe "pubblico gelido",
+        # che e' un'informazione FALSA, non un "non so".
+        return {"energy_score": 0.5, "energy_level": "medium"}
 
     def _level(self, score: float) -> str:
         if score >= self.thresholds["high"]:
@@ -165,9 +190,9 @@ def analyze_audio(video_path: Path, use_whisper: bool = True) -> dict:
         duration = len(audio) / sr
         logger.info("Audio: %.1fs @ %dHz", duration, sr)
 
-        excitement = CrowdAnalyzer(sr).analyze_full(audio)
-        scores = [e["excitement_score"] for e in excitement]
-        levels = [e["excitement_level"] for e in excitement]
+        energy = AudioEnergyAnalyzer(sr).analyze_full(audio)
+        scores = [e["energy_score"] for e in energy]
+        levels = [e["energy_level"] for e in energy]
 
         transcription: list[dict] = []
         if use_whisper:
@@ -179,12 +204,12 @@ def analyze_audio(video_path: Path, use_whisper: bool = True) -> dict:
                 logger.warning("Errore trascrizione: %s", exc)
 
         return {
-            "excitement": excitement,
+            "energy": energy,
             "transcription": transcription,
             "summary": {
                 "duration_s": round(duration, 2),
-                "avg_excitement": round(float(np.mean(scores)), 3) if scores else 0.0,
-                "max_excitement": round(float(np.max(scores)), 3) if scores else 0.0,
+                "avg_energy": round(float(np.mean(scores)), 3) if scores else 0.0,
+                "max_energy": round(float(np.max(scores)), 3) if scores else 0.0,
                 "level_distribution": {lv: levels.count(lv) for lv in set(levels)},
                 "n_transcribed_segments": len(transcription),
             },
@@ -194,16 +219,18 @@ def analyze_audio(video_path: Path, use_whisper: bool = True) -> dict:
 
 
 def enrich_events_with_audio(events: list[dict], audio_data: dict) -> list[dict]:
-    analyzer = CrowdAnalyzer()
-    excitement = audio_data.get("excitement", [])
+    analyzer = AudioEnergyAnalyzer()
+    energy = audio_data.get("energy", [])
     transcription = audio_data.get("transcription", [])
     enriched: list[dict] = []
     for ev in events:
         e = dict(ev)
         t = e.get("t", 0.0)
-        exc = analyzer.get_at(excitement, t)
-        e["crowd_excitement"] = exc.get("excitement_level", "low")
-        e["crowd_score"] = exc.get("excitement_score", 0.0)
+        exc = analyzer.get_at(energy, t)
+        # 0.5 (neutro) come default, coerente con event_to_features: un evento
+        # senza dato di eccitazione non deve risultare "pubblico gelido" (0.0).
+        e["audio_energy_level"] = exc.get("energy_level", "medium")
+        e["audio_energy"] = exc.get("energy_score", 0.5)
         context = " ".join(
             s["text"]
             for s in transcription

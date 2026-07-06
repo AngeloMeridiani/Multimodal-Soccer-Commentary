@@ -115,14 +115,29 @@ def build_dataset_from_audio() -> tuple[np.ndarray, np.ndarray] | None:
             np.clip(12.0 * np.log2(m["f0"] / med_f0), *config.PROSODY_CLAMP["pitch_semitones"])
         )
         energy_gain = float(np.clip(m["energy"] / med_energy, *config.PROSODY_CLAMP["energy_gain"]))
-        X.append(event_to_features(et, config.EVENT_IMPORTANCE.get(et, 0.1)))
+        # NB: le clip annotate sono segmenti di TELECRONACA (voce del commentatore),
+        # non audio di gioco con il tifo: non abbiamo una vera misura di audio_energy
+        # per questi campioni. Si usa il neutro (0.5); il segnale reale del pubblico
+        # arriva solo dal dataset sintetico finche' non si annotano clip di GIOCO
+        # (con tifo) allineate agli stessi eventi.
+        X.append(event_to_features(et, config.EVENT_IMPORTANCE.get(et, 0.1), audio_energy=0.5))
         Y.append([rate_factor, pitch_semi, energy_gain])
     logger.info("Dataset da audio reale: %d campioni.", len(X))
     return np.asarray(X, np.float32), np.asarray(Y, np.float32)
 
 
 def build_dataset_synthetic(n_per_type: int = 40) -> tuple[np.ndarray, np.ndarray]:
-    """Dataset sintetico dai valori a regole + rumore (per far girare la pipeline)."""
+    """Dataset sintetico dai valori a regole + rumore (per far girare la pipeline).
+
+    audio_energy e' un PROXY sintetico dell'importanza con rumore: modella
+    l'idea che il pubblico di solito reagisce in proporzione all'evento, ma
+    non sempre (a volte un evento "importante" passa sottotono, o un evento
+    minore scatena un boato). Il target viene nudged dallo SCARTO tra energy
+    reale e importanza attesa, cosi' il modello impara a usare audio_energy
+    come segnale indipendente (non solo a ignorarlo come rumore). E' un
+    limite dichiarato: la relazione vera va appresa da dati reali annotati
+    (audio di gioco + telecronaca), non da questa correlazione sintetica.
+    """
     rng = np.random.default_rng(config.RANDOM_SEED)
     X, Y = [], []
     for et, params in config.RULE_BASED_PROSODY.items():
@@ -131,12 +146,18 @@ def build_dataset_synthetic(n_per_type: int = 40) -> tuple[np.ndarray, np.ndarra
         )
         importance = config.EVENT_IMPORTANCE.get(et, 0.1)
         for _ in range(n_per_type):
+            imp = float(np.clip(importance + rng.normal(0, 0.03), 0, 1))
+            energy = float(np.clip(importance + rng.normal(0, 0.15), 0, 1))
+            delta = energy - importance  # quanto il pubblico ha reagito PIU'/MENO dell'atteso
+
             noise = rng.normal(0.0, [0.04, 0.4, 0.06]).astype(np.float32)
             target = base + noise
+            target[0] += 0.06 * delta  # rate_factor: pubblico piu' carico -> ritmo piu' svelto
+            target[2] += 0.20 * delta  # energy_gain: pubblico piu' carico -> voce piu' intensa
             for i, key in enumerate(config.PROSODY_TARGETS):
                 target[i] = np.clip(target[i], *config.PROSODY_CLAMP[key])
-            imp = float(np.clip(importance + rng.normal(0, 0.03), 0, 1))
-            X.append(event_to_features(et, imp))
+
+            X.append(event_to_features(et, imp, audio_energy=energy))
             Y.append(target)
     logger.info("Dataset sintetico: %d campioni (%d tipi).", len(X), len(config.RULE_BASED_PROSODY))
     return np.asarray(X, np.float32), np.asarray(Y, np.float32)
