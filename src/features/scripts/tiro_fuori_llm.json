@@ -1,0 +1,58 @@
+[
+  {
+    "t": 0.0,
+    "text": "Pavlovic lancia.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 0.7,
+    "text": "Recupera palla Haaland!",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 1.0,
+    "text": "Haaland.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "name_only"
+  },
+  {
+    "t": 4.13,
+    "text": "Haaland si infila.",
+    "event_type": "carry",
+    "importance": 0.2,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 7.25,
+    "text": "Si fa largo Haaland!",
+    "event_type": "carry",
+    "importance": 0.2,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 10.38,
+    "text": "Si infila Haaland!",
+    "event_type": "carry",
+    "importance": 0.2,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 13.51,
+    "text": "Tiro sul fondo!",
+    "event_type": "shot_off",
+    "importance": 0.6,
+    "crowd_excitement": "low",
+    "source": "llm"
+  }
+]

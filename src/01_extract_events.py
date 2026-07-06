@@ -261,13 +261,10 @@ class PossessionHeuristic:
         elif self.current == "away" and n_home > n_away + self.MIN_MARGIN:
             self.current = "home"
 
-        # 3) Silenzio reciproco dopo un possesso lungo -> inversione.
-        if self.current is not None and self._start_t is not None:
-            both_silent = all(
-                t - self._last_change[side] >= self.INACTIVITY_S for side in ("home", "away")
-            )
-            if both_silent and t - self._start_t >= self.MIN_DURATION_S:
-                self.current = "away" if self.current == "home" else "home"
+        # Segnale 3 (silence flip) RIMOSSO: causava falsi cambi di possesso
+        # ogni frame quando entrambe le targhette erano ferme, generando
+        # cascate di eventi spuri. Il possesso ora cambia SOLO quando le
+        # targhette mostrano attivita' reale (segnali 1 e 2).
 
         if self.current != prev:
             self._start_t = t
@@ -371,7 +368,7 @@ def extract_events(
         # --- classificazione ---
         event_type = "idle"
 
-        # Se il possesso e' appena cambiato, registriamo un turnover!
+        # Se il possesso e' appena cambiato, registriamo un turnover.
         if last_possession and current_possession != last_possession:
             event_type = "turnover"
         elif became_official and is_real_goal(confirmed_score, pending_score):

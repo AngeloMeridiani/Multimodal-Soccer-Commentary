@@ -179,6 +179,7 @@ EVENT_IMPORTANCE: dict[str, float] = {
     "turnover": 0.55,  # palla persa / intercetto
     "foul": 0.40,
     "dribble": 0.50,
+    "carry": 0.20,  # porta palla / conduzione
     "pass": 0.25,
     "idle": 0.10,  # gioco a centrocampo
 }
@@ -195,6 +196,7 @@ EVENT_TYPES: list[str] = [
     "turnover",
     "foul",
     "dribble",
+    "carry",
     "pass",
     "idle",
 ]
@@ -356,6 +358,11 @@ TEMPLATES: dict[str, list[str]] = {
         "{player} salta l'uomo! Che dribbling!",
         "Numero di {player}, supera il difensore!",
     ],
+    "carry": [
+        "{player} avanza con il pallone.",
+        "{player} porta palla.",
+        "Conduce {player}.",
+    ],
     "pass": ["{player} controlla.", "Apertura per {player}.", "La gioca {player}."],
     "idle": ["Si fa girare il pallone.", "Fase di studio a centrocampo."],
 }
@@ -417,6 +424,7 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
     "turnover": {"rate_factor": 1.15, "pitch_semitones": 1.5, "energy_gain": 1.2},
     "foul": {"rate_factor": 1.10, "pitch_semitones": 1.0, "energy_gain": 1.1},
     "dribble": {"rate_factor": 1.20, "pitch_semitones": 2.0, "energy_gain": 1.3},
+    "carry": {"rate_factor": 1.00, "pitch_semitones": 0.0, "energy_gain": 1.0},
     "pass": {"rate_factor": 1.00, "pitch_semitones": 0.0, "energy_gain": 1.0},
     "idle": {"rate_factor": 0.92, "pitch_semitones": -0.5, "energy_gain": 0.9},
 }
@@ -437,7 +445,7 @@ COQUI_LANGUAGE: str = "it"
 # Riferimento vocale BASE: il tono "di lavoro" del telecronista (voce calda,
 # presente ma non urlata). XTTS clona timbro e stile da questo file.
 # WAV mono, pulito, ~10-20s. Percorso relativo alla root del progetto.
-COQUI_SPEAKER_WAV: str | None = "data/raw/voice/mia_voce.wav"
+COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/ref.wav"
 # Riferimento vocale CONCITATO (opzionale): usato SOLO sugli eventi importanti
 # (importanza >= EMPHASIS_IMPORTANCE_THRESHOLD), es. gol/parate. Se None, per
 # tutti gli eventi si usa COQUI_SPEAKER_WAV. Consigliato per un effetto "boato".
@@ -454,7 +462,7 @@ COQUI_SPEED_CLAMP: tuple[float, float] = (0.85, 1.35)
 COQUI_CHUNK_MAX_CHARS: int = 220
 # Sopra questa importanza l'evento e' "concitato": attiva la voce excited (se
 # presente) e permette al blocco di ricevere enfasi propria.
-EMPHASIS_IMPORTANCE_THRESHOLD: float = 0.70
+EMPHASIS_IMPORTANCE_THRESHOLD: float = 0.60
 # Rampa di fade-in (ms) in testa a ogni blocco: smorza l'attacco "rauco" di XTTS.
 ONSET_FADE_MS: int = 15
 

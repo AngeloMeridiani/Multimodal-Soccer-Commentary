@@ -544,7 +544,7 @@ class ControlledPlayerDetector:
 
 
 def analyze_video(
-    video_path: Path, limit: int | None = None, ocr_events: list[dict] | None = None
+    video_path: Path, limit: int | None = None, ocr_events: list[dict] | None = None, swap_colors: bool = False
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """Ritorna (eventi_arricchiti, timeline_possesso, telemetria_palla)."""
     detector = YoloDetector()
@@ -617,9 +617,20 @@ def analyze_video(
                 event["player"] = carrier_name
                 event["player_team"] = carrier_team
             visual_events.append(event)
+    
+    # Inverte la timeline se i colori erano invertiti
+    if swap_colors:
+        for p in possession_timeline:
+            if p["possession"] == "home":
+                p["possession"] = "away"
+            elif p["possession"] == "away":
+                p["possession"] = "home"
 
     if ocr_events:
         visual_events = merge_events(ocr_events, visual_events, possession_timeline)
+    # Riempie i buchi: inserisce turnover dai cambi di possesso visivo
+    # e carry quando un giocatore porta palla a lungo senza eventi.
+    visual_events = _fill_event_gaps(visual_events, possession_timeline)
     visual_events.sort(key=lambda e: e["t"])
     return visual_events, possession_timeline, ball_timeline
 
@@ -643,11 +654,14 @@ def merge_events(
     time_tolerance: float = 1.0,
 ) -> list[dict]:
     """
-    Fonde OCR e visivi. Inoltre, usando il possesso (colore maglia), CORREGGE il
-    portatore: sceglie la targhetta della squadra che ha davvero la palla
-    (player_home se possesso=home, player_away se possesso=away).
+    Fonde gli eventi estratti dall'OCR con quelli rilevati visivamente (YOLO).
+    Usa la possession_timeline per stabilire la squadra in possesso e risolvere
+    l'identita' dell'attore per gli eventi puramente visivi.
     """
     possession_timeline = possession_timeline or []
+    import logging
+    logger = logging.getLogger("fase1b_visivo")
+
     merged: list[dict] = []
     consumed: set[int] = set()  # indici degli eventi visivi gia' fusi
     for ocr_ev in ocr_events:
@@ -688,6 +702,51 @@ def merge_events(
             if vis.get("importance", 0.0) > m.get("importance", 0.0):
                 m["type"] = vis["type"]
                 m["importance"] = vis["importance"]
+
+        # --- Fix Attribuzione Tiri e Parate ---
+        # Al momento di un tiro o parata, l'HUD si aggiorna spesso sul portiere
+        # o sul difensore. Dobbiamo recuperare il VERO tiratore guardando a ritroso.
+        is_shot = m["type"] in ("shot_on_goal", "shot_off", "shot_post", "shot_blocked")
+        
+        if is_shot or m["type"] == "save":
+            poss = m.get("possession")
+            
+            # 1) Trova il tiratore a ritroso
+            shooter_name = m.get("player", "il giocatore")
+            shooter_team = m.get("player_team", poss)
+            for prev_ev in reversed(merged):
+                if prev_ev.get("possession") == poss and prev_ev.get("player"):
+                    shooter_name = prev_ev["player"]
+                    shooter_team = prev_ev.get("player_team", poss)
+                    break
+
+            if m["type"] == "save":
+                # Aggiungi l'evento del tiro prima della parata
+                shot_event = dict(m)
+                shot_event["type"] = "shot_on_goal"
+                shot_event["t"] = round(m["t"] - 0.5, 2)
+                shot_event["importance"] = config.EVENT_IMPORTANCE.get("shot_on_goal", 0.85)
+                shot_event["player"] = shooter_name
+                shot_event["player_team"] = shooter_team
+                merged.append(shot_event)
+
+                # La save va al portiere avversario
+                if poss == "away":
+                    gk_name = m.get("player_home", "il portiere")
+                    m["player"] = gk_name
+                    m["player_team"] = "home"
+                    m["possession"] = "home"
+                elif poss == "home":
+                    gk_name = m.get("player_away", "il portiere")
+                    m["player"] = gk_name
+                    m["player_team"] = "away"
+                    m["possession"] = "away"
+            else:
+                # E' un tiro: correggiamo direttamente l'autore
+                m["player"] = shooter_name
+                m["player_team"] = shooter_team
+
+
         merged.append(m)
 
     # Gli eventi visivi rimasti orfani (nessun evento OCR vicino) entrano
@@ -696,6 +755,116 @@ def merge_events(
         if j not in consumed:
             merged.append(vis)
     return merged
+
+
+def _fill_event_gaps(
+    events: list[dict],
+    possession_timeline: list[dict],
+    carry_gap_s: float = 4.0,
+) -> list[dict]:
+    """Riempie i buchi nella timeline degli eventi usando il possesso visivo.
+
+    1) TURNOVER: se tra due eventi consecutivi il possesso cambia (dalla
+       timeline visiva), inserisce un evento turnover nel punto del cambio.
+    2) CARRY: se tra due eventi della stessa squadra passano piu' di
+       carry_gap_s secondi, inserisce un carry per indicare che il giocatore
+       sta portando palla (evita silenzi nella telecronaca).
+    """
+    if not events or not possession_timeline:
+        return events
+
+    extras: list[dict] = []
+    sorted_evts = sorted(events, key=lambda e: e["t"])
+
+    for i in range(len(sorted_evts) - 1):
+        curr_ev = sorted_evts[i]
+        next_ev = sorted_evts[i + 1]
+        t_start = curr_ev["t"]
+        t_end = next_ev["t"]
+        gap = t_end - t_start
+
+        if gap < 1.0:
+            continue
+
+        poss_start = curr_ev.get("possession")
+        poss_end = next_ev.get("possession")
+
+        # --- 1) Turnover: il possesso cambia tra due eventi ---
+        if poss_start and poss_end and poss_start != poss_end:
+            # Trova il momento STABILE del cambio nella timeline visiva.
+            # La minimap puo' flickerare: si prende l'ULTIMO cambio vero e proprio
+            # verso il nuovo possesso (cioe' il momento in cui e' passato da
+            # un altro possesso a poss_end).
+            switch_t = None
+            prev_p_poss = None
+            for p in possession_timeline:
+                # Tracciamo il possesso precedente anche fuori dal range per il primo frame
+                if p["t"] <= t_start:
+                    prev_p_poss = p.get("possession")
+                    continue
+                    
+                if p["t"] <= t_end:
+                    curr_p_poss = p.get("possession")
+                    if curr_p_poss == poss_end and prev_p_poss != poss_end:
+                        switch_t = p["t"]  # Sovrascrive, quindi tiene l'ultimo switch
+                    prev_p_poss = curr_p_poss
+
+            if switch_t is None:
+                switch_t = round((t_start + t_end) / 2, 2)
+            else:
+                # Per evitare che il turnover si sovrapponga all'evento successivo
+                if abs(switch_t - t_end) < 0.1:
+                    switch_t -= 0.1
+
+            # Giocatore: chi riceve la palla (dal prossimo evento)
+            turnover_player = next_ev.get("player", "il giocatore")
+            turnover_team = next_ev.get("player_team", poss_end)
+
+            extras.append({
+                "t": round(switch_t, 2),
+                "type": "turnover",
+                "player": turnover_player,
+                "player_team": turnover_team,
+                "possession": poss_end,
+                "player_resolved": next_ev.get("player_resolved", False),
+                "name_confidence": next_ev.get("name_confidence", 0.5),
+                "player_home": next_ev.get("player_home", ""),
+                "player_away": next_ev.get("player_away", ""),
+                "importance": config.EVENT_IMPORTANCE.get("turnover", 0.55),
+                "score": curr_ev.get("score"),
+                "clock": None,
+                "source": "visual",
+                "possession_certain": True,
+                "possession_source": "visual",
+            })        # --- 2) Carry: gap lungo senza eventi ---
+        if gap > carry_gap_s and poss_start:
+            n_carries = int(gap // carry_gap_s)
+            for i in range(1, n_carries + 1):
+                carry_t = round(t_start + i * (gap / (n_carries + 1)), 2)
+                carry_player = curr_ev.get("player", "il giocatore")
+                carry_team = curr_ev.get("player_team", poss_start)
+                extras.append({
+                    "t": carry_t,
+                    "type": "carry",
+                    "player": carry_player,
+                    "player_team": carry_team,
+                    "possession": poss_start,
+                    "player_resolved": curr_ev.get("player_resolved", False),
+                    "name_confidence": curr_ev.get("name_confidence", 0.5),
+                    "player_home": curr_ev.get("player_home", ""),
+                    "player_away": curr_ev.get("player_away", ""),
+                    "importance": config.EVENT_IMPORTANCE.get("carry", 0.2),
+                    "score": curr_ev.get("score"),
+                    "clock": None,
+                    "source": "visual",
+                    "possession_certain": True,
+                    "possession_source": "visual",
+                })
+
+    events.extend(extras)
+    events.sort(key=lambda e: e["t"])
+    return events
+
 
 
 def main() -> None:
@@ -708,6 +877,7 @@ def main() -> None:
         default="auto",
         help="Profilo HUD/colori: 'auto' o un nome di config.HUD_PROFILES.",
     )
+    parser.add_argument("--swap-colors", action="store_true", help="Inverte i colori della minimappa (home<->away)")
     args = parser.parse_args()
 
     video_path = Path(args.video)
@@ -727,7 +897,7 @@ def main() -> None:
         ocr_events = load_json(Path(args.merge))
         logger.info("Caricati %d eventi OCR da %s", len(ocr_events), args.merge)
 
-    events, possession_timeline, ball_timeline = analyze_video(video_path, args.limit, ocr_events)
+    events, possession_timeline, ball_timeline = analyze_video(video_path, args.limit, ocr_events, args.swap_colors)
 
     out_path = config.EVENTS_DIR / f"{video_path.stem}_enriched.json"
     ensure_dir(out_path)

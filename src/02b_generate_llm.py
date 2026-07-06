@@ -179,12 +179,13 @@ def build_event_prompt(
         "goal": "USA SOLO verbi da gol: segna, insacca, trafigge, batte il portiere, la mette dentro. MAI 'filtra', 'lancia', 'verticalizza'. NON descrivere dove va: il modello non vede la traiettoria.",
         "save": "USA SOLO verbi da parata: para, dice di no, vola sul pallone, blocca, devia, respinge.",
         "shot_on_goal": "USA verbi da tiro: calcia, conclude, ci prova, tenta la conclusione, scarica il destro/sinistro.",
-        "shot_off": "Tiro fuori: calcia, manda fuori, spedisce a lato/in curva.",
+        "shot_off": "REGOLA SPECIALE ASSOLUTA: Rispondi SOLO con una di queste 3 frasi: 'Tiro sul fondo!', 'Palla fuori!', 'Conclusione a lato!'. NON usare nessun'altra parola.",
         "dribble": "Dribbling: salta l'uomo, si libera, supera, sguscia via.",
         "foul": "Fallo: viene atterrato, steso, trattenuto, il direttore di gara fischia.",
         "corner": "Corner: calcio d'angolo, batte il corner, palla in area.",
         "free_kick": "Punizione: si incarica, prova la punizione diretta.",
-        "turnover": "Palla persa/recuperata: perde palla, recupera, si impossessa, ruba il pallone.",
+        "turnover": "Cambio di possesso: DEVI dire esplicitamente che c'è un recupero palla. Es: 'recupera palla', 'ruba il pallone', 'intercetta', 'cambio di fronte'. MAI usare 'smarca' o verbi di passaggio.",
+        "carry": "Conduzione palla: usa SINONIMI SEMPRE DIVERSI (es. conduce, avanza, si fa largo, porta palla, sale, palla al piede, accelera, si invola). NON ripetere MAI il verbo usato nella battuta precedente.",
     }
     verb_hint = VERB_HINTS.get(evt, "")
 
@@ -226,7 +227,8 @@ def build_event_prompt(
         f"{lookahead_block}"
         f"{verb_block}"
         f"Lunghezza: {length_rule}\n"
-        "VINCOLO: cita SOLO il giocatore che ha la palla (campo 'giocatore'). NON aggiungere mai il nome di chi riceve.\n"
+        "VINCOLO 1: cita SOLO il giocatore che ha la palla (campo 'giocatore'). NON aggiungere mai il nome di chi riceve.\n"
+        "VINCOLO 2: NON inventare MAI dettagli fisici (es. pali, traverse, salvataggi sulla linea) se non deducibili dai dati.\n"
         "Se c'e' la telecronaca originale usane nomi/contesto. Rispondi SOLO con la battuta, niente altro."
     )
 
