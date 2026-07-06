@@ -202,7 +202,7 @@ EVENT_TYPES: list[str] = [
 # --------------------------------------------------------------------------- #
 # Fase 1b - Modulo Visivo (YOLO + OpenCV)                                      #
 # --------------------------------------------------------------------------- #
-YOLO_MODEL: str = "models/best.pt"  # modello FIFA addestrato su Roboflow
+YOLO_MODEL: str = "models/best_finetuned.pt"  # modello FIFA fine-tunato (grafica nuova, imgsz 960)
 # Il modello FIFA usa nomi diversi da COCO. Li mappiamo ai nomi interni del progetto.
 YOLO_CLASS_MAP: dict[str, str] = {
     "player": "person",  # giocatori
@@ -221,6 +221,10 @@ YOLO_CONFIDENCE: float = 0.35
 # calcolare. Soglia dedicata piu' bassa: qualche falso positivo in piu' e'
 # tollerabile (il filtro max_ball_jump_px scarta i salti implausibili).
 YOLO_BALL_CONFIDENCE: float = 0.15
+# Risoluzione di inferenza YOLO. DEVE combaciare con quella di training del
+# modello: best_finetuned.pt e' a 960, e a 640 (default) perderebbe il
+# guadagno sulla palla piccola (test: palla vista 47% a 960 vs meno a 640).
+YOLO_IMGSZ: int = 960
 
 # --- Possesso palla dal COLORE MAGLIA del giocatore piu' vicino alla palla --- #
 # Range HSV (OpenCV: H 0-179, S 0-255, V 0-255), TARATI sui frame reali della clip.
@@ -250,15 +254,19 @@ BALL_TRACKING: dict[str, float] = {
     "min_speed_pass": 80.0,  # px/s: sopra = passaggio, sotto = possesso
     "save_drop_ratio": 0.35,  # parata: la velocita' crolla sotto questa frazione
     "near_player_px": 100.0,  # raggio (px) per "giocatore vicino alla palla"
-    # Raggio palla-portiere per la PARATA. Calibrato sulla telemetria reale
-    # (possesso_palla_e_parata_ball.json): al crollo di velocita' il portiere
-    # era a ~184 px dalla palla.
-    "near_goalkeeper_px": 200.0,
-    # Un TIRO vale solo col portiere in vista entro questo raggio: distingue
-    # il tiro vero (verso la porta) dal passaggio forte a centrocampo, che ha
-    # velocita' simili (380-550 px/s) ma nessun portiere vicino. Calibrato:
-    # tiro vero = GK a 259-374 px; falsi positivi = GK assente o >660 px.
+    # Raggio palla-portiere per TIRO e PARATA. Con il detector fine-tunato il
+    # portiere si localizza bene (test: tiro+parata veri con GK a 211-322px;
+    # gioco a centrocampo con GK a ~900px). Questa distanza e' il separatore.
+    "near_goalkeeper_px": 260.0,
+    # Un TIRO vale solo col portiere DAVVERO vicino (verso la porta): distingue
+    # il tiro vero dal passaggio forte a centrocampo (velocita' simili ma GK
+    # lontano ~900px). Prima era 1200 su camera larga per compensare la pessima
+    # localizzazione GK del vecchio modello: col fine-tuned si puo' stringere.
     "shot_goal_view_px": 500.0,
+    # Un TIRO e' un'accelerazione NETTA: velocita' attuale > prev * questo
+    # fattore. Cosi' scatta anche se la palla era gia' in movimento nella
+    # costruzione (tiro reale: 344 -> 835 px/s), non solo da palla ferma.
+    "shot_accel_ratio": 1.5,
     "max_ball_jump_px": 400.0,  # px TRA DUE CAMPIONI: oltre = glitch di tracking
     # Per quanti secondi il classificatore RICORDA l'ultimo stato palla quando
     # YOLO la perde: nella parata il motion blur nasconde la palla per diversi
@@ -266,15 +274,8 @@ BALL_TRACKING: dict[str, float] = {
     "ball_memory_s": 1.0,
     # Memoria dell'ultima POSIZIONE del portiere, usata SOLO dalla parata:
     # nel tuffo YOLO perde il GK proprio nei frame decisivi, ma la sua
-    # posizione a schermo resta valida per un paio di secondi. Il TIRO invece
-    # richiede il portiere visto ORA (con la memoria tornerebbero i tiri
-    # fantasma filtrati su possesso_palla_1).
+    # posizione a schermo resta valida per un paio di secondi.
     "gk_memory_s": 2.0,
-    # Via SEQUENZIALE alla parata (indipendente dalla camera): se entro questa
-    # finestra da un TIRO rilevato la palla si ferma quasi del tutto, e' una
-    # parata anche senza portiere visibile (su camera larga YOLO confonde o
-    # perde i GK e le distanze in px non sono affidabili).
-    "shot_to_save_max_s": 2.5,
 }
 
 # Copia PRISTINA dei default: apply_profile fonde gli override del profilo
@@ -424,30 +425,13 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
 # Fase 4 - Sintesi audio                                                       #
 # --------------------------------------------------------------------------- #
 GAP_BETWEEN_UTTERANCES_S: float = 0.15
-<<<<<<< HEAD
-VOICE_STYLE: str = "dark_hero"          # etichetta descrittiva (NON voce clonata)
-TTS_ENGINE: str = "coqui"               # unico motore realmente supportato (XTTS v2)
-COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
-=======
 TTS_ENGINE: str = "coqui"  # unico motore supportato: Coqui XTTS v2
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
-# Voce da clonare: clip CONCITATA (esultanza da gol) al posto della calma
-# ref.wav — prova per dare piu' enfasi a tutta la telecronaca.
-COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/gol_saliente.wav"
-COQUI_SPEAKER_WAV_EXCITED: str | None = (
-    None  # 2a clip concitata dello STESSO telecronista (opzionale)
-)
->>>>>>> a1ab307357c04f9227ca7d57cca00223e3d5f462
 COQUI_LANGUAGE: str = "it"
-COQUI_SPEED: float = 1.1  # passo base (poi modulato da rate_factor di prosody_mlp)
-COQUI_SPEED_CLAMP: tuple[float, float] = (0.9, 1.35)  # limiti di sicurezza sullo speed finale
-COQUI_CHUNK_MAX_CHARS: int = 180  # battute unite in blocchi <= N char -> prosodia connessa
-EMPHASIS_IMPORTANCE_THRESHOLD: float = (
-    0.6  # sopra questa soglia = evento "concitato" (gol, parata...)
-)
-ONSET_FADE_MS: int = 80  # smorza l'attacco rauco d'avvio di XTTS
-# NB: l'enfasi (velocita' + volume) arriva da prosody_mlp (Fase 3):
-#     rate_factor -> speed XTTS,  energy_gain -> volume.
+# NB: la voce clonata (COQUI_SPEAKER_WAV/_EXCITED) e i parametri di sintesi
+# (COQUI_SPEED, _CLAMP, _CHUNK_MAX_CHARS, EMPHASIS_..., ONSET_FADE_MS) sono
+# definiti piu' sotto, nelle sezioni "Voce clonata" e "Parametri di sintesi
+# XTTS". Il merge aveva duplicato quelle costanti qui: duplicazione rimossa.
 
 # --- Voce clonata (voice cloning zero-shot XTTS v2) ------------------------- #
 # Riferimento vocale BASE: il tono "di lavoro" del telecronista (voce calda,
@@ -612,10 +596,11 @@ HUD_PROFILES: dict[str, dict] = {
         "aspect_min": 1.7,  # priorita' su video 16:9 (~1.77)
         # Soglie di tracking TARATE su questa camera (1080p, inquadratura larga:
         # le distanze in px sono maggiori che sui video bra_hai 1706x886).
-        # Telemetria: tiri veri con GK a 937/1118 px (vs 259-374 su bra_hai);
-        # a t=13.4 il tiratore era oltre i 100 px del raggio di default.
+        # Col detector FINE-TUNATO il portiere si localizza bene: il tiro+parata
+        # vero ha GK a 211-322px, il gioco a centrocampo ~900px. shot_goal_view
+        # sceso da 1200 (cerotto per il vecchio modello) a 600: separa i due.
         "ball_tracking": {
-            "shot_goal_view_px": 1200.0,
+            "shot_goal_view_px": 600.0,
             "near_player_px": 160.0,
             "near_goalkeeper_px": 300.0,
         },

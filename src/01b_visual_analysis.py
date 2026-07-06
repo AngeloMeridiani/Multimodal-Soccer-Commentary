@@ -80,7 +80,14 @@ class YoloDetector:
     def detect(self, frame) -> list[Detection]:
         # Al modello si chiede la soglia PIU' BASSA tra le due; il filtro
         # per-classe (palla vs resto) avviene dopo, sulle singole box.
-        results = self.model(frame, conf=min(self.confidence, self.ball_confidence), verbose=False)
+        # imgsz dalla config: deve combaciare col training del modello (960),
+        # altrimenti la palla piccola si perde alla risoluzione di default.
+        results = self.model(
+            frame,
+            imgsz=config.YOLO_IMGSZ,
+            conf=min(self.confidence, self.ball_confidence),
+            verbose=False,
+        )
         detections: list[Detection] = []
         for result in results:
             if result.boxes is None:
@@ -294,36 +301,29 @@ class VisualEventClassifier:
 
     # ------------------- regole (una per tipo di evento) ----------------- #
     def _is_save(self, timestamp: float, ball: BallState, ctx: FrameContext) -> bool:
-        """PARATA = palla che arrivava a velocita' da tiro e CROLLA. Contesto
-        richiesto (uno dei due): portiere vicino, visto o ricordato (il tuffo
-        lo nasconde a YOLO); oppure la via SEQUENZIALE tiro-recente + palla
-        quasi ferma, che non dipende da distanze in px (robusta al cambio di
-        camera) e non promuove a parata i rimbalzi che restano in moto."""
+        """PARATA RESPINTA (frame con palla): la palla arrivava da tiro e CROLLA
+        di velocita' VICINO al portiere. Il caso della palla PRESA e trattenuta
+        (sparisce tra le mani del GK) e' gestito a parte in classify(), sulla
+        scomparsa della palla. Il criterio e' la vicinanza REALE del portiere,
+        ora affidabile col detector fine-tunato -> niente piu' via sequenziale
+        'palla ferma', che scambiava i rallentamenti a centrocampo per parate."""
         if self.prev_ball is None or self.prev_ball.speed <= self.t["min_speed_shot"]:
             return False
         if ball.speed >= self.prev_ball.speed * self.t["save_drop_ratio"]:
             return False
-        last_shot_t = max(
-            self._last_event_t.get("shot_on_goal", float("-inf")),
-            self._last_event_t.get("shot_off", float("-inf")),
-        )
-        after_shot = (
-            timestamp - last_shot_t <= self.t["shot_to_save_max_s"]
-            and ball.speed < self.t["min_speed_pass"]
-        )
-        return ctx.gk_mem < self.t["near_goalkeeper_px"] or after_shot
+        return ctx.gk_mem < self.t["near_goalkeeper_px"]
 
     def _shot_type(self, ball: BallState, ctx: FrameContext) -> str | None:
-        """TIRO = calcio improvviso (lento -> veloce) con qualcuno addosso
-        alla palla e la porta inquadrata: portiere visto ORA o al campione
-        prima (niente memoria lunga: riporterebbe i tiri fantasma)."""
-        # NB: il palo (classe goalpost) come segnale alternativo di "porta
-        # inquadrata" e' stato PROVATO e SCARTATO: nel retest riportava tiri
-        # e parate fantasma sulle clip di solo possesso (falsi positivi del
-        # palo a centrocampo). Resta solo il criterio del portiere.
+        """TIRO = accelerazione NETTA della palla (shot_accel_ratio) con qualcuno
+        addosso e il PORTIERE davvero vicino (la palla va verso la porta). La
+        vicinanza GK, ora affidabile, distingue il tiro dal passaggio forte a
+        centrocampo (stessa velocita', ma portiere lontano ~900px)."""
+        # NB: 'goalpost' come segnale di porta inquadrata e' stato provato e
+        # scartato (falsi positivi a centrocampo). Vale solo il portiere.
         if not (
             self.prev_ball is not None
-            and self.prev_ball.speed < self.t["min_speed_shot"] < ball.speed
+            and ball.speed > self.t["min_speed_shot"]
+            and ball.speed > self.prev_ball.speed * self.t["shot_accel_ratio"]
             and ctx.nearby >= 1
             and min(ctx.gk_dist, self.prev_gk_dist) < self.t["shot_goal_view_px"]
         ):
@@ -356,6 +356,18 @@ class VisualEventClassifier:
         self, timestamp: float, ball: BallState | None, detections: list[Detection]
     ) -> dict | None:
         if ball is None:
+            # PARATA per PRESA: se la palla, appena prima di sparire, era veloce
+            # (da tiro) e VICINISSIMA al portiere, il GK l'ha bloccata (occlusa
+            # tra le mani -> YOLO non la vede piu'). E' la firma della parata
+            # "presa" (vs "respinta", gestita in _is_save sui frame con palla).
+            caught = None
+            if (
+                self.prev_ball is not None
+                and self.prev_ball.speed > self.t["min_speed_shot"]
+                and self.prev_gk_dist < self.t["near_goalkeeper_px"]
+                and self._cooldown_ok("save", timestamp)
+            ):
+                caught = self._mk(timestamp, "save", self.prev_ball, self.prev_near, "caught")
             # La palla si dimentica solo se il buco supera ball_memory_s: il
             # motion blur del tiro la nasconde proprio nei frame decisivi.
             if (
@@ -364,7 +376,7 @@ class VisualEventClassifier:
             ):
                 self.prev_ball = None
             self.last_ctx = None
-            return None
+            return caught
 
         ctx = self.last_ctx = self._context(timestamp, ball, detections)
 
