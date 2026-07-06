@@ -1,0 +1,1218 @@
+[
+  {
+    "t": 0.0,
+    "speed_px_s": 0.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 0.12,
+    "speed_px_s": 157.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 0.23,
+    "speed_px_s": 124.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 0.35,
+    "speed_px_s": 127.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 0.47,
+    "speed_px_s": 149.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 0.58,
+    "speed_px_s": 99.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 0.7,
+    "speed_px_s": 135.4,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 0.82,
+    "speed_px_s": 130.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 1.4,
+    "speed_px_s": 51.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 1.52,
+    "speed_px_s": 576.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 1.63,
+    "speed_px_s": 435.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 1.75,
+    "speed_px_s": 340.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 2.1,
+    "speed_px_s": 172.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 2.22,
+    "speed_px_s": 42.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 2.69,
+    "speed_px_s": 210.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 3.04,
+    "speed_px_s": 79.2,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 3.15,
+    "speed_px_s": 265.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 3.27,
+    "speed_px_s": 162.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 3.39,
+    "speed_px_s": 119.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 3.5,
+    "speed_px_s": 78.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 3.62,
+    "speed_px_s": 62.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 3.74,
+    "speed_px_s": 48.4,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 4.32,
+    "speed_px_s": 123.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 4.79,
+    "speed_px_s": 42.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 5.26,
+    "speed_px_s": 106.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 5.37,
+    "speed_px_s": 154.4,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 5.49,
+    "speed_px_s": 122.6,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 5.61,
+    "speed_px_s": 78.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 5.72,
+    "speed_px_s": 531.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 5.84,
+    "speed_px_s": 460.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 5.96,
+    "speed_px_s": 380.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 6.07,
+    "speed_px_s": 293.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 6.19,
+    "speed_px_s": 262.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 6.31,
+    "speed_px_s": 195.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 6.42,
+    "speed_px_s": 160.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 6.54,
+    "speed_px_s": 42.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 6.66,
+    "speed_px_s": 35.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 7.01,
+    "speed_px_s": 288.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 7.36,
+    "speed_px_s": 346.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 7.47,
+    "speed_px_s": 495.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 7.59,
+    "speed_px_s": 359.4,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 7.94,
+    "speed_px_s": 203.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 8.06,
+    "speed_px_s": 116.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 8.17,
+    "speed_px_s": 134.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 8.29,
+    "speed_px_s": 121.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 8.76,
+    "speed_px_s": 10.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 9.11,
+    "speed_px_s": 36.6,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 9.23,
+    "speed_px_s": 27.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 9.34,
+    "speed_px_s": 38.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 10.39,
+    "speed_px_s": 0.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 10.51,
+    "speed_px_s": 206.2,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 10.63,
+    "speed_px_s": 120.2,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 10.74,
+    "speed_px_s": 338.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 10.86,
+    "speed_px_s": 365.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 10.98,
+    "speed_px_s": 330.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 11.09,
+    "speed_px_s": 251.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 11.21,
+    "speed_px_s": 233.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 11.33,
+    "speed_px_s": 195.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 11.44,
+    "speed_px_s": 180.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 11.56,
+    "speed_px_s": 138.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 11.68,
+    "speed_px_s": 123.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 11.8,
+    "speed_px_s": 97.6,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 12.03,
+    "speed_px_s": 320.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 12.15,
+    "speed_px_s": 317.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 12.26,
+    "speed_px_s": 235.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 12.38,
+    "speed_px_s": 206.2,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 12.5,
+    "speed_px_s": 164.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 12.61,
+    "speed_px_s": 130.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 12.73,
+    "speed_px_s": 80.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 12.85,
+    "speed_px_s": 328.2,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 12.96,
+    "speed_px_s": 702.4,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 13.08,
+    "speed_px_s": 566.2,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 13.2,
+    "speed_px_s": 463.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 0
+  },
+  {
+    "t": 13.31,
+    "speed_px_s": 388.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 14.13,
+    "speed_px_s": 0.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 14.25,
+    "speed_px_s": 241.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 14.48,
+    "speed_px_s": 153.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 14.6,
+    "speed_px_s": 138.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 14.71,
+    "speed_px_s": 97.6,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 14.83,
+    "speed_px_s": 73.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 14.95,
+    "speed_px_s": 46.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 15.07,
+    "speed_px_s": 69.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 15.18,
+    "speed_px_s": 42.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 15.3,
+    "speed_px_s": 30.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 15.42,
+    "speed_px_s": 30.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 5
+  },
+  {
+    "t": 16.93,
+    "speed_px_s": 0.0,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 17.05,
+    "speed_px_s": 308.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 17.17,
+    "speed_px_s": 222.6,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 17.28,
+    "speed_px_s": 103.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 17.4,
+    "speed_px_s": 78.9,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 17.87,
+    "speed_px_s": 109.4,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 18.57,
+    "speed_px_s": 113.2,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 18.69,
+    "speed_px_s": 60.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 18.8,
+    "speed_px_s": 52.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 18.92,
+    "speed_px_s": 38.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 19.04,
+    "speed_px_s": 25.7,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 19.15,
+    "speed_px_s": 48.4,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 19.27,
+    "speed_px_s": 65.2,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 19.5,
+    "speed_px_s": 66.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 19.62,
+    "speed_px_s": 54.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 19.85,
+    "speed_px_s": 52.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 19.97,
+    "speed_px_s": 34.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 20.09,
+    "speed_px_s": 77.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 1
+  },
+  {
+    "t": 20.2,
+    "speed_px_s": 121.1,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 20.32,
+    "speed_px_s": 34.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 20.44,
+    "speed_px_s": 54.8,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 2
+  },
+  {
+    "t": 20.55,
+    "speed_px_s": 35.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 20.67,
+    "speed_px_s": 161.6,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 20.79,
+    "speed_px_s": 147.3,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 4
+  },
+  {
+    "t": 21.02,
+    "speed_px_s": 116.5,
+    "zone": "midfield",
+    "gk_dist_px": null,
+    "gk_mem_px": null,
+    "players_near": 3
+  },
+  {
+    "t": 21.25,
+    "speed_px_s": 73.9,
+    "zone": "midfield",
+    "gk_dist_px": 823.4,
+    "gk_mem_px": 823.4,
+    "players_near": 2
+  },
+  {
+    "t": 21.37,
+    "speed_px_s": 65.2,
+    "zone": "midfield",
+    "gk_dist_px": 817.1,
+    "gk_mem_px": 817.1,
+    "players_near": 4
+  },
+  {
+    "t": 21.49,
+    "speed_px_s": 60.5,
+    "zone": "midfield",
+    "gk_dist_px": 808.2,
+    "gk_mem_px": 808.2,
+    "players_near": 2
+  },
+  {
+    "t": 21.96,
+    "speed_px_s": 85.0,
+    "zone": "midfield",
+    "gk_dist_px": 799.1,
+    "gk_mem_px": 799.1,
+    "players_near": 2
+  },
+  {
+    "t": 22.07,
+    "speed_px_s": 54.2,
+    "zone": "midfield",
+    "gk_dist_px": 801.3,
+    "gk_mem_px": 801.3,
+    "players_near": 3
+  },
+  {
+    "t": 22.19,
+    "speed_px_s": 416.7,
+    "zone": "midfield",
+    "gk_dist_px": 749.6,
+    "gk_mem_px": 749.6,
+    "players_near": 4
+  },
+  {
+    "t": 22.31,
+    "speed_px_s": 618.1,
+    "zone": "midfield",
+    "gk_dist_px": 668.3,
+    "gk_mem_px": 668.3,
+    "players_near": 0
+  },
+  {
+    "t": 22.42,
+    "speed_px_s": 465.3,
+    "zone": "midfield",
+    "gk_dist_px": 607.0,
+    "gk_mem_px": 607.0,
+    "players_near": 0
+  },
+  {
+    "t": 22.66,
+    "speed_px_s": 293.1,
+    "zone": "midfield",
+    "gk_dist_px": 502.2,
+    "gk_mem_px": 502.2,
+    "players_near": 1
+  },
+  {
+    "t": 23.01,
+    "speed_px_s": 83.1,
+    "zone": "midfield",
+    "gk_dist_px": 391.4,
+    "gk_mem_px": 391.4,
+    "players_near": 1
+  },
+  {
+    "t": 23.24,
+    "speed_px_s": 47.9,
+    "zone": "midfield",
+    "gk_dist_px": 358.0,
+    "gk_mem_px": 358.0,
+    "players_near": 1
+  },
+  {
+    "t": 23.36,
+    "speed_px_s": 116.5,
+    "zone": "midfield",
+    "gk_dist_px": 338.2,
+    "gk_mem_px": 338.2,
+    "players_near": 1
+  },
+  {
+    "t": 23.59,
+    "speed_px_s": 108.3,
+    "zone": "midfield",
+    "gk_dist_px": 328.9,
+    "gk_mem_px": 328.9,
+    "players_near": 2
+  },
+  {
+    "t": 23.71,
+    "speed_px_s": 108.3,
+    "zone": "midfield",
+    "gk_dist_px": 334.5,
+    "gk_mem_px": 334.5,
+    "players_near": 2
+  },
+  {
+    "t": 24.41,
+    "speed_px_s": 251.1,
+    "zone": "midfield",
+    "gk_dist_px": 402.9,
+    "gk_mem_px": 402.9,
+    "players_near": 2
+  },
+  {
+    "t": 24.52,
+    "speed_px_s": 698.9,
+    "zone": "midfield",
+    "gk_dist_px": 447.3,
+    "gk_mem_px": 447.3,
+    "players_near": 1
+  },
+  {
+    "t": 24.64,
+    "speed_px_s": 566.0,
+    "zone": "midfield",
+    "gk_dist_px": 489.4,
+    "gk_mem_px": 489.4,
+    "players_near": 1
+  },
+  {
+    "t": 24.76,
+    "speed_px_s": 471.9,
+    "zone": "midfield",
+    "gk_dist_px": 531.0,
+    "gk_mem_px": 531.0,
+    "players_near": 1
+  },
+  {
+    "t": 25.11,
+    "speed_px_s": 352.1,
+    "zone": "midfield",
+    "gk_dist_px": 675.8,
+    "gk_mem_px": 675.8,
+    "players_near": 3
+  },
+  {
+    "t": 25.23,
+    "speed_px_s": 325.5,
+    "zone": "midfield",
+    "gk_dist_px": 658.8,
+    "gk_mem_px": 658.8,
+    "players_near": 1
+  },
+  {
+    "t": 25.46,
+    "speed_px_s": 868.3,
+    "zone": "midfield",
+    "gk_dist_px": 510.1,
+    "gk_mem_px": 510.1,
+    "players_near": 1
+  },
+  {
+    "t": 25.58,
+    "speed_px_s": 705.4,
+    "zone": "midfield",
+    "gk_dist_px": 459.1,
+    "gk_mem_px": 459.1,
+    "players_near": 0
+  },
+  {
+    "t": 25.69,
+    "speed_px_s": 584.4,
+    "zone": "midfield",
+    "gk_dist_px": 426.1,
+    "gk_mem_px": 426.1,
+    "players_near": 0
+  },
+  {
+    "t": 25.81,
+    "speed_px_s": 515.6,
+    "zone": "midfield",
+    "gk_dist_px": 407.0,
+    "gk_mem_px": 407.0,
+    "players_near": 1
+  },
+  {
+    "t": 26.16,
+    "speed_px_s": 79.9,
+    "zone": "wing_right",
+    "gk_dist_px": 419.7,
+    "gk_mem_px": 419.7,
+    "players_near": 2
+  },
+  {
+    "t": 26.28,
+    "speed_px_s": 386.8,
+    "zone": "wing_right",
+    "gk_dist_px": 418.7,
+    "gk_mem_px": 418.7,
+    "players_near": 1
+  },
+  {
+    "t": 26.39,
+    "speed_px_s": 412.4,
+    "zone": "midfield",
+    "gk_dist_px": 462.6,
+    "gk_mem_px": 462.6,
+    "players_near": 1
+  },
+  {
+    "t": 26.51,
+    "speed_px_s": 309.3,
+    "zone": "midfield",
+    "gk_dist_px": 484.4,
+    "gk_mem_px": 484.4,
+    "players_near": 1
+  },
+  {
+    "t": 26.86,
+    "speed_px_s": 378.5,
+    "zone": "midfield",
+    "gk_dist_px": 513.6,
+    "gk_mem_px": 513.6,
+    "players_near": 3
+  },
+  {
+    "t": 27.09,
+    "speed_px_s": 738.7,
+    "zone": "midfield",
+    "gk_dist_px": 521.5,
+    "gk_mem_px": 521.5,
+    "players_near": 2
+  },
+  {
+    "t": 27.21,
+    "speed_px_s": 572.4,
+    "zone": "midfield",
+    "gk_dist_px": 565.2,
+    "gk_mem_px": 565.2,
+    "players_near": 1
+  },
+  {
+    "t": 27.33,
+    "speed_px_s": 465.9,
+    "zone": "midfield",
+    "gk_dist_px": 587.0,
+    "gk_mem_px": 587.0,
+    "players_near": 1
+  },
+  {
+    "t": 27.44,
+    "speed_px_s": 378.5,
+    "zone": "midfield",
+    "gk_dist_px": 609.8,
+    "gk_mem_px": 609.8,
+    "players_near": 1
+  },
+  {
+    "t": 27.56,
+    "speed_px_s": 303.0,
+    "zone": "midfield",
+    "gk_dist_px": 639.1,
+    "gk_mem_px": 639.1,
+    "players_near": 1
+  },
+  {
+    "t": 27.68,
+    "speed_px_s": 242.3,
+    "zone": "midfield",
+    "gk_dist_px": 657.3,
+    "gk_mem_px": 657.3,
+    "players_near": 1
+  },
+  {
+    "t": 27.79,
+    "speed_px_s": 203.5,
+    "zone": "midfield",
+    "gk_dist_px": 679.0,
+    "gk_mem_px": 679.0,
+    "players_near": 3
+  },
+  {
+    "t": 27.91,
+    "speed_px_s": 171.3,
+    "zone": "midfield",
+    "gk_dist_px": 695.6,
+    "gk_mem_px": 695.6,
+    "players_near": 3
+  },
+  {
+    "t": 28.14,
+    "speed_px_s": 228.4,
+    "zone": "midfield",
+    "gk_dist_px": 638.0,
+    "gk_mem_px": 638.0,
+    "players_near": 3
+  },
+  {
+    "t": 28.38,
+    "speed_px_s": 681.8,
+    "zone": "midfield",
+    "gk_dist_px": 467.2,
+    "gk_mem_px": 467.2,
+    "players_near": 2
+  },
+  {
+    "t": 28.5,
+    "speed_px_s": 581.5,
+    "zone": "midfield",
+    "gk_dist_px": 396.1,
+    "gk_mem_px": 396.1,
+    "players_near": 2
+  },
+  {
+    "t": 30.25,
+    "speed_px_s": 0.0,
+    "zone": "penalty_area_away",
+    "gk_dist_px": null,
+    "gk_mem_px": 328.3,
+    "players_near": 1
+  },
+  {
+    "t": 30.36,
+    "speed_px_s": 85.6,
+    "zone": "penalty_area_away",
+    "gk_dist_px": null,
+    "gk_mem_px": 335.8,
+    "players_near": 1
+  }
+]

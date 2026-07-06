@@ -19,9 +19,9 @@
   {
     "t": 3.0,
     "type": "pass",
-    "player": "KIMMICH",
-    "player_team": "away",
-    "possession": "away",
+    "player": "DOKU",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "DOKU",
@@ -38,30 +38,33 @@
   },
   {
     "t": 5.0,
-    "type": "pass",
-    "player": "OLISE",
-    "player_team": "away",
-    "possession": "away",
+    "type": "dribble",
+    "player": "O'REILLY",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 0.93,
     "player_home": "O'REILLY",
     "player_away": "OLISE",
-    "importance": 0.25,
+    "importance": 0.5,
     "score": [
       1,
       0
     ],
     "clock": null,
-    "source": "ocr",
+    "source": "ocr+visual",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "ball_zone": "midfield",
+    "ball_speed": "medium",
+    "players_nearby": 3
   },
   {
     "t": 6.01,
     "type": "pass",
-    "player": "TAH",
-    "player_team": "away",
-    "possession": "away",
+    "player": "HAALAND",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "HAALAND",
@@ -78,23 +81,26 @@
   },
   {
     "t": 7.51,
-    "type": "pass",
-    "player": "OLISE",
-    "player_team": "away",
-    "possession": "away",
+    "type": "dribble",
+    "player": "O'REILLY",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 0.93,
     "player_home": "O'REILLY",
     "player_away": "OLISE",
-    "importance": 0.25,
+    "importance": 0.5,
     "score": [
       1,
       0
     ],
     "clock": null,
-    "source": "ocr",
+    "source": "ocr+visual",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "ball_zone": "midfield",
+    "ball_speed": "medium",
+    "players_nearby": 4
   },
   {
     "t": 9.51,
@@ -132,16 +138,13 @@
       0
     ],
     "clock": null,
-    "source": "ocr+visual",
+    "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual",
-    "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 0
+    "possession_source": "visual"
   },
   {
     "t": 12.01,
-    "type": "pass",
+    "type": "dribble",
     "player": "PAVLOVIC",
     "player_team": "away",
     "possession": "away",
@@ -149,7 +152,7 @@
     "name_confidence": 1.0,
     "player_home": "CHERKI",
     "player_away": "PAVLOVIC",
-    "importance": 0.25,
+    "importance": 0.5,
     "score": [
       1,
       0
@@ -159,8 +162,8 @@
     "possession_certain": true,
     "possession_source": "visual",
     "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 0
+    "ball_speed": "medium",
+    "players_nearby": 3
   },
   {
     "t": 14.01,
@@ -185,9 +188,9 @@
   {
     "t": 15.02,
     "type": "pass",
-    "player": "STANISIC",
-    "player_team": "away",
-    "possession": "away",
+    "player": "SEMENYO",
+    "player_team": "home",
+    "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "SEMENYO",
@@ -204,7 +207,7 @@
   },
   {
     "t": 16.52,
-    "type": "turnover",
+    "type": "pass",
     "player": "CHERKI",
     "player_team": "home",
     "possession": "home",
@@ -218,12 +221,9 @@
       0
     ],
     "clock": null,
-    "source": "ocr+visual",
+    "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual",
-    "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 0
+    "possession_source": "visual"
   },
   {
     "t": 17.02,
@@ -241,16 +241,13 @@
       0
     ],
     "clock": null,
-    "source": "ocr+visual",
+    "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual",
-    "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 0
+    "possession_source": "visual"
   },
   {
     "t": 18.52,
-    "type": "pass",
+    "type": "dribble",
     "player": "CHERKI",
     "player_team": "home",
     "possession": "home",
@@ -258,22 +255,25 @@
     "name_confidence": 1.0,
     "player_home": "CHERKI",
     "player_away": "PAVLOVIC",
-    "importance": 0.25,
+    "importance": 0.5,
     "score": [
       1,
       0
     ],
     "clock": null,
-    "source": "ocr",
+    "source": "ocr+visual",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "ball_zone": "midfield",
+    "ball_speed": "medium",
+    "players_nearby": 4
   },
   {
     "t": 19.02,
     "type": "pass",
-    "player": "SEMENYO",
-    "player_team": "home",
-    "possession": "home",
+    "player": "PAVLOVIC",
+    "player_team": "away",
+    "possession": "away",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "SEMENYO",
@@ -290,10 +290,10 @@
   },
   {
     "t": 21.52,
-    "type": "pass",
-    "player": "SEMENYO",
-    "player_team": "home",
-    "possession": "home",
+    "type": "turnover",
+    "player": "STANISIC",
+    "player_team": "away",
+    "possession": "away",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "SEMENYO",
@@ -304,46 +304,20 @@
       0
     ],
     "clock": null,
-    "source": "ocr+visual",
+    "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual",
-    "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 0
+    "possession_source": "visual"
   },
   {
     "t": 23.02,
     "type": "pass",
-    "player": "CHERKI",
-    "player_team": "home",
-    "possession": "home",
+    "player": "TAH",
+    "player_team": "away",
+    "possession": "away",
     "player_resolved": false,
     "name_confidence": 0.4,
     "player_home": "CHERKI",
     "player_away": "TAH",
-    "importance": 0.25,
-    "score": [
-      1,
-      0
-    ],
-    "clock": null,
-    "source": "ocr+visual",
-    "possession_certain": true,
-    "possession_source": "visual",
-    "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 0
-  },
-  {
-    "t": 24.52,
-    "type": "pass",
-    "player": "SEMENYO",
-    "player_team": "home",
-    "possession": "home",
-    "player_resolved": true,
-    "name_confidence": 1.0,
-    "player_home": "SEMENYO",
-    "player_away": "PAVLOVIC",
     "importance": 0.25,
     "score": [
       1,
@@ -355,11 +329,34 @@
     "possession_source": "visual"
   },
   {
+    "t": 24.52,
+    "type": "shot_off",
+    "player": "PAVLOVIC",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "SEMENYO",
+    "player_away": "PAVLOVIC",
+    "importance": 0.6,
+    "score": [
+      1,
+      0
+    ],
+    "clock": null,
+    "source": "ocr+visual",
+    "possession_certain": true,
+    "possession_source": "visual",
+    "ball_zone": "midfield",
+    "ball_speed": "high",
+    "players_nearby": 2
+  },
+  {
     "t": 25.53,
     "type": "pass",
-    "player": "CHERKI",
-    "player_team": "home",
-    "possession": "home",
+    "player": "TAH",
+    "player_team": "away",
+    "possession": "away",
     "player_resolved": false,
     "name_confidence": 0.4,
     "player_home": "CHERKI",
@@ -376,15 +373,15 @@
   },
   {
     "t": 27.03,
-    "type": "pass",
-    "player": "RODRI",
-    "player_team": "home",
-    "possession": "home",
+    "type": "dribble",
+    "player": "KIMMICH",
+    "player_team": "away",
+    "possession": "away",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "RODRI",
     "player_away": "KIMMICH",
-    "importance": 0.25,
+    "importance": 0.5,
     "score": [
       1,
       0
@@ -394,12 +391,12 @@
     "possession_certain": true,
     "possession_source": "visual",
     "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 0
+    "ball_speed": "medium",
+    "players_nearby": 3
   },
   {
     "t": 28.53,
-    "type": "pass",
+    "type": "shot_off",
     "player": "HAALAND",
     "player_team": "home",
     "possession": "home",
@@ -407,7 +404,7 @@
     "name_confidence": 1.0,
     "player_home": "HAALAND",
     "player_away": "UPAMECANO",
-    "importance": 0.25,
+    "importance": 0.6,
     "score": [
       1,
       0
@@ -418,14 +415,14 @@
     "possession_source": "visual",
     "ball_zone": "midfield",
     "ball_speed": "high",
-    "players_nearby": 0
+    "players_nearby": 2
   },
   {
     "t": 29.03,
     "type": "pass",
-    "player": "HAALAND",
-    "player_team": "home",
-    "possession": "home",
+    "player": "NEUER",
+    "player_team": "away",
+    "possession": "away",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "HAALAND",
@@ -442,8 +439,8 @@
   },
   {
     "t": 31.03,
-    "type": "pass",
-    "player": "HAALAND",
+    "type": "turnover",
+    "player": "il giocatore",
     "player_team": "home",
     "possession": "home",
     "player_resolved": false,
@@ -456,14 +453,12 @@
       0
     ],
     "clock": null,
-    "source": "ocr",
-    "possession_certain": true,
-    "possession_source": "visual"
+    "source": "ocr"
   },
   {
     "t": 32.03,
     "type": "goal",
-    "player": "HAALAND",
+    "player": "il giocatore",
     "player_team": "home",
     "possession": "home",
     "player_resolved": false,
@@ -476,11 +471,6 @@
       0
     ],
     "clock": null,
-    "source": "ocr+visual",
-    "possession_certain": true,
-    "possession_source": "visual",
-    "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 1
+    "source": "ocr"
   }
 ]

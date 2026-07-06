@@ -1,0 +1,122 @@
+[
+  {
+    "t": 0.0,
+    "type": "pass",
+    "player": "DONNARUMMA",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.43,
+    "player_home": "DONNARUMMA",
+    "player_away": "KANE",
+    "importance": 0.25,
+    "score": null,
+    "clock": null,
+    "source": "ocr",
+    "possession_certain": true,
+    "possession_source": "visual"
+  },
+  {
+    "t": 2.5,
+    "type": "pass",
+    "player": "O'REILLY",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 0.93,
+    "player_home": "O'REILLY",
+    "player_away": "OLISE",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr",
+    "possession_certain": true,
+    "possession_source": "visual"
+  },
+  {
+    "t": 8.01,
+    "type": "turnover",
+    "player": "O'REILLY",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "O'REILLY",
+    "player_away": "OLISE",
+    "importance": 0.55,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr",
+    "possession_certain": true,
+    "possession_source": "visual"
+  },
+  {
+    "t": 16.02,
+    "type": "turnover",
+    "player": "OLISE",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "RODRI",
+    "player_away": "OLISE",
+    "importance": 0.55,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr",
+    "possession_certain": true,
+    "possession_source": "visual"
+  },
+  {
+    "t": 20.02,
+    "type": "pass",
+    "player": "OLISE",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "GUEHI",
+    "player_away": "OLISE",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr",
+    "possession_certain": true,
+    "possession_source": "visual"
+  },
+  {
+    "t": 21.02,
+    "type": "save",
+    "player": "KANE",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": false,
+    "name_confidence": 0.43,
+    "player_home": "DONNARUMMA",
+    "player_away": "KANE",
+    "importance": 0.8,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr+visual",
+    "possession_certain": true,
+    "possession_source": "visual",
+    "ball_zone": "penalty_area_home",
+    "ball_speed": "caught",
+    "players_nearby": 1
+  }
+]

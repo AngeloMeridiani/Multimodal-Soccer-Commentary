@@ -1,7 +1,7 @@
 [
   {
     "t": 0.0,
-    "text": "Tah lancia.",
+    "text": "Tah lancia Kimmich.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -33,7 +33,7 @@
   },
   {
     "t": 7.51,
-    "text": "Olise conduce.",
+    "text": "Ollie smarca.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -49,7 +49,7 @@
   },
   {
     "t": 11.01,
-    "text": "Tah lancia in profondità.",
+    "text": "Tah lancia profondità.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -97,7 +97,7 @@
   },
   {
     "t": 18.52,
-    "text": "Cherki smarca.",
+    "text": "Cherki lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -113,7 +113,7 @@
   },
   {
     "t": 21.52,
-    "text": "Semenyo lancia verso l’area!",
+    "text": "Semenyo gioca in profondità verso l’area avversaria.",
     "event_type": "pass",
     "importance": 0.55,
     "crowd_excitement": "low",
@@ -129,7 +129,7 @@
   },
   {
     "t": 24.52,
-    "text": "Semenyo conduce.",
+    "text": "Semenyo lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -137,7 +137,7 @@
   },
   {
     "t": 25.53,
-    "text": "Cherki lancia…",
+    "text": "Cherki distribuisce.",
     "event_type": "pass",
     "importance": 0.25,
     "crowd_excitement": "low",
@@ -153,14 +153,6 @@
   },
   {
     "t": 28.53,
-    "text": "Haaland avanza.",
-    "event_type": "pass",
-    "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "llm"
-  },
-  {
-    "t": 29.03,
     "text": "Haaland lancia.",
     "event_type": "pass",
     "importance": 0.25,
@@ -168,8 +160,16 @@
     "source": "llm"
   },
   {
+    "t": 29.03,
+    "text": "Haaland avanza.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
     "t": 31.03,
-    "text": "Haaland distribuisce verso l'area!",
+    "text": "Haaland smarca verso l’area!",
     "event_type": "pass",
     "importance": 0.55,
     "crowd_excitement": "low",
@@ -177,7 +177,7 @@
   },
   {
     "t": 32.03,
-    "text": "Haaland insacca! Un colpo magistrale che fa esplodere lo Stadio!",
+    "text": "Haaland la mette dentro! Un tapin incredibile che fa esplodere il pubblico!",
     "event_type": "goal",
     "importance": 1.0,
     "crowd_excitement": "low",

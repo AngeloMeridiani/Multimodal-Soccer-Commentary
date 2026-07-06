@@ -365,9 +365,9 @@ TEMPLATES: dict[str, list[str]] = {
 # --------------------------------------------------------------------------- #
 LLM_PROVIDER: str = "ollama"  # "ollama" (locale) | "openai" | "anthropic"
 LLM_CONFIG: dict[str, dict] = {
-    # llama3.2:3b invece di llama3 (8B): entra comodo nei 7.6 GB di RAM
-    # disponibili e resta abbastanza veloce su CPU per generare le battute.
-    "ollama": {"model": "llama3.2:3b", "base_url": "http://localhost:11434"},
+    # gemma3:4b: modello effettivamente installato in locale; entra comodo
+    # nei 7.6 GB di RAM disponibili e resta veloce su CPU per le battute.
+    "ollama": {"model": "gemma3:4b", "base_url": "http://localhost:11434"},
     "openai": {"model": "gpt-4o-mini", "api_key_env": "OPENAI_API_KEY"},
     "anthropic": {"model": "claude-haiku-4-5-20251001", "api_key_env": "ANTHROPIC_API_KEY"},
 }

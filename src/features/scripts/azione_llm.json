@@ -1,0 +1,50 @@
+[
+  {
+    "t": 0.0,
+    "text": "Donnarumma lancia.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 2.5,
+    "text": "O'reilly.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "name_only"
+  },
+  {
+    "t": 8.01,
+    "text": "Gioca O’Reilly, cerca di rimettere in moto l’azione!",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 16.02,
+    "text": "Gioca O’Reilly, scarica per Kane in profondità!",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "crowd_excitement": "low",
+    "source": "llm"
+  },
+  {
+    "t": 20.02,
+    "text": "Olise.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "crowd_excitement": "low",
+    "source": "name_only"
+  },
+  {
+    "t": 21.02,
+    "text": "Devia Kane! Un miracolo del portiere, respinge!",
+    "event_type": "save",
+    "importance": 0.8,
+    "crowd_excitement": "low",
+    "source": "llm"
+  }
+]
