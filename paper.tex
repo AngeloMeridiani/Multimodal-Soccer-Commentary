@@ -1,0 +1,281 @@
+\documentclass[10pt,twocolumn,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{url}
+
+\geometry{
+	a4paper,
+	left=1.6cm,
+	right=1.6cm,
+	top=1.8cm,
+	bottom=2.0cm,
+	columnsep=0.7cm
+}
+
+\setlength{\parindent}{0.35cm}
+\setlength{\parskip}{0pt}
+
+\title{\textbf{From Gameplay to Expressive Speech: A Multimodal Pipeline for Automatic Football Videogame Commentary}}
+
+\author{
+	Student Name Surname 1, Student Name Surname 2\\
+	Student Name Surname 3, Student Name Surname 4\\
+	Bachelor's Degree Programme in Applied Computer Science and Artificial Intelligence (ACSAI)\\
+	Course: AI-LAB -- Computer Vision, Signal Processing, and Natural Language Processing\\
+	Department of Computer Science, Sapienza University of Rome\\
+	Matricola: XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX\\
+	\texttt{student1@studenti.uniroma1.it}\\
+	\texttt{student2@studenti.uniroma1.it}\\
+	\texttt{student3@studenti.uniroma1.it}\\
+	\texttt{student4@studenti.uniroma1.it}
+}
+
+\date{}
+
+\begin{document}
+
+	\maketitle
+
+	\begin{abstract}
+		This report presents a complete multimodal pipeline that transforms raw gameplay recordings of a football videogame (EA~SPORTS~FC) into an expressive, synthesized Italian commentary track. The system combines computer vision (HUD OCR and a fine-tuned YOLOv8 detector for players, goalkeeper, and ball), signal processing (an acoustic energy descriptor and Whisper transcription), and natural language processing (template-based and LLM-based commentary generation with an anti-hallucination validator) into an event-to-speech chain. The main learned contribution is a lightweight event-aware prosody model, an MLP that maps event type, importance, and measured audio energy to prosodic controls (speaking rate, pitch, energy) that drive zero-shot voice cloning with XTTS~v2. We further contribute a domain fine-tuning of the object detector on current-generation game graphics (goalkeeper detection improved from 40\% to 66\% of frames on a held-out clip), a telemetry-driven methodology for calibrating event-detection heuristics with regression testing, and a measured anti-hallucination mechanism that discards LLM commentary lines citing players inconsistent with the detected event. We also report two negative results: pretrained audio-tagging (AST) and speech-emotion (wav2vec2-based) models fail on our audio due to domain mismatch, motivating a deliberately simple, honestly named acoustic descriptor. The pipeline runs end-to-end on consumer hardware and produces a timed, voice-cloned commentary track for unseen clips.
+	\end{abstract}
+
+	\noindent\textbf{Keywords:} multimodal pipeline; sports commentary generation; expressive speech synthesis; prosody modeling; object detection; hallucination mitigation.
+
+	\section{Introduction}
+
+	Football videogames ship with pre-recorded commentary that quickly becomes repetitive and cannot cover the long tail of emergent gameplay situations. Generating commentary automatically---detecting \emph{what} happens in a clip, deciding \emph{what to say}, and rendering it with a \emph{voice that reacts} to the action---is a compact but complete instance of a multimodal AI problem: it requires visual understanding, audio analysis, natural language generation, and expressive speech synthesis to cooperate in a single chain~\cite{lecun2015deep}.
+
+	The problem is relevant beyond entertainment. Sports video understanding is an active research area with dedicated benchmarks such as SoccerNet~\cite{giancola2018soccernet,deliege2021soccernetv2}, and expressive text-to-speech with prosody control is an open topic in speech synthesis~\cite{casanova2024xtts}. However, state-of-the-art action-spotting models are trained on large annotated corpora of \emph{real broadcast} footage~\cite{cioppa2025soccernet}; their transfer to rendered videogame graphics is unquantified, and no large annotated dataset of videogame football events exists. Similarly, expressive TTS systems learn prosody from thousands of hours of speech, which is unavailable for the specific register of Italian football commentary. These data constraints motivate a different design point: a modular, interpretable pipeline that uses pretrained perception models where they transfer (OCR, detection, transcription, voice cloning) and small, data-efficient components where they do not.
+
+	Our contributions are the following:
+	\begin{itemize}
+		\item an end-to-end \textbf{multimodal pipeline} (video $\rightarrow$ events $\rightarrow$ text $\rightarrow$ expressive speech) with per-interface \emph{profiles} that confine all game-specific calibration (HUD regions, rosters, radar colors, tracking thresholds) to configuration;
+		\item a lightweight \textbf{event-aware prosody model}: an MLP mapping (event type, importance, measured audio energy) to speaking rate, pitch, and energy controls for XTTS~v2 voice cloning; we demonstrate that the training mechanism on \emph{real} commentary audio produces a model that diverges from the hand-written rule baseline;
+		\item a \textbf{domain fine-tuning} of the YOLOv8 detector~\cite{jocher2023ultralytics} on current-generation game graphics, and an evidence-driven \emph{recalibration methodology}: per-frame ball/goalkeeper telemetry is logged, thresholds are derived from measured values, and every change is validated by regression tests on clips with known ground truth;
+		\item an \textbf{anti-hallucination validator} for LLM-generated commentary that fuzzy-matches every player name in a generated line against the event data and team rosters, and falls back to deterministic templates on violation, with measured discard rates;
+		\item a \textbf{critical negative result}: two pretrained audio models (AST audio tagging~\cite{gong2021ast} and dimensional speech emotion recognition~\cite{wagner2023dawn}) were evaluated for crowd-excitement estimation and rejected with evidence, due to domain mismatch with low-fidelity Italian game audio.
+	\end{itemize}
+
+	The remainder of this report is organized as follows. Section~2 discusses related work. Section~3 describes the pipeline and its components. Section~4 presents the experimental setup, results, and a critical discussion. Section~5 concludes.
+
+	\section{Related Work}
+
+	\textbf{Sports video understanding.} SoccerNet~\cite{giancola2018soccernet} and SoccerNet-v2~\cite{deliege2021soccernetv2} established large-scale benchmarks for action spotting in broadcast football video; recent challenge editions add team ball-action spotting and \emph{game state reconstruction}, i.e., localizing all players on a 2D top view of the pitch~\cite{cioppa2025soccernet}. These end-to-end models are the technical state of the art, but they are trained on real broadcast footage with hundreds of annotated matches; applying them to rendered game graphics would require an annotated videogame corpus that does not exist. Our event detection is instead a set of interpretable heuristics over the outputs of a fine-tuned object detector~\cite{jocher2023ultralytics}, with a game-specific shortcut: the in-game radar (minimap) provides a free, camera-independent top view that we exploit for ball possession---conceptually the ``game-native'' analogue of game state reconstruction.
+
+	\textbf{Speech and audio models.} Whisper~\cite{radford2023whisper} provides robust multilingual transcription and is used to recover the original in-game commentary as optional context. XTTS~v2~\cite{casanova2024xtts} performs zero-shot multilingual voice cloning from a short reference recording and is our synthesis backbone; unlike prosody-controllable TTS trained end-to-end, we impose prosody externally (rate and energy) from a separate event-aware model, which keeps the prosody component data-efficient and auditable. For audio scene analysis we evaluated the Audio Spectrogram Transformer~\cite{gong2021ast}, built on the transformer architecture~\cite{vaswani2017attention}, and a wav2vec2-based dimensional speech emotion model~\cite{wagner2023dawn}; both failed out-of-domain on our material (Section~4.3), a finding consistent with the known sensitivity of speech emotion recognition to language and channel mismatch~\cite{wagner2023dawn}. As a rigorous non-learned alternative for future work we consider standardized paralinguistic feature sets such as eGeMAPS~\cite{eyben2016gemaps}.
+
+	\textbf{LLM generation and hallucination.} Large language models generate fluent commentary from structured event data but are prone to hallucination~\cite{ji2023hallucination}: in our experiments, a locally served Llama~3.2~3B model~\cite{grattafiori2024llama} invented player names, roles, and match minutes. Rather than relying on prompting alone, we adopt a verification layer in the spirit of validator stages in data-refinery pipelines: generated text is checked against the structured event and the known rosters, and rejected lines fall back to templates, which cannot hallucinate by construction.
+
+	\section{Methodology}
+
+	% TODO: replace with the actual pipeline diagram (export it to figures/pipeline.png
+	% and restore the \includegraphics line below).
+	\begin{figure*}[t]
+		\centering
+		%\includegraphics[width=0.95\textwidth]{figures/pipeline.png}
+		\caption{Overview of the pipeline. Phase~0 normalizes the input video (rotation, letterbox crop). Phase~1 extracts events from the HUD via OCR (score with temporal debouncing, player nameplates snapped to known rosters by fuzzy matching). Phase~1b runs the fine-tuned YOLOv8 detector at 8~fps, tracks the ball in px/s, classifies visual events (shots, saves, corners) with calibrated rules over a per-frame context (players near the ball, goalkeeper distance), and reads ball possession from the in-game radar via per-profile HSV masks. Phase~1c extracts an audio-energy descriptor and an optional Whisper transcription. Phase~2/2b generates the commentary text with templates or an LLM guarded by an anti-hallucination validator. Phase~3 trains the event-aware prosody MLP. Phase~4 synthesizes the timed commentary track with XTTS~v2 dual-reference voice cloning, modulated by the prosody model. Phase~5 implements a blind A/B listening study protocol with a binomial test.}
+		\label{fig:architecture}
+	\end{figure*}
+
+	The pipeline (Fig.~\ref{fig:architecture}) is a relay of phases; each phase reads the previous phase's JSON output, so components can be developed and evaluated in isolation. All game-interface-specific values live in per-interface \emph{profiles} selected automatically from the frame aspect ratio.
+
+	\subsection{Event extraction (vision)}
+
+	\textbf{HUD OCR (Phase 1).} EasyOCR reads the score, clock, and the two player nameplates at 2~fps. Raw readings are unreliable, so we add: (i) \emph{score debouncing}---a score change must persist over consecutive readings and be a $+1$ increment for exactly one team to count as a goal, eliminating OCR-flicker ``ghost goals''; (ii) \emph{roster snapping}---each nameplate fragment is matched to the known team rosters by containment and fuzzy similarity, so that a truncated reading such as ``INHOS'' resolves to \textsc{Marquinhos}; (iii) a possession heuristic over nameplate-change dynamics when no stronger source is available.
+
+	\textbf{Visual events (Phase 1b).} A YOLOv8s detector with nine classes (ball, player, goalkeeper, referee, plus HUD elements) is run at 8~fps and 960~px input resolution. A ball tracker converts detections into speeds in px/s (frame-rate independent) with an anti-glitch jump limit and a short memory to bridge motion-blur gaps. A rule-based classifier evaluates, per frame, a small measured context (players within a radius, distance to the goalkeeper) and fires events: a \emph{shot} is a sudden ball acceleration with a player at the ball and the goalkeeper genuinely near (goal in view); a \emph{save} is shot-speed ball collapsing near the goalkeeper, or a fast ball disappearing on the goalkeeper (caught). All thresholds are stored per profile and were derived from logged telemetry rather than guessed; every calibration change is validated by rerunning all reference clips and comparing events (regression testing). Ball possession is read from the in-game radar: team markers and the ball cross are segmented with per-profile HSV masks, and possession is assigned to the team with the marker closest to the ball, with hysteresis and debouncing. Merged OCR+visual events use possession to select the correct nameplate for the acting player.
+
+	\subsection{Audio analysis (Phase 1c)}
+
+	An acoustic descriptor summarizes each 2~s window by RMS energy, spectral centroid, and onset density; the combined score is rescaled to the 5th--95th percentile range of the clip so that the low/medium/high/peak levels partition meaningfully. We deliberately name this signal \emph{audio energy} rather than ``crowd excitement'': as shown in Section~4.3, the game audio contains no detectable crowd sound, and the descriptor honestly measures overall audio activity, which correlates with salient moments. Whisper (small) optionally transcribes the original in-game commentary as context for the LLM.
+
+	\subsection{Commentary generation (Phases 2 and 2b)}
+
+	The \textbf{template} generator is deterministic and hallucination-free: each event type has a small set of Italian templates with a player slot filled from the possession-corrected event. The \textbf{LLM} generator serializes the event (type, player, importance, audio energy, optional transcription context) into a prompt with per-event verb constraints, and supports interchangeable providers (local Ollama, OpenAI-compatible endpoints including Groq, Anthropic). Every generated line passes an \textbf{anti-hallucination validator}: all words are fuzzy-matched against both rosters; if the line cites a roster player unrelated to the event, it is discarded and replaced by the template equivalent, and the outcome (\texttt{llm}, \texttt{name\_only}, \texttt{template\_fallback}) is recorded, giving a measurable hallucination-catch rate.
+
+	\subsection{Event-aware prosody model (Phase 3)}
+
+	The learned contribution is a small MLP (hidden layers 32 and 16, ReLU) that maps a 13-dimensional feature vector---event importance, measured audio energy, and a one-hot encoding of 11 event types---to three prosodic targets: speaking-rate factor, pitch offset in semitones, and energy gain, each clamped to safe ranges. Two dataset builders exist. The \emph{synthetic} builder samples the hand-written rule table with noise (it exists so the pipeline runs end-to-end without annotations, and we state clearly that a model trained on it can only reproduce the rules). The \emph{real} builder measures prosodic targets directly from annotated segments of real commentary audio: speaking rate from onset density, pitch from median $f_0$ (pYIN), energy from RMS, each normalized by the dataset median. Training uses Adam, MSE loss, and best-validation checkpointing.
+
+	\subsection{Expressive synthesis (Phase 4)}
+
+	XTTS~v2 clones the commentator voice zero-shot from short mono references. We use a \emph{dual-reference} scheme: a calm base voice for regular play and an excited reference used only for events above an importance threshold, so climactic moments inherit an excited timbre without making the whole track sound strained. Consecutive lines are merged into blocks (up to 220 characters, split on emotional-level changes and temporal gaps) so XTTS produces connected prosody; the prosody model modulates XTTS speed and post-synthesis gain per block; blocks are placed at their event timestamps on the output timeline. Output is kept at the native 24~kHz of XTTS (downsampling to the 22{,}050~Hz analysis rate audibly dulled the speech).
+
+	What is reused vs.\ ours: EasyOCR, YOLOv8/Ultralytics, Whisper, XTTS~v2, and Llama are used as released; the pipeline design, profiles, telemetry-driven calibration, radar possession, the prosody model, the validator, and the detector fine-tuning are our work.
+
+	\section{Experimental Setup}
+
+	\subsection{Dataset}
+
+	Two data sources are used (Table~\ref{tab:dataset}). \textbf{Gameplay clips}: seven self-recorded EA~SPORTS~FC clips (8--42~s, about 3.5 minutes total) from two matches spanning two graphics generations: an older-generation match (Brazil--Haiti, vertically recorded) used to develop and calibrate the pipeline, and a current-generation match (Manchester City--Bayern, 1080p) including three clips never used for any calibration, which serve as a held-out behavioural test. Clip names encode ground truth (e.g., \emph{shot-and-save}, \emph{shot-off}, \emph{possession-only}). \textbf{Detector dataset}: a public Roboflow FIFA dataset (9 classes, older graphics, 660 annotated images) extended by us with 2{,}567 frames extracted from current-graphics clips at 3--10~fps, filtered by an automatic anti-cutscene rule (HUD visible and no close-up), pre-labeled with the base detector and human-verified on Roboflow, then merged (3{,}227 images, 70/20/10 split). One clip was kept out of annotation entirely for evaluation.
+
+	\begin{table}[h]
+		\centering
+		\caption{Dataset summary.}
+		\label{tab:dataset}
+		\begin{tabular}{|l|c|}
+			\hline
+			\textbf{Property} & \textbf{Value} \\
+			\hline
+			Gameplay clips & 7 (2 matches, 2 graphics gens) \\
+			Clip duration & 8--42 s \\
+			Detector images & 3{,}227 (660 legacy + 2{,}567 new) \\
+			Detector classes & 9 \\
+			Split & 70 / 20 / 10 \\
+			Input format & 1920$\times$1080 (new), 1706$\times$886 (legacy) \\
+			Prosody segments (bootstrap) & 10 annotated (2 clips) \\
+			\hline
+		\end{tabular}
+	\end{table}
+
+	\subsection{Training and Evaluation Protocol}
+
+	Experiments ran on consumer hardware (WSL2 Linux, 7.6~GB RAM, CPU-only inference) with detector fine-tuning on a Google Colab T4 GPU. The detector was fine-tuned \emph{from the base FIFA weights} (not from generic COCO weights) to adapt style, not re-learn the task (Table~\ref{tab:training}). Evaluation is deliberately behavioural rather than benchmark-only: (i) per-frame \emph{telemetry} (fraction of frames in which the ball and goalkeeper are detected) on clips, comparing base and fine-tuned detectors on identical frames; (ii) \emph{event-level} correctness against clip ground truth, with regression tests on all reference clips after every calibration change; (iii) validator outcome counts for the LLM; (iv) prosody-model divergence from the rule baseline. We report Roboflow validation mAP for completeness but treat it as optimistic, for two reasons we identified explicitly: random frame-level splits leak near-duplicate frames of the same clip across train/validation, and pre-labels generated by the base model make part of the ground truth circular.
+
+	\begin{table}[h]
+		\centering
+		\caption{Training configuration.}
+		\label{tab:training}
+		\begin{tabular}{|l|c|c|}
+			\hline
+			\textbf{Parameter} & \textbf{Detector} & \textbf{Prosody MLP} \\
+			\hline
+			Framework & Ultralytics & PyTorch \\
+			Init & base FIFA yolov8s & random (seed 42) \\
+			Optimizer & default (SGD) & Adam \\
+			Learning rate & $10^{-4}$ & $10^{-3}$ \\
+			Batch size & 8 & 16 \\
+			Epochs & 40 (frozen backbone) & 200 (best-val) \\
+			Input & 960 px & 13-dim features \\
+			Loss & YOLO composite & MSE \\
+			\hline
+		\end{tabular}
+	\end{table}
+
+	\subsection{Results}
+
+	\textbf{Detector fine-tuning.} Table~\ref{tab:results} reports the behavioural detection rates on identical frames of two current-graphics clips. Goalkeeper detection---the critical input for shot and save rules---improves substantially (40\%$\rightarrow$66\% and 13\%$\rightarrow$23\% of frames), and ball detection improves moderately; player detection was already saturated. Validation mAP50--95 rose from 0.529 to 0.664, driven partly by the higher input resolution (the base model was trained at 640~px, one identified cause of missed balls at 1080p); we do not over-interpret this number given the leakage caveat above.
+
+	\begin{table}[h]
+		\centering
+		\caption{Behavioural detection rates (fraction of frames with a detection) before vs.\ after domain fine-tuning, at identical 960 px inference.}
+		\label{tab:results}
+		\begin{tabular}{|l|c|c|}
+			\hline
+			\textbf{Clip / class} & \textbf{Base} & \textbf{Fine-tuned} \\
+			\hline
+			shot-and-save: ball & 27\% & \textbf{32\%} \\
+			shot-and-save: goalkeeper & 40\% & \textbf{66\%} \\
+			shot-off: ball & 35\% & \textbf{47\%} \\
+			shot-off: goalkeeper & 13\% & \textbf{23\%} \\
+			\hline
+		\end{tabular}
+	\end{table}
+
+	\textbf{Event detection.} After telemetry-driven recalibration, the four calibration clips match their ground truth (real shot and save detected at the correct timestamps; no phantom shots or saves on possession-only material). On the three held-out current-graphics clips, behaviour remained correct: the possession-only clip produced no false shots/saves, and the one detected save was verified visually (ball at 84~px from the goalkeeper, goalpost in frame, ball caught). An instructive coupling emerged: improving the detector \emph{broke} a save rule that had been implicitly tuned to the old detector's failure mode (the ``speed collapse'' it relied on was the tracker losing the ball, not the ball stopping); the rule was re-derived from the cleaner telemetry. On legacy-graphics clips the fine-tuned detector introduces occasional false saves, confirming a domain trade-off we document rather than hide.
+
+	\textbf{LLM validation.} On a 22-event clip with a local Llama~3.2~3B, the validator produced 9 accepted LLM lines, 7 name-only lines (a stylistic heuristic for routine passes), and 6 template fallbacks; discarded lines included fabricated players (e.g., a line crediting a star player absent from both rosters) and roster players unrelated to the event. The template path is hallucination-free by construction and serves as the guaranteed floor.
+
+	\textbf{Audio energy.} Percentile rescaling repaired a formula/threshold mismatch: on a 42~s clip the score range widened from 0.22--0.36 (the ``peak'' level never fired) to the full 0--1 range with a sensible level distribution (15/9/11/7 windows for low/medium/high/peak). As a prosody feature, audio energy has a real effect: for the same event, raising it from 0.0 to 1.0 increases predicted energy gain from 1.23 to 1.35 and rate from 1.10 to 1.27 (shot event).
+
+	\textbf{Prosody model.} With the synthetic dataset the learned model reproduces the rule table (expected by construction). A bootstrap with 10 segments measured from real commentary audio verified the full real-data path: the resulting model clearly \emph{diverges} from the rules (e.g., goal pitch offset 1.8 vs.\ 4.0 semitones), proving the mechanism while remaining unusable as a model (10 samples for 11 event types); event types absent from the annotations collapse to clamp floors. This is precisely the motivation for a proper annotation campaign.
+
+	\subsection{Critical Discussion}
+
+	\textbf{Negative results on pretrained audio models.} We evaluated AST audio tagging~\cite{gong2021ast} and a wav2vec2 dimensional SER model~\cite{wagner2023dawn} as replacements for the hand-crafted audio descriptor, on six commentary clips and windows of game audio. AST classified every input as \emph{Speech} (0.77--0.90) with \emph{Crowd/Cheering} at $\approx$0.00: our audio simply contains no detectable crowd---it is commentary voice plus low-fidelity effects. The SER model produced near-zero, non-discriminative arousal (a shouted goal call scored \emph{lower} than calm analysis), a strong domain mismatch (English studio speech vs.\ Italian game audio). Conclusion: on this material, the simple acoustic descriptor outperforms both pretrained models; we renamed it from ``crowd excitement'' to \emph{audio energy} so the name matches what is measured. Models \emph{trained on in-domain annotated data} would transfer, which again reduces to the annotation bottleneck.
+
+	\textbf{Heuristics vs.\ learned event detection.} The event rules are interpretable and required no annotations, but they live in screen-space pixels (thresholds are per-camera profiles), are coupled to the detector's error profile, and approximate a temporal, semantic task with instantaneous thresholds. The fine-tuning episode demonstrated this fragility experimentally. The principled next steps are either a small temporal classifier trained on the telemetry features we already extract, or moving detection to the radar's camera-independent coordinates.
+
+	\textbf{Main limitation.} The prosody model---the declared contribution---is currently trained on synthetic data derived from the rules it should be compared against, making the planned A/B study circular until real annotations exist. We consider stating this openly more valuable than overclaiming: the real-data mechanism is implemented and verified, the annotation protocol (CSV of clip/start/end/event-type segments) is defined, and the blind A/B study (Phase~5, binomial test) is implemented and ready to run once a genuinely learned model is available. Remaining quality limitations: zero-shot voice cloning from short references retains a synthetic residue and Italianizes foreign player names (a phonetic-respelling dictionary is a planned fix), and Whisper transcription of noisy game audio is of limited use as LLM context.
+
+	\section{Conclusion}
+
+	We presented a working end-to-end multimodal pipeline that turns football videogame clips into timed, expressive, voice-cloned Italian commentary on consumer hardware. The project's contributions are a data-efficient event-aware prosody model with a verified real-data training path, a measured anti-hallucination validator for LLM commentary, a domain fine-tuning of the visual detector with behavioural (not only benchmark) evaluation, and a calibration methodology based on logged telemetry and regression testing---including honestly reported negative results on pretrained audio models and on a rejected goalpost-based shot cue. The main experimental findings are that domain fine-tuning substantially improves goalkeeper and ball detection on current graphics; that validated LLM generation is usable locally with a guaranteed template floor; and that improving perception can invalidate heuristics tuned to its failure modes, which argues for learned, temporally aware event detection as future work. The critical open item is the real prosody annotation campaign, which unlocks both a genuinely learned prosody model and a meaningful listener A/B study.
+
+	\section*{Acknowledgments}
+
+	The project builds on open tools and models: Ultralytics YOLOv8, EasyOCR, OpenAI Whisper, Coqui XTTS~v2, Ollama and Meta Llama, Roboflow for annotation, and librosa/PyTorch. We thank their maintainers.
+
+	\begin{thebibliography}{9}
+
+		\bibitem{lecun2015deep}
+		Y. LeCun, Y. Bengio, and G. Hinton,
+		``Deep learning,''
+		\textit{Nature}, vol. 521, no. 7553, pp. 436--444, 2015.
+
+		\bibitem{giancola2018soccernet}
+		S. Giancola, M. Amine, T. Dghaily, and B. Ghanem,
+		``SoccerNet: A scalable dataset for action spotting in soccer videos,''
+		in \textit{Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition Workshops},
+		2018.
+
+		\bibitem{deliege2021soccernetv2}
+		A. Deli\`ege et al.,
+		``SoccerNet-v2: A dataset and benchmarks for holistic understanding of broadcast soccer videos,''
+		in \textit{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops},
+		2021.
+
+		\bibitem{cioppa2025soccernet}
+		S. Giancola et al.,
+		``SoccerNet 2025 challenges results,''
+		\textit{arXiv preprint arXiv:2508.19182}, 2025.
+
+		\bibitem{jocher2023ultralytics}
+		G. Jocher, A. Chaurasia, and J. Qiu,
+		``Ultralytics YOLOv8,''
+		\url{https://github.com/ultralytics/ultralytics}, 2023.
+
+		\bibitem{radford2023whisper}
+		A. Radford, J. W. Kim, T. Xu, G. Brockman, C. McLeavey, and I. Sutskever,
+		``Robust speech recognition via large-scale weak supervision,''
+		in \textit{Proceedings of the 40th International Conference on Machine Learning},
+		2023.
+
+		\bibitem{casanova2024xtts}
+		E. Casanova et al.,
+		``XTTS: A massively multilingual zero-shot text-to-speech model,''
+		in \textit{Proceedings of Interspeech},
+		2024.
+
+		\bibitem{gong2021ast}
+		Y. Gong, Y.-A. Chung, and J. Glass,
+		``AST: Audio spectrogram transformer,''
+		in \textit{Proceedings of Interspeech},
+		2021.
+
+		\bibitem{wagner2023dawn}
+		J. Wagner, A. Triantafyllopoulos, H. Wierstorf, M. Schmitt, F. Burkhardt, F. Eyben, and B. W. Schuller,
+		``Dawn of the transformer era in speech emotion recognition: Closing the valence gap,''
+		\textit{IEEE Transactions on Pattern Analysis and Machine Intelligence}, vol. 45, no. 9, 2023.
+
+		\bibitem{eyben2016gemaps}
+		F. Eyben et al.,
+		``The Geneva minimalistic acoustic parameter set (GeMAPS) for voice research and affective computing,''
+		\textit{IEEE Transactions on Affective Computing}, vol. 7, no. 2, pp. 190--202, 2016.
+
+		\bibitem{ji2023hallucination}
+		Z. Ji et al.,
+		``Survey of hallucination in natural language generation,''
+		\textit{ACM Computing Surveys}, vol. 55, no. 12, pp. 1--38, 2023.
+
+		\bibitem{grattafiori2024llama}
+		A. Grattafiori et al.,
+		``The Llama 3 herd of models,''
+		\textit{arXiv preprint arXiv:2407.21783}, 2024.
+
+		\bibitem{vaswani2017attention}
+		A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin,
+		``Attention is all you need,''
+		in \textit{Advances in Neural Information Processing Systems},
+		2017.
+
+	\end{thebibliography}
+
+\end{document}
