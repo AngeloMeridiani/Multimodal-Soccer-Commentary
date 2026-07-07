@@ -1,7 +1,7 @@
 [
   {
     "t": 0.0,
-    "text": "Tah distribuisce.",
+    "text": "Tah conduce.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "low",
@@ -37,7 +37,7 @@
   },
   {
     "t": 7.51,
-    "text": "Olise avanza.",
+    "text": "Olise smarca.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "low",
@@ -46,7 +46,7 @@
   },
   {
     "t": 11.01,
-    "text": "TAH lancia.",
+    "text": "Tah lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "low",
@@ -55,7 +55,7 @@
   },
   {
     "t": 12.01,
-    "text": "Pavlovic distribuisce.",
+    "text": "Pavlovic conduce.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "low",
@@ -72,12 +72,12 @@
     "source": "name_only"
   },
   {
-    "t": 16.35,
-    "text": "Semenyo recupera il vantaggio.",
+    "t": 15.77,
+    "text": "Cherki recupera il possesso.",
     "event_type": "turnover",
     "importance": 0.55,
-    "audio_energy_level": "medium",
-    "audio_energy": 0.307,
+    "audio_energy_level": "low",
+    "audio_energy": 0.046,
     "source": "llm"
   },
   {
@@ -127,25 +127,25 @@
   },
   {
     "t": 24.52,
-    "text": "Tiro sul fondo!",
-    "event_type": "shot_off",
-    "importance": 0.6,
+    "text": "Semenyo.",
+    "event_type": "pass",
+    "importance": 0.25,
     "audio_energy_level": "medium",
     "audio_energy": 0.265,
-    "source": "llm"
+    "source": "name_only"
   },
   {
     "t": 25.03,
-    "text": "Silva.",
+    "text": "Silva conduce.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "medium",
     "audio_energy": 0.38,
-    "source": "name_only"
+    "source": "llm"
   },
   {
     "t": 25.53,
-    "text": "Cherki distribuisce.",
+    "text": "Cherki lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "medium",
@@ -154,7 +154,16 @@
   },
   {
     "t": 27.03,
-    "text": "Rodri conduce.",
+    "text": "Rodri.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.467,
+    "source": "name_only"
+  },
+  {
+    "t": 27.53,
+    "text": "O’Reilly distribuisce.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "medium",
@@ -162,26 +171,35 @@
     "source": "llm"
   },
   {
-    "t": 27.53,
-    "text": "Tiro sul fondo!",
-    "event_type": "shot_off",
-    "importance": 0.6,
+    "t": 28.14,
+    "text": "Kimmich recupera il possesso con decisione.",
+    "event_type": "turnover",
+    "importance": 0.55,
     "audio_energy_level": "medium",
-    "audio_energy": 0.467,
+    "audio_energy": 0.463,
     "source": "llm"
   },
   {
     "t": 28.53,
-    "text": "Haaland.",
+    "text": "Upamecano lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "medium",
     "audio_energy": 0.463,
-    "source": "name_only"
+    "source": "llm"
+  },
+  {
+    "t": 28.85,
+    "text": "Haaland conduce il gioco verso l’area di rigore.",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.463,
+    "source": "llm"
   },
   {
     "t": 32.03,
-    "text": "La mette dentro! Che golazo del giocatore, il pubblico è impazzito!",
+    "text": "La mette dentro! Haaland insacca! Che golazo!",
     "event_type": "goal",
     "importance": 1.0,
     "audio_energy_level": "peak",

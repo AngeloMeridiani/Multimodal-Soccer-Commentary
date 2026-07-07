@@ -267,14 +267,11 @@ JERSEY_MIN_MARGIN: float = 1.3
 # Raggio massimo (px sul frame normalizzato) entro cui un giocatore "ha" la palla.
 POSSESSION_MAX_DIST_PX: float = 90.0
 # Il possesso cambia squadra solo dopo N frame coerenti (anti-flicker). A
-# VISUAL_FRAMES_PER_SECOND=8, 8 frame ~= 1s: un cambio deve reggere ~1s per
-# valere, cosi' le incursioni brevi nel grappolo misto non lo ribaltano.
-POSSESSION_CONFIRM_FRAMES: int = 8
+# VISUAL_FRAMES_PER_SECOND=8, 4 frame = 0.5s: sufficienti per filtrare il rumore.
+POSSESSION_CONFIRM_FRAMES: int = 4
 # Sul radar, durante una fase di possesso, la palla sta in un grappolo con
-# pallini di ENTRAMBE le squadre a ridosso: "il pallino piu' vicino" ribalta
-# sul rumore. Si assegna una squadra solo se il suo pallino piu' vicino batte
-# quello avversario di ALMENO questo margine (px sul radar ritagliato); sotto
-# soglia (o palla non rilevata) il possesso corrente viene MANTENUTO.
+# pallini di ENTRAMBE le squadre a ridosso. Per rubare la palla, il nuovo
+# pallino deve battere l'altro di questo margine.
 POSSESSION_MARGIN_PX: float = 12.0
 # Bonus (px) alla squadra gia' in possesso quando si confrontano le distanze:
 # ulteriore freno anti-flicker a favore della continuita'.
@@ -310,8 +307,8 @@ BALL_TRACKING: dict[str, float] = {
     # Un TIRO vale solo col portiere DAVVERO vicino (verso la porta): distingue
     # il tiro vero dal passaggio forte a centrocampo (velocita' simili ma GK
     # lontano ~900px). Prima era 1200 su camera larga per compensare la pessima
-    # localizzazione GK del vecchio modello: col fine-tuned si puo' stringere.
-    "shot_goal_view_px": 500.0,
+    # localizzazione GK del vecchio modello: col fine-tuned si puo' stringere a 350.
+    "shot_goal_view_px": 350.0,
     # Un TIRO e' un'accelerazione NETTA: velocita' attuale > prev * questo
     # fattore. Cosi' scatta anche se la palla era gia' in movimento nella
     # costruzione (tiro reale: 344 -> 835 px/s), non solo da palla ferma.

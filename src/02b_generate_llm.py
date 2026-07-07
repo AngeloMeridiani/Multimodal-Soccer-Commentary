@@ -196,14 +196,14 @@ def build_event_prompt(
     # Verbi specifici per tipo di evento, così il modello non usa verbi da passaggio per un gol.
     VERB_HINTS_IT: dict[str, str] = {
         "goal": "USA SOLO verbi da gol: segna, insacca, trafigge, batte il portiere, la mette dentro. MAI 'filtra', 'lancia', 'verticalizza'. NON descrivere dove va: il modello non vede la traiettoria.",
-        "save": "USA SOLO verbi da parata: para, dice di no, vola sul pallone, blocca, devia, respinge.",
+        "save": "USA SOLO verbi da parata: para, dice di no, vola, blocca, devia, respinge.",
         "shot_on_goal": "USA verbi da tiro: calcia, conclude, ci prova, tenta la conclusione, scarica il destro/sinistro.",
-        "shot_off": "REGOLA SPECIALE ASSOLUTA: Rispondi SOLO con una di queste 3 frasi: 'Tiro sul fondo!', 'Palla fuori!', 'Conclusione a lato!'. NON usare nessun'altra parola.",
+        "shot_off": "REGOLA SPECIALE ASSOLUTA: Rispondi SOLO con una di queste 3 frasi: 'Tiro sul fondo!', 'Conclusione fuori!', 'A lato!'. NON usare nessun'altra parola.",
         "foul": "Fallo: viene atterrato, steso, trattenuto, il direttore di gara fischia.",
-        "corner": "Corner: calcio d'angolo, batte il corner, palla in area.",
+        "corner": "Corner: calcio d'angolo, batte il corner, cross in mezzo.",
         "free_kick": "Punizione: si incarica, prova la punizione diretta.",
-        "turnover": "Cambio di possesso: DEVI dire esplicitamente che c'è un recupero palla. Es: 'recupera palla', 'ruba il pallone', 'intercetta', 'cambio di fronte'. MAI usare 'smarca' o verbi di passaggio.",
-        "carry": "Conduzione palla: usa SINONIMI SEMPRE DIVERSI (es. conduce, avanza, si fa largo, porta palla, sale, palla al piede, accelera, si invola). NON ripetere MAI il verbo usato nella battuta precedente.",
+        "turnover": "Cambio di possesso: usa verbi come 'recupera il possesso', 'riconquista', 'intercetta', 'cambio di fronte'. MAI usare 'smarca', verbi di passaggio o la parola 'vantaggio'.",
+        "carry": "Conduzione: usa SINONIMI SEMPRE DIVERSI (es. conduce, avanza, si fa largo, sale, accelera, si invola). NON ripetere MAI il verbo della battuta precedente.",
     }
     VERB_HINTS_EN: dict[str, str] = {
         "goal": "Use ONLY goal verbs: scores, finishes, slots home, buries it, fires in. NEVER 'passes', 'launches'. Do NOT describe where it goes.",
@@ -211,10 +211,10 @@ def build_event_prompt(
         "shot_on_goal": "Use shot verbs: shoots, strikes, tries his luck, fires, lets fly.",
         "shot_off": "ABSOLUTE RULE: Respond ONLY with one of these 3 phrases: 'Off target!', 'Wide of the mark!', 'Just misses!'. Do NOT use any other words.",
         "foul": "Foul: brought down, taken out, held back, the referee blows.",
-        "corner": "Corner: corner kick, takes the corner, ball into the box.",
+        "corner": "Corner: corner kick, takes the corner, cross into the box.",
         "free_kick": "Free kick: steps up, tries a direct free kick.",
-        "turnover": "Change of possession: you MUST say there's a ball recovery. E.g.: 'wins it back', 'intercepts', 'change of play'. NEVER use passing verbs.",
-        "carry": "Ball carrying: use ALWAYS DIFFERENT synonyms (e.g. drives, surges, strides, carries, advances, pushes on, bursts forward). NEVER repeat the verb from the previous line.",
+        "turnover": "Change of possession: e.g. 'regains possession', 'wins it back', 'intercepts', 'change of play'. NEVER use passing verbs or the word 'advantage'.",
+        "carry": "Carrying: use ALWAYS DIFFERENT synonyms (e.g. drives, surges, strides, advances, pushes on, bursts forward). NEVER repeat the verb from the previous line.",
     }
     verb_hints = VERB_HINTS_IT if config.LANGUAGE == "it" else VERB_HINTS_EN
     verb_hint = verb_hints.get(evt, "")

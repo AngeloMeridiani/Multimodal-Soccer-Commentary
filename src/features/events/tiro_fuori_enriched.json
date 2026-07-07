@@ -14,7 +14,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.269,
+    "original_commentary": "Anno spazio per andare in contrapiede."
   },
   {
     "t": 1.0,
@@ -34,7 +37,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.269,
+    "original_commentary": "Anno spazio per andare in contrapiede."
   },
   {
     "t": 4.13,
@@ -54,29 +60,32 @@
     "clock": null,
     "source": "visual",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "peak",
+    "audio_energy": 0.777,
+    "original_commentary": "Anno spazio per andare in contrapiede. Il Vesa scoperta occhio al contrapiede."
   },
   {
     "t": 13.51,
-    "type": "shot_off",
-    "player": "HAALAND",
+    "type": "pass",
+    "player": "SEMENYO",
     "player_team": "home",
     "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
     "player_home": "SEMENYO",
     "player_away": "NEUER",
-    "importance": 0.6,
+    "importance": 0.25,
     "score": [
       1,
       0
     ],
     "clock": null,
-    "source": "ocr+visual",
+    "source": "ocr",
     "possession_certain": true,
     "possession_source": "visual",
-    "ball_zone": "midfield",
-    "ball_speed": "high",
-    "players_nearby": 1
+    "audio_energy_level": "peak",
+    "audio_energy": 0.842,
+    "original_commentary": ""
   }
 ]

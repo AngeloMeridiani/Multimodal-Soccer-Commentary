@@ -1,0 +1,146 @@
+[
+  {
+    "t": 0.0,
+    "text": "Olsie lancia.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.0,
+    "source": "llm"
+  },
+  {
+    "t": 2.5,
+    "text": "Laimer.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.0,
+    "source": "name_only"
+  },
+  {
+    "t": 4.5,
+    "text": "Olise.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.167,
+    "source": "name_only"
+  },
+  {
+    "t": 6.01,
+    "text": "Kane.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.368,
+    "source": "name_only"
+  },
+  {
+    "t": 8.01,
+    "text": "Musiala conduce.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.204,
+    "source": "llm"
+  },
+  {
+    "t": 9.01,
+    "text": "Musiala lancia.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.262,
+    "source": "llm"
+  },
+  {
+    "t": 10.01,
+    "text": "Kane distribuisce.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.159,
+    "source": "llm"
+  },
+  {
+    "t": 11.01,
+    "text": "Olise.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.283,
+    "source": "name_only"
+  },
+  {
+    "t": 12.51,
+    "text": "Musiala.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "high",
+    "audio_energy": 0.516,
+    "source": "name_only"
+  },
+  {
+    "t": 14.85,
+    "text": "Recupera il possesso con decisione Silva!",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy_level": "peak",
+    "audio_energy": 1.0,
+    "source": "llm"
+  },
+  {
+    "t": 15.02,
+    "text": "Rodri.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "peak",
+    "audio_energy": 1.0,
+    "source": "name_only"
+  },
+  {
+    "t": 15.52,
+    "text": "Guehi.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "peak",
+    "audio_energy": 1.0,
+    "source": "name_only"
+  },
+  {
+    "t": 17.02,
+    "text": "Silva lancia...",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "high",
+    "audio_energy": 0.54,
+    "source": "llm"
+  },
+  {
+    "t": 18.02,
+    "text": "Rodri.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "high",
+    "audio_energy": 0.55,
+    "source": "name_only"
+  },
+  {
+    "t": 19.02,
+    "text": "Haaland.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.467,
+    "source": "name_only"
+  },
+  {
+    "t": 19.52,
+    "text": "Cherki lancia.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.467,
+    "source": "llm"
+  }
+]

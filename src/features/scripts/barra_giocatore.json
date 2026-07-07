@@ -56,11 +56,11 @@
     "audio_energy": 0.244
   },
   {
-    "t": 16.35,
+    "t": 15.77,
     "text": "Cambio di fronte, ora SEMENYO.",
     "event_type": "turnover",
     "importance": 0.55,
-    "audio_energy": 0.307
+    "audio_energy": 0.046
   },
   {
     "t": 16.52,
@@ -99,49 +99,63 @@
   },
   {
     "t": 24.52,
-    "text": "SEMENYO calcia... fuori di poco!",
-    "event_type": "shot_off",
-    "importance": 0.6,
+    "text": "Apertura per SEMENYO.",
+    "event_type": "pass",
+    "importance": 0.25,
     "audio_energy": 0.265
   },
   {
     "t": 25.03,
-    "text": "Apertura per SILVA.",
+    "text": "SILVA controlla.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy": 0.38
   },
   {
     "t": 25.53,
-    "text": "CHERKI controlla.",
+    "text": "Apertura per CHERKI.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy": 0.38
   },
   {
     "t": 27.03,
-    "text": "Apertura per RODRI.",
+    "text": "RODRI controlla.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy": 0.467
   },
   {
     "t": 27.53,
-    "text": "Tiro di O'REILLY, palla a lato!",
-    "event_type": "shot_off",
-    "importance": 0.6,
+    "text": "La gioca O'REILLY.",
+    "event_type": "pass",
+    "importance": 0.25,
     "audio_energy": 0.467
   },
   {
+    "t": 28.14,
+    "text": "Palla persa, la recupera KIMMICH.",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy": 0.463
+  },
+  {
     "t": 28.53,
-    "text": "HAALAND controlla.",
+    "text": "Apertura per UPAMECANO.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy": 0.463
   },
   {
+    "t": 28.85,
+    "text": "Cambio di fronte, ora HAALAND.",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy": 0.463
+  },
+  {
     "t": 32.03,
-    "text": "Rete di il giocatore! Incredibile!",
+    "text": "GOOOL! Ha segnato HAALAND!",
     "event_type": "goal",
     "importance": 1.0,
     "audio_energy": 0.986

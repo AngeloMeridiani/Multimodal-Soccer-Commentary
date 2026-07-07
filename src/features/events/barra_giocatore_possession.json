@@ -19,25 +19,25 @@
   },
   {
     "t": 0.35,
-    "possession": null,
+    "possession": "away",
     "confidence": 1.0,
     "source": "radar"
   },
   {
     "t": 0.47,
-    "possession": null,
+    "possession": "away",
     "confidence": 1.0,
     "source": "radar"
   },
   {
     "t": 0.58,
-    "possession": null,
+    "possession": "away",
     "confidence": 1.0,
     "source": "radar"
   },
   {
     "t": 0.7,
-    "possession": null,
+    "possession": "away",
     "confidence": 1.0,
     "source": "radar"
   },
@@ -159,145 +159,145 @@
     "t": 3.04,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 3.15,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 3.27,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 3.39,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 3.5,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 3.62,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 3.74,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 3.85,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 3.97,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 4.09,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 4.2,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 4.32,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 4.44,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 4.55,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 4.67,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 4.79,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 4.9,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 5.02,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 5.14,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 5.26,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 5.37,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 5.49,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 5.61,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 5.72,
     "possession": "away",
     "confidence": 1.0,
-    "source": "radar"
+    "source": "carrier"
   },
   {
     "t": 5.84,
@@ -369,67 +369,67 @@
     "t": 7.12,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 7.24,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 7.36,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 7.47,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 7.59,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 7.71,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 7.82,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 7.94,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 8.06,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 8.17,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 8.29,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 8.41,
@@ -597,103 +597,103 @@
     "t": 11.56,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 11.68,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 11.8,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 11.91,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.03,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.15,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.26,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.38,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.5,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.61,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.73,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.85,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 12.96,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 13.08,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 13.2,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 13.31,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 13.43,
     "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 13.55,
@@ -811,31 +811,31 @@
   },
   {
     "t": 15.77,
-    "possession": "away",
+    "possession": "home",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 15.88,
-    "possession": "away",
+    "possession": "home",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 16.0,
-    "possession": "away",
+    "possession": "home",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 16.12,
-    "possession": "away",
+    "possession": "home",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 16.23,
-    "possession": "away",
+    "possession": "home",
     "confidence": 1.0,
     "source": "carrier"
   },
@@ -1137,49 +1137,49 @@
     "t": 22.07,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 22.19,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 22.31,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 22.42,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 22.54,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 22.66,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 22.77,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 22.89,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 23.01,
@@ -1447,37 +1447,37 @@
   },
   {
     "t": 28.14,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 28.26,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 28.38,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 28.5,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 28.61,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
     "source": "carrier"
   },
   {
     "t": 28.73,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
     "source": "carrier"
   },
@@ -1647,234 +1647,234 @@
     "t": 32.0,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 32.12,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 32.23,
     "possession": "home",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 32.35,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 32.47,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 32.58,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 32.7,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 32.82,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 32.93,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.05,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.17,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.28,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.4,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.52,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.63,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.75,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.87,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 33.98,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 34.1,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 34.22,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 34.33,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 34.45,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 34.57,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 34.68,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 34.8,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 34.92,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.04,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.15,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.27,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.39,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.5,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.62,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.74,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.85,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 35.97,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 36.09,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 36.2,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 36.32,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   },
   {
     "t": 36.44,
-    "possession": "home",
+    "possession": "away",
     "confidence": 1.0,
-    "source": "carrier"
+    "source": "radar"
   }
 ]

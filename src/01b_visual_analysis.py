@@ -342,11 +342,21 @@ class VisualEventClassifier:
             and min(ctx.gk_dist, self.prev_gk_dist) < self.t["shot_goal_view_px"]
         ):
             return None
+            
+        # Il tiro deve sempre avere una componente orizzontale dominante (verso la porta)
+        goalward = abs(math.cos(math.radians(ball.direction_deg))) > 0.5
+        if not goalward:
+            return None
+
         if ctx.in_box:
             return "shot_on_goal"
-        # Fuori area il tiro deve andare verso una porta (moto ~orizzontale).
-        goalward = abs(math.cos(math.radians(ball.direction_deg))) > 0.5
-        return "shot_off" if goalward else None
+            
+        # Fuori area i passaggi filtranti o i lanci lunghi possono ingannare il sistema.
+        # Confermiamo il tiro da fuori area SOLO se il portiere è vicinissimo (< 250px).
+        if min(ctx.gk_dist, self.prev_gk_dist) < 250.0:
+            return "shot_off"
+            
+        return None
 
     def _is_corner(self, ball: BallState, ctx: FrameContext) -> bool:
         """CORNER = palla ferma in area dopo essere arrivata veloce."""
@@ -442,6 +452,7 @@ class ControlledPlayerDetector:
         self._frame_n = 0
         self.last_name: str | None = None
         self.last_team: str | None = None
+        self.last_seen_frame = 0
 
     def _get_reader(self):
         if self._reader is None:
@@ -492,16 +503,19 @@ class ControlledPlayerDetector:
                 candidates.append((x, y, cw, ch))
 
         if not candidates:
+            self._timeout_cache()
             return self.last_name, self.last_team
 
         # --- 4. OCR solo ogni N frame (per performance) ---
         if self._frame_n % self._ocr_every != 0:
             return self.last_name, self.last_team
 
-        # Ordiniamo per area decrescente, ma testiamo i primi 5
+        # Ordiniamo per area decrescente, ma testiamo fino a 15 candidati perche'
+        # i cartelloni pubblicitari (es. "abu dhabi") sono piu' grandi del nome.
         candidates.sort(key=lambda b: b[2] * b[3], reverse=True)
-        candidates = candidates[:5]
+        candidates = candidates[:15]
 
+        found = False
         for x, y, cw, ch in candidates:
             pad = 5
             crop = field[max(0, y - pad) : y + ch + pad, max(0, x - pad) : x + cw + pad]
@@ -520,12 +534,23 @@ class ControlledPlayerDetector:
                     if team:
                         self.last_name = name
                         self.last_team = team
+                        self.last_seen_frame = self._frame_n
+                        found = True
                         logger.debug("Nome campo trovato a %d,%d: '%s' -> %s", x, y, name, team)
                         return name, team
             except Exception as exc:
                 logger.debug("OCR nome campo fallito: %s", exc)
 
+        if not found:
+            self._timeout_cache()
+
         return self.last_name, self.last_team
+
+    def _timeout_cache(self):
+        # Svuota la cache se non vediamo il nome per 8 frame (~1 secondo a 8 fps)
+        if hasattr(self, 'last_seen_frame') and self._frame_n - self.last_seen_frame > 8:
+            self.last_name = None
+            self.last_team = None
 
     @staticmethod
     def _match_roster(name: str) -> str | None:
@@ -596,6 +621,12 @@ def analyze_video(
         poss_radar, poss_fill = possession.update(frame)
         if carrier_team in ("home", "away"):
             poss_team, poss_conf, poss_src = carrier_team, 1.0, "carrier"
+            # Sincronizza lo stato interno del tracker col portatore visivo certo.
+            # Se non lo facciamo, quando il nome sparisce il radar ignora l'isteresi
+            # perche' non sa che il possesso era cambiato.
+            possession.current = carrier_team
+            possession.pending = None
+            possession.count = 0
         else:
             poss_team, poss_conf, poss_src = poss_radar, round(poss_fill, 3), "radar"
         possession_timeline.append(
@@ -651,6 +682,7 @@ def analyze_video(
     # e carry quando un giocatore porta palla a lungo senza eventi.
     visual_events = _fill_event_gaps(visual_events, possession_timeline)
     visual_events.sort(key=lambda e: e["t"])
+    visual_events = _fix_shot_attribution(visual_events)
     visual_events = _collapse_consecutive(visual_events)
     return visual_events, possession_timeline, ball_timeline
 
@@ -662,7 +694,9 @@ def _collapse_consecutive(events: list[dict]) -> list[dict]:
     produrre pass consecutivi sullo stesso nome (es. la targhetta che sfarfalla
     a inizio clip -> 3 pass identici su OLISE). Senza questo, la telecronaca
     ripeterebbe 'Olise. Olise. Olise.'. Si toccano solo gli eventi di routine
-    (pass, carry): gol/parate/tiri/turnover restano sempre."""
+    (pass, carry): gol/parate/tiri/turnover restano sempre.
+    Eccezione: se passano più di 3 secondi, permettiamo la ripetizione, perché
+    il giocatore sta portando palla a lungo e vogliamo evitare lunghi silenzi."""
     ROUTINE = {"pass", "carry"}
     collapsed: list[dict] = []
     for ev in events:
@@ -672,8 +706,9 @@ def _collapse_consecutive(events: list[dict]) -> list[dict]:
             and ev.get("type") in ROUTINE
             and ev.get("type") == prev.get("type")
             and ev.get("player") == prev.get("player")
+            and ev["t"] - prev["t"] <= 3.0
         ):
-            continue  # duplicato consecutivo stesso tipo+giocatore: scarta
+            continue  # duplicato consecutivo stesso tipo+giocatore: scarta se vicino nel tempo
         collapsed.append(ev)
     return collapsed
 
@@ -746,10 +781,28 @@ def merge_events(
                 m["type"] = vis["type"]
                 m["importance"] = vis["importance"]
 
-        # --- Fix Attribuzione Tiri e Parate ---
-        # Al momento di un tiro o parata, l'HUD si aggiorna spesso sul portiere
-        # o sul difensore. Dobbiamo recuperare il VERO tiratore guardando a ritroso.
-        is_shot = m["type"] in ("shot_on_goal", "shot_off", "shot_post", "shot_blocked")
+        merged.append(m)
+
+    # Gli eventi visivi rimasti orfani (nessun evento OCR vicino) entrano
+    # nel log cosi' come sono.
+    for j, vis in enumerate(visual_events):
+        if j not in consumed:
+            merged.append(vis)
+
+    merged.sort(key=lambda x: x["t"])
+    return merged
+
+
+def _fix_shot_attribution(events: list[dict]) -> list[dict]:
+    """
+    Seconda passata: Fix Attribuzione Tiri, Parate e Goal.
+    Al momento di un tiro o parata, l'HUD si aggiorna spesso sul portiere
+    o sul difensore. Dobbiamo recuperare il VERO tiratore guardando a ritroso
+    nella lista temporalmente ordinata (che ora include anche i turnover).
+    """
+    final_merged = []
+    for i, m in enumerate(events):
+        is_shot = m["type"] in ("shot_on_goal", "shot_off", "shot_post", "shot_blocked", "goal")
         
         if is_shot or m["type"] == "save":
             poss = m.get("possession")
@@ -757,7 +810,7 @@ def merge_events(
             # 1) Trova il tiratore a ritroso
             shooter_name = m.get("player", "il giocatore")
             shooter_team = m.get("player_team", poss)
-            for prev_ev in reversed(merged):
+            for prev_ev in reversed(final_merged):
                 if prev_ev.get("possession") == poss and prev_ev.get("player"):
                     shooter_name = prev_ev["player"]
                     shooter_team = prev_ev.get("player_team", poss)
@@ -771,7 +824,7 @@ def merge_events(
                 shot_event["importance"] = config.EVENT_IMPORTANCE.get("shot_on_goal", 0.85)
                 shot_event["player"] = shooter_name
                 shot_event["player_team"] = shooter_team
-                merged.append(shot_event)
+                final_merged.append(shot_event)
 
                 # La save va al portiere avversario
                 if poss == "away":
@@ -785,19 +838,13 @@ def merge_events(
                     m["player_team"] = "away"
                     m["possession"] = "away"
             else:
-                # E' un tiro: correggiamo direttamente l'autore
+                # E' un tiro o un goal: correggiamo direttamente l'autore
                 m["player"] = shooter_name
                 m["player_team"] = shooter_team
 
+        final_merged.append(m)
 
-        merged.append(m)
-
-    # Gli eventi visivi rimasti orfani (nessun evento OCR vicino) entrano
-    # nel log cosi' come sono.
-    for j, vis in enumerate(visual_events):
-        if j not in consumed:
-            merged.append(vis)
-    return merged
+    return final_merged
 
 
 def _fill_event_gaps(

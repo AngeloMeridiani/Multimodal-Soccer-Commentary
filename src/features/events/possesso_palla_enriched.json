@@ -14,7 +14,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "low",
+    "audio_energy": 0.0,
+    "original_commentary": "Olysse. Kimmich."
   },
   {
     "t": 2.5,
@@ -34,7 +37,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "low",
+    "audio_energy": 0.0,
+    "original_commentary": "Olysse. Kimmich. Michael Olysse."
   },
   {
     "t": 4.5,
@@ -54,7 +60,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "low",
+    "audio_energy": 0.167,
+    "original_commentary": "Olysse. Kimmich. Michael Olysse. Questa gestione di Musiano."
   },
   {
     "t": 6.01,
@@ -74,7 +83,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.368,
+    "original_commentary": "Kimmich. Michael Olysse. Questa gestione di Musiano. Un errore evitabilissimo, sintomo di scarsa concentrazione."
   },
   {
     "t": 8.01,
@@ -94,7 +106,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "low",
+    "audio_energy": 0.204,
+    "original_commentary": "Michael Olysse. Questa gestione di Musiano. Un errore evitabilissimo, sintomo di scarsa concentrazione."
   },
   {
     "t": 9.01,
@@ -114,7 +129,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.262,
+    "original_commentary": "Questa gestione di Musiano. Un errore evitabilissimo, sintomo di scarsa concentrazione."
   },
   {
     "t": 10.01,
@@ -134,7 +152,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "low",
+    "audio_energy": 0.159,
+    "original_commentary": "Questa gestione di Musiano. Un errore evitabilissimo, sintomo di scarsa concentrazione."
   },
   {
     "t": 11.01,
@@ -154,7 +175,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.283,
+    "original_commentary": "Un errore evitabilissimo, sintomo di scarsa concentrazione."
   },
   {
     "t": 12.51,
@@ -174,17 +198,20 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "high",
+    "audio_energy": 0.516,
+    "original_commentary": "Un errore evitabilissimo, sintomo di scarsa concentrazione."
   },
   {
-    "t": 15.65,
+    "t": 14.85,
     "type": "turnover",
-    "player": "GUEHI",
+    "player": "SILVA",
     "player_team": "home",
     "possession": "home",
     "player_resolved": true,
     "name_confidence": 1.0,
-    "player_home": "GUEHI",
+    "player_home": "SILVA",
     "player_away": "MUSIALA",
     "importance": 0.55,
     "score": [
@@ -194,7 +221,56 @@
     "clock": null,
     "source": "visual",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "peak",
+    "audio_energy": 1.0,
+    "original_commentary": "Un errore evitabilissimo, sintomo di scarsa concentrazione."
+  },
+  {
+    "t": 15.02,
+    "type": "pass",
+    "player": "RODRI",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "RODRI",
+    "player_away": "MUSIALA",
+    "importance": 0.25,
+    "score": [
+      1,
+      0
+    ],
+    "clock": null,
+    "source": "ocr",
+    "possession_certain": true,
+    "possession_source": "visual",
+    "audio_energy_level": "peak",
+    "audio_energy": 1.0,
+    "original_commentary": ""
+  },
+  {
+    "t": 15.52,
+    "type": "pass",
+    "player": "GUEHI",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "GUEHI",
+    "player_away": "MUSIALA",
+    "importance": 0.25,
+    "score": [
+      1,
+      0
+    ],
+    "clock": null,
+    "source": "ocr",
+    "possession_certain": true,
+    "possession_source": "visual",
+    "audio_energy_level": "peak",
+    "audio_energy": 1.0,
+    "original_commentary": ""
   },
   {
     "t": 17.02,
@@ -214,7 +290,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "high",
+    "audio_energy": 0.54,
+    "original_commentary": ""
   },
   {
     "t": 18.02,
@@ -234,7 +313,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "high",
+    "audio_energy": 0.55,
+    "original_commentary": ""
   },
   {
     "t": 19.02,
@@ -254,7 +336,10 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.467,
+    "original_commentary": ""
   },
   {
     "t": 19.52,
@@ -274,6 +359,9 @@
     "clock": null,
     "source": "ocr",
     "possession_certain": true,
-    "possession_source": "visual"
+    "possession_source": "visual",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.467,
+    "original_commentary": ""
   }
 ]
