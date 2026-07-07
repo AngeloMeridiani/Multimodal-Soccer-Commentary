@@ -1,0 +1,482 @@
+<!-- Telecronaca AI — Regia -->
+<!-- Frontend per la pipeline di telecronaca EA FC / FIFA -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regia · Telecronaca AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --night:#080B11;
+    --panel:#10151E;
+    --panel-2:#161D28;
+    --line:rgba(255,255,255,.07);
+    --line-2:rgba(255,255,255,.12);
+    --ink:#EAEFF5;
+    --muted:#8593A6;
+    --faint:#5A6473;
+    --live:#FF3B30;
+    --live-glow:rgba(255,59,48,.45);
+    --pitch:#38E08A;
+    --amber:#FFB020;
+    --chalk:rgba(255,255,255,.10);
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 500px at 50% -180px, rgba(56,224,138,.05), transparent 60%),
+      radial-gradient(900px 600px at 100% 120%, rgba(255,59,48,.04), transparent 55%),
+      var(--night);
+    color:var(--ink);
+    font-family:"Inter",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  ::selection{background:var(--live);color:#fff}
+
+  .pitch-lines{position:fixed;inset:0;pointer-events:none;opacity:.5;z-index:0}
+  .pitch-lines::before{
+    content:"";position:absolute;inset:0;
+    background-image:linear-gradient(var(--chalk) 1px, transparent 1px);
+    background-size:100% 46px;
+    mask-image:linear-gradient(to bottom, transparent, #000 40%, #000 60%, transparent);
+    opacity:.25;
+  }
+  .center-circle{
+    position:fixed;top:50%;left:50%;width:520px;height:520px;transform:translate(-50%,-50%);
+    border:1px solid var(--chalk);border-radius:50%;opacity:.35;pointer-events:none;z-index:0;
+  }
+
+  .wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:22px 22px 80px}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .onair{
+    display:inline-flex;align-items:center;gap:9px;
+    font-family:"Saira Condensed",sans-serif;font-weight:800;letter-spacing:.14em;
+    font-size:13px;text-transform:uppercase;
+    padding:7px 12px 6px;border-radius:6px;
+    border:1px solid var(--live);color:#fff;
+    background:linear-gradient(180deg, rgba(255,59,48,.22), rgba(255,59,48,.08));
+  }
+  .onair.idle{border-color:var(--line-2);color:var(--muted);background:transparent}
+  .onair .dot{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 var(--live-glow)}
+  .onair.live .dot{animation:pulse 1.4s infinite}
+  .onair.idle .dot{background:var(--muted);animation:none}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 var(--live-glow)}70%{box-shadow:0 0 0 9px rgba(255,59,48,0)}100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}}
+
+  .title{font-family:"Saira Condensed",sans-serif;font-weight:800;font-size:26px;letter-spacing:.02em;line-height:1}
+  .title small{display:block;font-family:"JetBrains Mono",monospace;font-weight:400;font-size:10.5px;letter-spacing:.32em;color:var(--muted);margin-top:5px;text-transform:uppercase}
+
+  .clock{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);text-align:right}
+  .clock b{color:var(--ink);font-weight:500}
+
+  .grid{display:grid;grid-template-columns:1.55fr .95fr;gap:18px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .card-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .card-h .k{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+  .card-h h2{font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:16px;letter-spacing:.04em;margin:0;text-transform:uppercase}
+
+  .stage{position:relative;aspect-ratio:16/9;background:#05070B;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:contain;display:block;background:#05070B}
+  .stage.empty video{display:none}
+
+  .drop{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;text-align:center;cursor:pointer;transition:background .15s, border-color .15s;
+    border:1.5px dashed var(--line-2);margin:14px;border-radius:10px;
+  }
+  .drop.hide{display:none}
+  .drop.over{background:rgba(56,224,138,.06);border-color:var(--pitch)}
+  .drop svg{width:40px;height:40px;color:var(--muted)}
+  .drop b{font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:19px;letter-spacing:.03em}
+  .drop span{font-size:12.5px;color:var(--muted);max-width:280px}
+  .drop kbd{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--muted);border:1px solid var(--line-2);border-radius:4px;padding:2px 6px}
+
+  .lower{
+    position:absolute;left:14px;right:14px;bottom:14px;
+    display:flex;align-items:center;gap:12px;
+    padding:10px 12px;border-radius:9px;
+    background:linear-gradient(180deg, rgba(8,11,17,.55), rgba(8,11,17,.9));
+    border:1px solid var(--line-2);backdrop-filter:blur(6px);
+    opacity:0;transform:translateY(8px);transition:opacity .35s, transform .35s;pointer-events:none;
+  }
+  .lower.show{opacity:1;transform:none}
+  .lower .tag{
+    font-family:"Saira Condensed",sans-serif;font-weight:800;font-size:11px;letter-spacing:.14em;
+    color:#fff;background:var(--live);padding:5px 8px 4px;border-radius:5px;white-space:nowrap;text-transform:uppercase;
+  }
+  .wave{display:flex;align-items:center;gap:3px;height:26px;flex:0 0 auto}
+  .wave i{width:3px;height:6px;background:var(--pitch);border-radius:2px;opacity:.85}
+  .lower .say{font-size:13.5px;line-height:1.35;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lower .say em{color:var(--muted);font-style:normal}
+
+  .stage-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-top:1px solid var(--line);background:var(--panel-2)}
+  .file-name{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .file-name b{color:var(--ink);font-weight:500}
+  .stage-foot .mini{display:flex;gap:8px}
+
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;justify-content:center;
+    font-family:"Saira Condensed",sans-serif;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    font-size:14px;padding:11px 16px;border-radius:9px;transition:transform .1s, background .15s, opacity .15s;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{border:1px solid var(--line-2);color:var(--ink);font-size:12px;padding:8px 12px}
+  .btn.ghost:hover{background:var(--panel)}
+  .btn.primary{background:var(--live);color:#fff;box-shadow:0 6px 20px -8px var(--live-glow);width:100%;font-size:15px;padding:14px}
+  .btn.primary:hover{background:#ff2d21}
+  .btn.primary:disabled{background:var(--panel-2);color:var(--muted);box-shadow:none;cursor:not-allowed}
+  .btn.pitch{background:var(--pitch);color:#062012}
+  .btn.pitch:hover{filter:brightness(1.06)}
+
+  .ctl{padding:16px}
+  .field{margin-bottom:16px}
+  .field:last-child{margin-bottom:0}
+  .field > label{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+  .seg{display:flex;background:var(--night);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+  .seg button{flex:1;padding:8px 6px;border-radius:6px;font-family:"Saira Condensed",sans-serif;font-weight:600;font-size:13px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+  .seg button.on{background:var(--panel-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .fixed-row{display:flex;flex-wrap:wrap;gap:6px}
+  .fixed-pill{
+    font-family:"JetBrains Mono",monospace;font-size:11px;padding:8px 11px;border-radius:8px;
+    border:1px solid var(--line);color:var(--muted);background:var(--night);
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .fixed-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--pitch)}
+  .chip{
+    font-family:"JetBrains Mono",monospace;font-size:11px;padding:6px 9px;border-radius:7px;
+    border:1px solid var(--line);color:var(--muted);background:var(--night);cursor:pointer;user-select:none;transition:.12s;
+  }
+  .chip.on{border-color:var(--pitch);color:var(--pitch);background:rgba(56,224,138,.08)}
+  .chip.locked{opacity:.55;cursor:not-allowed}
+  .hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}
+
+  .chain{padding:8px 6px}
+  .phase{display:flex;align-items:center;gap:14px;padding:11px 12px;border-radius:10px;transition:background .2s}
+  .phase + .phase{position:relative}
+  .phase + .phase::before{content:"";position:absolute;left:27px;top:-8px;height:8px;width:2px;background:var(--line)}
+  .phase.done + .phase::before,.phase.active + .phase::before{background:var(--pitch)}
+  .node{
+    width:30px;height:30px;flex:0 0 auto;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;color:var(--muted);
+    border:1px solid var(--line-2);background:var(--night);transition:.25s;
+  }
+  .phase.active .node{border-color:var(--live);color:#fff;background:rgba(255,59,48,.15);animation:pulse 1.4s infinite}
+  .phase.done .node{border-color:var(--pitch);color:#062012;background:var(--pitch)}
+  .phase .meta{flex:1;min-width:0}
+  .phase .meta b{display:block;font-family:"Saira Condensed",sans-serif;font-weight:600;font-size:14.5px;letter-spacing:.02em}
+  .phase .meta span{font-size:11.5px;color:var(--muted)}
+  .phase .tick{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--muted)}
+  .phase.done .tick{color:var(--pitch)}
+  .phase.active .tick{color:var(--live)}
+
+  .bar{height:5px;background:var(--night);border-radius:99px;overflow:hidden;margin:4px 12px 12px}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--live),var(--amber),var(--pitch));transition:width .4s}
+
+  .result{padding:16px;display:none}
+  .result.show{display:block}
+  .transcript{background:var(--night);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.65;max-height:180px;overflow:auto}
+  .transcript p{margin:0 0 10px}
+  .transcript p:last-child{margin:0}
+  .transcript .t{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--amber);margin-right:8px}
+  .result-actions{display:flex;gap:10px;margin-top:14px}
+  .result-actions .btn{flex:1}
+
+  .note{margin-top:18px;font-size:12px;color:var(--muted);line-height:1.6;border-left:2px solid var(--line-2);padding-left:12px}
+  .note code{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--pitch);background:var(--night);padding:1px 5px;border-radius:4px}
+  .demo-flag{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.06em;padding:3px 7px;border-radius:5px}
+  .demo-flag.live{color:var(--pitch);border:1px solid rgba(56,224,138,.3);background:rgba(56,224,138,.06)}
+
+  a.reset{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);text-decoration:none;border-bottom:1px dashed var(--line-2)}
+  a.reset:hover{color:var(--ink)}
+
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="pitch-lines"></div>
+<div class="center-circle"></div>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="onair idle" id="onair"><span class="dot"></span><span id="onairText">Standby</span></span>
+      <div class="title">Regia Telecronaca<small>EA FC · Pipeline AI · v1</small></div>
+    </div>
+    <div class="clock">
+      <div>Sessione</div><b id="clock">00:00:00</b>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-h"><span class="k">Feed</span><h2>Monitor di gioco</h2></div>
+      <div class="stage empty" id="stage">
+        <video id="video" playsinline controls></video>
+        <div class="drop" id="drop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 15V3m0 0l-4 4m4-4l4 4"/><path d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4"/></svg>
+          <b>Trascina qui una clip</b>
+          <span>oppure fai clic per sceglierla dal computer · MP4, MOV, WEBM</span>
+          <span><kbd>Nota</kbd> l'audio originale del gioco verrà rimosso</span>
+        </div>
+        <div class="lower" id="lower">
+          <span class="tag">● On Air</span>
+          <div class="wave" id="wave"></div>
+          <div class="say" id="say"><em>In attesa della telecronaca…</em></div>
+        </div>
+      </div>
+      <div class="stage-foot">
+        <div class="file-name" id="fileName">Nessuna clip caricata</div>
+        <div class="mini">
+          <button class="btn ghost" id="playBtn" disabled>▶ Anteprima</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="k">Regia</span><h2>Impostazioni</h2></div>
+      <div class="ctl">
+        <div class="field">
+          <label>Lingua telecronaca</label>
+          <div class="seg" id="lang">
+            <button class="on" data-v="it">Italiano</button>
+            <button data-v="en">English</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Motore generazione</label>
+          <div class="fixed-row">
+            <span class="fixed-pill">Testo · LLM Ollama</span>
+            <span class="fixed-pill">Voce · Coqui XTTS v2</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Fasi della pipeline</label>
+          <div class="chips" id="chips"></div>
+          <div class="hint">Voce e sintesi (Fase 4) sono sempre attive: senza di esse non c'è audio da montare.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin:18px 0">
+    <button class="btn primary" id="go" disabled>Genera telecronaca</button>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><span class="k">Catena</span><h2>Segnale della pipeline</h2><span class="demo-flag live" id="chainFlag" style="margin-left:auto">Backend collegato</span></div>
+    <div class="chain" id="chain"></div>
+    <div class="bar"><i id="prog"></i></div>
+  </div>
+
+  <div class="card result" id="result" style="margin-top:18px">
+    <div class="card-h"><span class="k">Output</span><h2>Telecronaca generata</h2><span style="margin-left:auto"><a class="reset" id="again">↺ nuova clip</a></span></div>
+    <div class="ctl">
+      <div class="transcript" id="transcript"></div>
+      <div class="result-actions">
+        <button class="btn pitch" id="replay">▶ Riproduci clip + telecronaca</button>
+        <button class="btn ghost" id="download">⤓ Esporta MP4</button>
+      </div>
+      <div class="note" id="note"></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="picker" accept="video/*" hidden>
+
+<script>
+(function(){
+  "use strict";
+
+  const PHASES = [
+    {id:"1",  name:"Estrazione eventi",   desc:"OCR dell'HUD · punteggio e targhette", on:true},
+    {id:"1b", name:"Analisi visiva",       desc:"YOLO + tracking · tiri, parate, corner", on:true},
+    {id:"1c", name:"Analisi audio",        desc:"Eccitazione tifo (Librosa) + Whisper", on:true},
+    {id:"2b", name:"Testo · LLM Ollama",   desc:"Eventi → battute (Gemma 3, locale)", on:true, locked:true},
+    {id:"3",  name:"Prosodia",             desc:"Modello evento → intonazione", on:true},
+    {id:"4",  name:"Sintesi vocale",       desc:"Coqui XTTS v2 · voce espressiva", on:true, locked:true},
+  ];
+
+  const $ = s => document.querySelector(s);
+  const state = {file:null, url:null, lang:"it", running:false, outFile:null, transcript:null};
+
+  // clock
+  const t0 = Date.now();
+  setInterval(()=>{
+    const s = Math.floor((Date.now()-t0)/1000);
+    const h=String(Math.floor(s/3600)).padStart(2,"0");
+    const m=String(Math.floor(s%3600/60)).padStart(2,"0");
+    const ss=String(s%60).padStart(2,"0");
+    $("#clock").textContent=`${h}:${m}:${ss}`;
+  },1000);
+
+  function renderChips(){
+    const c=$("#chips"); c.innerHTML="";
+    PHASES.forEach(p=>{
+      const el=document.createElement("div");
+      el.className="chip"+(p.on?" on":"")+(p.locked?" locked":"");
+      el.textContent=p.id.toUpperCase();
+      el.title=p.name;
+      if(!p.locked) el.onclick=()=>{p.on=!p.on;renderChips();renderChain();};
+      c.appendChild(el);
+    });
+  }
+  function activePhases(){ return PHASES.filter(p=>p.on); }
+  function renderChain(){
+    const c=$("#chain"); c.innerHTML="";
+    activePhases().forEach(p=>{
+      const row=document.createElement("div");
+      row.className="phase"; row.dataset.id=p.id;
+      row.innerHTML=`<div class="node">${p.id.toUpperCase()}</div>
+        <div class="meta"><b>${p.name}</b><span>${p.desc}</span></div>
+        <div class="tick">in coda</div>`;
+      c.appendChild(row);
+    });
+  }
+
+  function loadFile(f){
+    if(!f || !f.type.startsWith("video/")) return;
+    if(state.url) URL.revokeObjectURL(state.url);
+    state.file=f; state.url=URL.createObjectURL(f); state.outFile=null; state.transcript=null;
+    const v=$("#video"); v.src=state.url; v.muted=true; v.load();
+    $("#stage").classList.remove("empty");
+    $("#drop").classList.add("hide");
+    $("#fileName").innerHTML=`<b>${f.name}</b> · ${(f.size/1048576).toFixed(1)} MB`;
+    $("#playBtn").disabled=false;
+    $("#go").disabled=false;
+    $("#result").classList.remove("show");
+    $("#lower").classList.remove("show");
+    setProgress(0); resetChainVisual();
+  }
+
+  const drop=$("#drop"), picker=$("#picker");
+  drop.onclick=()=>picker.click();
+  picker.onchange=e=>loadFile(e.target.files[0]);
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+  $("#stage").addEventListener("dragover",e=>e.preventDefault());
+  $("#stage").addEventListener("drop",e=>{e.preventDefault();loadFile(e.dataTransfer.files[0]);});
+  $("#playBtn").onclick=()=>{const v=$("#video");v.paused?v.play():v.pause();};
+
+  $("#lang").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+    [...$("#lang").children].forEach(x=>x.classList.remove("on"));b.classList.add("on");state.lang=b.dataset.v;};
+
+  // waveform
+  const wave=$("#wave"); let bars=[];
+  for(let i=0;i<22;i++){const b=document.createElement("i");wave.appendChild(b);bars.push(b);}
+  let waveRAF=null;
+  function animWave(){
+    bars.forEach((b,i)=>{const h=6+Math.abs(Math.sin(Date.now()/180 + i*0.6))*20*(0.5+Math.random()*0.5);
+      b.style.height=h.toFixed(1)+"px";});
+    waveRAF=requestAnimationFrame(animWave);
+  }
+  function stopWave(){cancelAnimationFrame(waveRAF);waveRAF=null;bars.forEach(b=>b.style.height="6px");}
+
+  function setProgress(p){$("#prog").style.width=p+"%";}
+  function resetChainVisual(){[...$("#chain").children].forEach(r=>{r.className="phase";r.querySelector(".tick").textContent="in coda";});}
+
+  // ── pipeline reale (chiama il backend serve.py) ───────────────────
+  async function runPipeline(){
+    if(state.running || !state.file) return;
+    state.running=true;
+    $("#go").disabled=true; $("#go").textContent="Elaborazione in corso…";
+    $("#result").classList.remove("show");
+    resetChainVisual(); setProgress(2);
+
+    // anima le fasi mentre il server lavora davvero (barra indicativa)
+    const rows=[...$("#chain").children];
+    let i=0;
+    const tick=setInterval(()=>{ if(i<rows.length){
+      if(i>0){rows[i-1].classList.remove("active");rows[i-1].classList.add("done");rows[i-1].querySelector(".tick").textContent="✓ ok";}
+      rows[i].classList.add("active");rows[i].querySelector(".tick").textContent="in corso…";
+      setProgress(Math.min(96, Math.round(((i+1)/rows.length)*100))); i++;
+    }},1400);
+
+    const fd=new FormData();
+    fd.append("clip", state.file);
+    fd.append("lang", state.lang);
+
+    try{
+      const r=await fetch("/genera",{method:"POST",body:fd});
+      const data=await r.json();
+      clearInterval(tick);
+      rows.forEach(x=>{x.classList.remove("active");x.classList.add("done");x.querySelector(".tick").textContent="✓ ok";});
+      setProgress(100);
+      if(!r.ok || !data.ok) throw new Error((data.error||"Errore")+"\n\n"+(data.log||"").slice(-1500));
+
+      // video montato dal server: niente audio originale, solo telecronaca
+      state.outFile = data.file;
+      state.transcript = data.transcript && data.transcript.length ? data.transcript : null;
+      const v=$("#video");
+      v.src="/scarica/"+data.file+"?t="+Date.now();
+      v.muted=false; v.load();
+      showResult();
+    }catch(e){
+      clearInterval(tick);
+      alert("Generazione fallita:\n\n"+e.message);
+    }
+    state.running=false; $("#go").disabled=false; $("#go").textContent="Rigenera";
+  }
+
+  function showResult(){
+    // transcript reale se presente, altrimenti messaggio neutro
+    const tr=$("#transcript"); tr.innerHTML="";
+    if(state.transcript){
+      state.transcript.forEach(l=>{const p=document.createElement("p");
+        p.innerHTML=`<span class="t">${l.t||""}</span>${l.s||""}`;tr.appendChild(p);});
+    }else{
+      tr.innerHTML=`<p><em style="color:var(--muted)">Testo non disponibile — controlla features/scripts/&lt;nome&gt;_llm.json.</em></p>`;
+    }
+    $("#result").classList.add("show");
+    $("#note").innerHTML =
+      `<b style="color:var(--ink)">Montaggio completato.</b> Video senza audio originale, `+
+      `con la sola telecronaca generata da Gemma 3 (Ollama) + Coqui XTTS v2. `+
+      `Usa <b>Riproduci</b> per ascoltarla o <b>Esporta MP4</b> per scaricare il file.`;
+    playReal();
+  }
+
+  // riproduce il VIDEO REALE montato dal server (con l'audio della telecronaca)
+  function playReal(){
+    const v=$("#video");
+    v.muted=false; v.currentTime=0;
+    $("#lower").classList.add("show");
+    $("#onair").className="onair live"; $("#onairText").textContent="On Air";
+    $("#say").innerHTML=`<em>Riproduzione in corso…</em>`;
+    animWave();
+    v.play().catch(()=>{ $("#say").innerHTML=`<em>Premi ▶ Riproduci per avviare.</em>`; stopWave(); });
+    v.onended=()=>{stopWave();$("#onair").className="onair idle";$("#onairText").textContent="Standby";
+      $("#say").innerHTML=`<em>Telecronaca terminata.</em>`;};
+  }
+
+  $("#go").onclick=runPipeline;
+
+  // ── bottoni collegati al risultato reale ──────────────────────────
+  $("#replay").onclick=()=>{ if(state.outFile) playReal(); };
+  $("#download").onclick=()=>{
+    if(!state.outFile){ alert("Genera prima una telecronaca."); return; }
+    const a=document.createElement("a");
+    a.href="/scarica/"+state.outFile;
+    a.download=state.outFile;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  $("#again").onclick=()=>{
+    state.file=null; state.outFile=null; state.transcript=null;
+    $("#stage").classList.add("empty");$("#drop").classList.remove("hide");
+    $("#fileName").textContent="Nessuna clip caricata";
+    $("#playBtn").disabled=true;$("#go").disabled=true;$("#go").textContent="Genera telecronaca";
+    $("#result").classList.remove("show");$("#lower").classList.remove("show");
+    $("#onair").className="onair idle";$("#onairText").textContent="Standby";
+    stopWave(); setProgress(0);resetChainVisual();
+  };
+
+  renderChips(); renderChain();
+})();
+</script>

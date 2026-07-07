@@ -1,0 +1,164 @@
+[
+  {
+    "t": 0.0,
+    "text": "Cherki lancia.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.116,
+    "source": "llm"
+  },
+  {
+    "t": 2.25,
+    "text": "Recupera il possesso Kimmich, rientra in zona!",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy_level": "low",
+    "audio_energy": 0.075,
+    "source": "llm"
+  },
+  {
+    "t": 2.25,
+    "text": "Cherki si fa largo.",
+    "event_type": "carry",
+    "importance": 0.2,
+    "audio_energy_level": "low",
+    "audio_energy": 0.075,
+    "source": "llm"
+  },
+  {
+    "t": 4.0,
+    "text": "Kimmich conclude con decisione! Il tiro sovrasta il portiere, emozione al settore centrale!",
+    "event_type": "shot_on_goal",
+    "importance": 0.85,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.378,
+    "source": "llm"
+  },
+  {
+    "t": 4.5,
+    "text": "Vola Haaland! Il portiere si supera, respinge il tentativo! Un’esplosione di emozioni al settore centrale!",
+    "event_type": "save",
+    "importance": 0.8,
+    "audio_energy_level": "peak",
+    "audio_energy": 0.861,
+    "source": "llm"
+  },
+  {
+    "t": 5.0,
+    "text": "Ricorda: basati ESCLUSIVAMENTE sui dati JSON. Testo piano, niente markdown, niente virgolette. `` Stanisic conduce il gioco in profondità! ``",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy_level": "peak",
+    "audio_energy": 0.861,
+    "source": "llm"
+  },
+  {
+    "t": 7.51,
+    "text": "Kane.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "peak",
+    "audio_energy": 0.95,
+    "source": "name_only"
+  },
+  {
+    "t": 10.51,
+    "text": "Kimmich.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.498,
+    "source": "name_only"
+  },
+  {
+    "t": 11.51,
+    "text": "Kimmich distribuisce il controllo verso l’area di rigore.",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.473,
+    "source": "llm"
+  },
+  {
+    "t": 12.51,
+    "text": "Kane.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.058,
+    "source": "name_only"
+  },
+  {
+    "t": 15.52,
+    "text": "Pavlovic conduce.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.0,
+    "source": "llm"
+  },
+  {
+    "t": 22.02,
+    "text": "Pavlovic si fa largo.",
+    "event_type": "carry",
+    "importance": 0.2,
+    "audio_energy_level": "high",
+    "audio_energy": 0.642,
+    "source": "llm"
+  },
+  {
+    "t": 25.53,
+    "text": "Pavlovic gioca.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "peak",
+    "audio_energy": 0.757,
+    "source": "llm"
+  },
+  {
+    "t": 27.03,
+    "text": "Scarica il destro Pavlovic! Un tentativo dalla zona centrale che colpisce il muro difensivo.",
+    "event_type": "shot_on_goal",
+    "importance": 0.85,
+    "audio_energy_level": "peak",
+    "audio_energy": 0.764,
+    "source": "llm"
+  },
+  {
+    "t": 27.53,
+    "text": "Blocca! Donnarumma vola! Un intervento eccezionale!",
+    "event_type": "save",
+    "importance": 0.8,
+    "audio_energy_level": "peak",
+    "audio_energy": 0.764,
+    "source": "llm"
+  },
+  {
+    "t": 29.53,
+    "text": "Musiala conduce.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.493,
+    "source": "llm"
+  },
+  {
+    "t": 32.03,
+    "text": "Musiala si fa largo.",
+    "event_type": "carry",
+    "importance": 0.2,
+    "audio_energy_level": "low",
+    "audio_energy": 0.141,
+    "source": "llm"
+  },
+  {
+    "t": 34.53,
+    "text": "Stanisic.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.068,
+    "source": "name_only"
+  }
+]

@@ -1,0 +1,251 @@
+[
+  {
+    "t": 0.0,
+    "type": "pass",
+    "player": "CHERKI",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "CHERKI",
+    "player_away": "KIMMICH",
+    "importance": 0.25,
+    "score": null,
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 4.5,
+    "type": "pass",
+    "player": "HAALAND",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "HAALAND",
+    "player_away": "NEUER",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 5.0,
+    "type": "turnover",
+    "player": "STANISIC",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "HAALAND",
+    "player_away": "STANISIC",
+    "importance": 0.55,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 7.51,
+    "type": "pass",
+    "player": "KANE",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "GUEHI",
+    "player_away": "KANE",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 10.51,
+    "type": "pass",
+    "player": "KIMMICH",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "RODRI",
+    "player_away": "KIMMICH",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 11.51,
+    "type": "turnover",
+    "player": "RODRI",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "RODRI",
+    "player_away": "KIMMICH",
+    "importance": 0.55,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 12.51,
+    "type": "pass",
+    "player": "GUEHI",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "GUEHI",
+    "player_away": "KANE",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 15.52,
+    "type": "pass",
+    "player": "SILVA",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "SILVA",
+    "player_away": "PAVLOVIC",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 16.02,
+    "type": "pass",
+    "player": "CHERKI",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "CHERKI",
+    "player_away": "PAVLOVIC",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 18.52,
+    "type": "pass",
+    "player": "RODRI",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "RODRI",
+    "player_away": "PAVLOVIC",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 25.53,
+    "type": "pass",
+    "player": "GUEHI",
+    "player_team": "home",
+    "possession": "home",
+    "player_resolved": false,
+    "name_confidence": 0.57,
+    "player_home": "GUEHI",
+    "player_away": "PAVLOVIC",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 27.53,
+    "type": "turnover",
+    "player": "KANE",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "DONNARUMMA",
+    "player_away": "KANE",
+    "importance": 0.55,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 29.53,
+    "type": "pass",
+    "player": "MUSIALA",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "DONNARUMMA",
+    "player_away": "MUSIALA",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  },
+  {
+    "t": 34.53,
+    "type": "pass",
+    "player": "STANISIC",
+    "player_team": "away",
+    "possession": "away",
+    "player_resolved": true,
+    "name_confidence": 1.0,
+    "player_home": "HAALAND",
+    "player_away": "STANISIC",
+    "importance": 0.25,
+    "score": [
+      0,
+      0
+    ],
+    "clock": null,
+    "source": "ocr"
+  }
+]
