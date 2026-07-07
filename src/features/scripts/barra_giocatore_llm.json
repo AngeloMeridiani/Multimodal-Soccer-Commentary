@@ -1,10 +1,11 @@
 [
   {
     "t": 0.0,
-    "text": "Tah lancia Kimmich.",
+    "text": "Tah distribuisce.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "low",
+    "audio_energy": 0.0,
     "source": "llm"
   },
   {
@@ -12,7 +13,8 @@
     "text": "Kimmich.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "low",
+    "audio_energy": 0.0,
     "source": "name_only"
   },
   {
@@ -20,7 +22,8 @@
     "text": "Olise.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "low",
+    "audio_energy": 0.008,
     "source": "name_only"
   },
   {
@@ -28,159 +31,161 @@
     "text": "Tah.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "low",
+    "audio_energy": 0.049,
     "source": "name_only"
   },
   {
     "t": 7.51,
-    "text": "Ollie smarca.",
+    "text": "Olise avanza.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "llm"
-  },
-  {
-    "t": 9.51,
-    "text": "Ollie conduce.",
-    "event_type": "pass",
-    "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "low",
+    "audio_energy": 0.163,
     "source": "llm"
   },
   {
     "t": 11.01,
-    "text": "Tah lancia profondità.",
+    "text": "TAH lancia.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "low",
+    "audio_energy": 0.219,
     "source": "llm"
   },
   {
     "t": 12.01,
-    "text": "Pavlovic.",
+    "text": "Pavlovic distribuisce.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "name_only"
+    "audio_energy_level": "low",
+    "audio_energy": 0.121,
+    "source": "llm"
   },
   {
     "t": 14.01,
     "text": "Stanisic.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "low",
+    "audio_energy": 0.244,
     "source": "name_only"
   },
   {
-    "t": 15.02,
-    "text": "Stanisic.",
-    "event_type": "pass",
-    "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "name_only"
+    "t": 16.35,
+    "text": "Semenyo recupera il vantaggio.",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.307,
+    "source": "llm"
   },
   {
     "t": 16.52,
-    "text": "Cherki conduce.",
-    "event_type": "turnover",
+    "text": "Cherki.",
+    "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "llm"
+    "audio_energy_level": "medium",
+    "audio_energy": 0.307,
+    "source": "name_only"
   },
   {
     "t": 17.02,
     "text": "Haaland.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.409,
     "source": "name_only"
   },
   {
     "t": 18.52,
-    "text": "Cherki lancia.",
-    "event_type": "pass",
-    "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "llm"
-  },
-  {
-    "t": 19.02,
-    "text": "Semenyo.",
-    "event_type": "pass",
-    "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "name_only"
-  },
-  {
-    "t": 21.52,
-    "text": "Semenyo gioca in profondità verso l’area avversaria.",
-    "event_type": "pass",
-    "importance": 0.55,
-    "crowd_excitement": "low",
-    "source": "llm"
-  },
-  {
-    "t": 23.02,
     "text": "Cherki.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.264,
+    "source": "name_only"
+  },
+  {
+    "t": 19.02,
+    "text": "Semenyo lancia.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.471,
+    "source": "llm"
+  },
+  {
+    "t": 22.52,
+    "text": "Cherki.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy_level": "low",
+    "audio_energy": 0.137,
     "source": "name_only"
   },
   {
     "t": 24.52,
-    "text": "Semenyo lancia.",
+    "text": "Tiro sul fondo!",
+    "event_type": "shot_off",
+    "importance": 0.6,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.265,
+    "source": "llm"
+  },
+  {
+    "t": 25.03,
+    "text": "Silva.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "llm"
+    "audio_energy_level": "medium",
+    "audio_energy": 0.38,
+    "source": "name_only"
   },
   {
     "t": 25.53,
     "text": "Cherki distribuisce.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
+    "audio_energy_level": "medium",
+    "audio_energy": 0.38,
     "source": "llm"
   },
   {
     "t": 27.03,
-    "text": "Rodri.",
+    "text": "Rodri conduce.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "name_only"
+    "audio_energy_level": "medium",
+    "audio_energy": 0.467,
+    "source": "llm"
+  },
+  {
+    "t": 27.53,
+    "text": "Tiro sul fondo!",
+    "event_type": "shot_off",
+    "importance": 0.6,
+    "audio_energy_level": "medium",
+    "audio_energy": 0.467,
+    "source": "llm"
   },
   {
     "t": 28.53,
-    "text": "Haaland lancia.",
+    "text": "Haaland.",
     "event_type": "pass",
     "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "llm"
-  },
-  {
-    "t": 29.03,
-    "text": "Haaland avanza.",
-    "event_type": "pass",
-    "importance": 0.25,
-    "crowd_excitement": "low",
-    "source": "llm"
-  },
-  {
-    "t": 31.03,
-    "text": "Haaland smarca verso l’area!",
-    "event_type": "pass",
-    "importance": 0.55,
-    "crowd_excitement": "low",
-    "source": "llm"
+    "audio_energy_level": "medium",
+    "audio_energy": 0.463,
+    "source": "name_only"
   },
   {
     "t": 32.03,
-    "text": "Haaland la mette dentro! Un tapin incredibile che fa esplodere il pubblico!",
+    "text": "La mette dentro! Che golazo del giocatore, il pubblico è impazzito!",
     "event_type": "goal",
     "importance": 1.0,
-    "crowd_excitement": "low",
+    "audio_energy_level": "peak",
+    "audio_energy": 0.986,
     "source": "llm"
   }
 ]

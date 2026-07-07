@@ -288,8 +288,39 @@ Esempi:
         help="La Fase 4 sintetizza il testo dell'LLM (<nome>_llm.json) invece del "
         "template. Automatico quando la Fase 2b e' tra le fasi eseguite.",
     )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default=None,
+        choices=None,  # validato sotto contro config.SUPPORTED_LANGUAGES
+        help="Lingua della telecronaca (default: da config.py). "
+        f"Supportate: {', '.join(__import__('config').SUPPORTED_LANGUAGES)}.",
+    )
 
     args = parser.parse_args()
+
+    # --- Lingua ---------------------------------------------------------------- #
+    import config as _cfg
+    if args.language:
+        if args.language not in _cfg.SUPPORTED_LANGUAGES:
+            parser.error(
+                f"Lingua '{args.language}' non supportata. "
+                f"Scegli tra: {', '.join(_cfg.SUPPORTED_LANGUAGES)}"
+            )
+        # Riscrive la lingua e tutte le costanti derivate.
+        # IMPORTANTE: imposta anche la variabile d'ambiente, perche' i
+        # sottoprocessi (subprocess.run) reimportano config.py da zero.
+        import os
+        os.environ["COMMENTARY_LANGUAGE"] = args.language
+        _cfg.LANGUAGE = args.language
+        _cfg.COQUI_LANGUAGE = args.language
+        _cfg.WHISPER_LANGUAGE = args.language
+        _cfg.TEMPLATES = _cfg.get_templates(args.language)
+        _cfg.LLM_SYSTEM_PROMPT = _cfg.LLM_SYSTEM_PROMPTS.get(
+            args.language, _cfg.LLM_SYSTEM_PROMPTS["en"]
+        )
+        _cfg.COQUI_SPEAKER_WAV = _cfg.COQUI_SPEAKER_WAVS.get(args.language)
+        _cfg.COQUI_SPEAKER_WAV_EXCITED = _cfg.COQUI_SPEAKER_WAVS_EXCITED.get(args.language)
 
     # Determina i video da processare
     if args.all:

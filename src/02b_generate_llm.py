@@ -162,29 +162,39 @@ def build_event_prompt(
     next_events: list[dict] | None = None,
 ) -> str:
     data = {
-        "evento_numero": f"{idx + 1}/{total}",
+        "evento_numero" if config.LANGUAGE == "it" else "event_number": f"{idx + 1}/{total}",
         "timestamp_s": event.get("t", 0),
-        "tipo_evento": event.get("type", "unknown"),
-        "giocatore": event.get("player", "sconosciuto"),
-        "importanza": event.get("importance", 0.5),
+        "tipo_evento" if config.LANGUAGE == "it" else "event_type": event.get("type", "unknown"),
+        "giocatore" if config.LANGUAGE == "it" else "player": event.get("player", config.get_unknown_player()),
+        "importanza" if config.LANGUAGE == "it" else "importance": event.get("importance", 0.5),
     }
-    for src, dst in [
+    field_map_it = [
         ("ball_zone", "zona_palla"),
         ("ball_speed", "velocita_palla"),
         ("players_nearby", "giocatori_vicini"),
         ("audio_energy_level", "eccitazione_tifo"),
         ("original_commentary", "telecronaca_originale"),
-    ]:
+    ]
+    field_map_en = [
+        ("ball_zone", "ball_zone"),
+        ("ball_speed", "ball_speed"),
+        ("players_nearby", "players_nearby"),
+        ("audio_energy_level", "crowd_excitement"),
+        ("original_commentary", "original_commentary"),
+    ]
+    field_map = field_map_it if config.LANGUAGE == "it" else field_map_en
+    for src, dst in field_map:
         if event.get(src):
             data[dst] = event[src]
     if event.get("score"):
-        data["punteggio"] = f"{event['score'][0]}-{event['score'][1]}"
+        score_key = "punteggio" if config.LANGUAGE == "it" else "score"
+        data[score_key] = f"{event['score'][0]}-{event['score'][1]}"
 
     evt = event.get("type", "pass")
     imp = float(event.get("importance", 0.5))
 
     # Verbi specifici per tipo di evento, così il modello non usa verbi da passaggio per un gol.
-    VERB_HINTS: dict[str, str] = {
+    VERB_HINTS_IT: dict[str, str] = {
         "goal": "USA SOLO verbi da gol: segna, insacca, trafigge, batte il portiere, la mette dentro. MAI 'filtra', 'lancia', 'verticalizza'. NON descrivere dove va: il modello non vede la traiettoria.",
         "save": "USA SOLO verbi da parata: para, dice di no, vola sul pallone, blocca, devia, respinge.",
         "shot_on_goal": "USA verbi da tiro: calcia, conclude, ci prova, tenta la conclusione, scarica il destro/sinistro.",
@@ -195,19 +205,43 @@ def build_event_prompt(
         "turnover": "Cambio di possesso: DEVI dire esplicitamente che c'è un recupero palla. Es: 'recupera palla', 'ruba il pallone', 'intercetta', 'cambio di fronte'. MAI usare 'smarca' o verbi di passaggio.",
         "carry": "Conduzione palla: usa SINONIMI SEMPRE DIVERSI (es. conduce, avanza, si fa largo, porta palla, sale, palla al piede, accelera, si invola). NON ripetere MAI il verbo usato nella battuta precedente.",
     }
-    verb_hint = VERB_HINTS.get(evt, "")
+    VERB_HINTS_EN: dict[str, str] = {
+        "goal": "Use ONLY goal verbs: scores, finishes, slots home, buries it, fires in. NEVER 'passes', 'launches'. Do NOT describe where it goes.",
+        "save": "Use ONLY save verbs: saves, denies, blocks, tips over, pushes away, parries.",
+        "shot_on_goal": "Use shot verbs: shoots, strikes, tries his luck, fires, lets fly.",
+        "shot_off": "ABSOLUTE RULE: Respond ONLY with one of these 3 phrases: 'Off target!', 'Wide of the mark!', 'Just misses!'. Do NOT use any other words.",
+        "foul": "Foul: brought down, taken out, held back, the referee blows.",
+        "corner": "Corner: corner kick, takes the corner, ball into the box.",
+        "free_kick": "Free kick: steps up, tries a direct free kick.",
+        "turnover": "Change of possession: you MUST say there's a ball recovery. E.g.: 'wins it back', 'intercepts', 'change of play'. NEVER use passing verbs.",
+        "carry": "Ball carrying: use ALWAYS DIFFERENT synonyms (e.g. drives, surges, strides, carries, advances, pushes on, bursts forward). NEVER repeat the verb from the previous line.",
+    }
+    verb_hints = VERB_HINTS_IT if config.LANGUAGE == "it" else VERB_HINTS_EN
+    verb_hint = verb_hints.get(evt, "")
 
-    if imp < 0.3:
-        length_rule = "BREVISSIMA: 2-4 parole. Solo nome+verbo. Es: 'Kane scarica.', 'Bel tocco di Doku!', 'Si allarga Musiala.'. MAI 'pallone' o 'palla'."
-    elif imp < 0.6:
-        length_rule = "BREVE: massimo 10 parole. Una sola frase corta."
+    if config.LANGUAGE == "it":
+        if imp < 0.3:
+            length_rule = "BREVISSIMA: 2-4 parole. Solo nome+verbo. Es: 'Kane scarica.', 'Bel tocco di Doku!', 'Si allarga Musiala.'. MAI 'pallone' o 'palla'."
+        elif imp < 0.6:
+            length_rule = "BREVE: massimo 10 parole. Una sola frase corta."
+        else:
+            length_rule = "ESALTATA: 1-2 frasi, max 20 parole. Momento clou, urla il gol!"
     else:
-        length_rule = "ESALTATA: 1-2 frasi, max 20 parole. Momento clou, urla il gol!"
+        if imp < 0.3:
+            length_rule = "VERY SHORT: 2-4 words. Just name+verb. E.g.: 'Kane releases.', 'Nice touch from Doku!'. NEVER 'ball' or 'football'."
+        elif imp < 0.6:
+            length_rule = "SHORT: max 10 words. One short sentence."
+        else:
+            length_rule = "EXCITED: 1-2 sentences, max 20 words. Key moment, shout the goal!"
 
     recent_block = ""
     if recent:
+        if config.LANGUAGE == "it":
+            recent_header = "Battute appena dette (NON ripetere gli stessi verbi o strutture):"
+        else:
+            recent_header = "Recent lines (do NOT repeat the same verbs or structures):"
         recent_block = (
-            f"Battute appena dette (NON ripetere gli stessi verbi o strutture):\n"
+            f"{recent_header}\n"
             + "\n".join(f"  - {r}" for r in recent)
             + "\n\n"
         )
@@ -220,28 +254,46 @@ def build_event_prompt(
         for ne in next_events[:2]:
             ne_type = ne.get("type", "?")
             ne_player = str(ne.get("player") or "").strip()
+            unknown = config.get_unknown_player()
             ne_player = (
                 ne_player
-                if ne_player and ne_player.lower() not in ("il giocatore", "sconosciuto", "")
+                if ne_player and ne_player.lower() not in (unknown, "sconosciuto", "the player", "")
                 else "?"
             )
             hints.append(f"  - [{ne_type}] {ne_player}")
+        if config.LANGUAGE == "it":
+            lookahead_header = "Prossimi eventi (usali SOLO per il filo narrativo, NON citarli esplicitamente):"
+        else:
+            lookahead_header = "Next events (use ONLY for narrative flow, do NOT mention them explicitly):"
         lookahead_block = (
-            "Prossimi eventi (usali SOLO per il filo narrativo, NON citarli esplicitamente):\n"
+            f"{lookahead_header}\n"
             + "\n".join(hints)
             + "\n\n"
         )
 
+    if config.LANGUAGE == "it":
+        instruction = "Genera UNA battuta di telecronaca per questo evento."
+        constraint1 = "VINCOLO 1: cita SOLO il giocatore che ha la palla (campo 'giocatore'). NON aggiungere mai il nome di chi riceve."
+        constraint2 = "VINCOLO 2: NON inventare MAI dettagli fisici (es. pali, traverse, salvataggi sulla linea) se non deducibili dai dati."
+        outro = "Se c'e' la telecronaca originale usane nomi/contesto. Rispondi SOLO con la battuta, niente altro."
+        length_label = "Lunghezza"
+    else:
+        instruction = "Generate ONE commentary line for this event."
+        constraint1 = "RULE 1: mention ONLY the player who has the ball ('player' field). NEVER add the name of the receiver."
+        constraint2 = "RULE 2: NEVER invent physical details (e.g. posts, crossbars, goal-line saves) unless deducible from the data."
+        outro = "If there is original commentary, use its names/context. Reply ONLY with the line, nothing else."
+        length_label = "Length"
+
     return (
-        f"Genera UNA battuta di telecronaca per questo evento.\n"
+        f"{instruction}\n"
         f"Dati (JSON):\n```json\n{json.dumps(data, ensure_ascii=False, indent=2)}\n```\n\n"
         f"{recent_block}"
         f"{lookahead_block}"
         f"{verb_block}"
-        f"Lunghezza: {length_rule}\n"
-        "VINCOLO 1: cita SOLO il giocatore che ha la palla (campo 'giocatore'). NON aggiungere mai il nome di chi riceve.\n"
-        "VINCOLO 2: NON inventare MAI dettagli fisici (es. pali, traverse, salvataggi sulla linea) se non deducibili dai dati.\n"
-        "Se c'e' la telecronaca originale usane nomi/contesto. Rispondi SOLO con la battuta, niente altro."
+        f"{length_label}: {length_rule}\n"
+        f"{constraint1}\n"
+        f"{constraint2}\n"
+        f"{outro}"
     )
 
 
@@ -345,7 +397,10 @@ def _snap_names(text: str, event_names: set[str] | None = None) -> str:
 def _name_only(event: dict) -> str | None:
     """Restituisce solo il nome del giocatore se disponibile, altrimenti None."""
     player = str(event.get("player") or "").strip()
-    if player and player.lower() not in ("il giocatore", "sconosciuto", ""):
+    unknown = config.get_unknown_player()
+    # Controlla sia il placeholder della lingua corrente sia quelli noti.
+    skip = {unknown.lower(), "il giocatore", "sconosciuto", "the player", "unknown", ""}
+    if player and player.lower() not in skip:
         return player.capitalize() if player.isupper() else player
     return None
 
@@ -439,8 +494,11 @@ class LLMScriptGenerator:
     def _fallback(event: dict) -> str:
         import random
 
-        templates = config.TEMPLATES.get(event.get("type", "idle"), ["Azione in corso."])
-        return random.choice(templates).format(player=event.get("player", "il giocatore"))
+        templates = config.get_templates().get(
+            event.get("type", "idle"),
+            ["Azione in corso." if config.LANGUAGE == "it" else "Play underway."],
+        )
+        return random.choice(templates).format(player=event.get("player", config.get_unknown_player()))
 
 
 def main() -> None:

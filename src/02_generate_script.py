@@ -50,7 +50,7 @@ class ScriptGenerator:
             elif poss == "away" and ev.get("player_away"):
                 player = ev["player_away"]
             else:
-                player = ev.get("player", "il giocatore")
+                player = ev.get("player", config.get_unknown_player())
             text = template.format(player=player)
             script.append(
                 {
@@ -76,7 +76,7 @@ def main() -> None:
     events_path = Path(args.events)
     events = load_json(events_path)
 
-    script = ScriptGenerator(config.TEMPLATES).generate(events)
+    script = ScriptGenerator(config.get_templates()).generate(events)
     # Nome dello script = <stem>.json, SENZA i suffissi del file eventi
     # (_enriched/_audio): cosi' combacia con cio' che la Fase 4 si aspetta
     # (run_pipeline cerca features/scripts/<stem>.json). Stessa normalizzazione

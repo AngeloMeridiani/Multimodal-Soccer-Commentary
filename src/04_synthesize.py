@@ -131,24 +131,37 @@ class CoquiEngine(TTSEngine):
         # dell'analisi audio -> niente downsampling che "ovatta" il parlato.
         self.output_sample_rate = config.COQUI_OUTPUT_SAMPLE_RATE
         # Risolve i riferimenti rispetto alla root del progetto (robusto al cwd).
-        self.speaker_wav = (
-            str(config.PROJECT_ROOT / config.COQUI_SPEAKER_WAV)
-            if config.COQUI_SPEAKER_WAV
-            else None
-        )
-        self.speaker_wav_excited = (
-            str(config.PROJECT_ROOT / config.COQUI_SPEAKER_WAV_EXCITED)
-            if config.COQUI_SPEAKER_WAV_EXCITED
-            else None
-        )
+        # XTTS v2 richiede OBBLIGATORIAMENTE un speaker_wav (non ha voci
+        # built-in). Se la lingua corrente non ha un wav dedicato, si usa quello
+        # italiano come fallback (la voce avra' un leggero accento ma parlera'
+        # correttamente nella lingua target grazie al parametro language).
+        raw_wav = config.COQUI_SPEAKER_WAV
+        if not raw_wav:
+            # Fallback: primo wav disponibile tra le lingue configurate.
+            for wav in config.COQUI_SPEAKER_WAVS.values():
+                if wav:
+                    raw_wav = wav
+                    logger.info("Nessun speaker_wav per '%s': uso fallback '%s'.", config.LANGUAGE, wav)
+                    break
+        self.speaker_wav = str(config.PROJECT_ROOT / raw_wav) if raw_wav else None
+
+        raw_excited = config.COQUI_SPEAKER_WAV_EXCITED
+        if not raw_excited:
+            for wav in config.COQUI_SPEAKER_WAVS_EXCITED.values():
+                if wav:
+                    raw_excited = wav
+                    break
+        self.speaker_wav_excited = str(config.PROJECT_ROOT / raw_excited) if raw_excited else None
 
     def synth_neutral(
         self, text: str, speed: float | None = None, excited: bool = False
     ) -> tuple[np.ndarray, int]:
-        # XTTS v2 verbalizza il punto finale ("punto") sulle frasi corte:
-        # lo togliamo (l'intonazione di fine frase resta comunque naturale).
+        # XTTS v2 in ITALIANO verbalizza il punto finale ("punto") sulle
+        # frasi corte: lo togliamo. In altre lingue il comportamento non si
+        # verifica, e il punto puo' guidare l'intonazione di fine frase.
         # Virgole interne, ! e ? restano perche' guidano la prosodia.
-        text = text.rstrip().rstrip(".").rstrip()
+        if config.LANGUAGE == "it":
+            text = text.rstrip().rstrip(".").rstrip()
         # split_sentences=False: il blocco (piu' frasi) viene generato in
         # UN'UNICA passata -> prosodia continua/connessa tra le frasi.
         kwargs = {

@@ -27,6 +27,30 @@ from __future__ import annotations
 from pathlib import Path
 
 # --------------------------------------------------------------------------- #
+# Lingua della telecronaca                                                     #
+# --------------------------------------------------------------------------- #
+# Codice ISO 639-1. Deve essere supportato da XTTS v2:
+#   en, es, fr, de, it, pt, pl, tr, ru, nl, cs, ar, zh-cn, ja, ko, hu, hi.
+# Tutti i componenti (template, prompt LLM, voce TTS, Whisper) derivano da qui.
+# La variabile d'ambiente COMMENTARY_LANGUAGE sovrascrive il default: permette
+# a run_pipeline.py di propagare la lingua ai sottoprocessi (che reimportano
+# config.py da zero).
+import os as _os
+LANGUAGE: str = _os.environ.get("COMMENTARY_LANGUAGE", "it")
+SUPPORTED_LANGUAGES: list[str] = ["it", "en"]
+
+# Placeholder per "giocatore sconosciuto" per lingua.
+UNKNOWN_PLAYER: dict[str, str] = {
+    "it": "il giocatore",
+    "en": "the player",
+}
+
+
+def get_unknown_player(lang: str | None = None) -> str:
+    """Restituisce il placeholder localizzato per il giocatore sconosciuto."""
+    return UNKNOWN_PLAYER.get(lang or LANGUAGE, UNKNOWN_PLAYER["en"])
+
+# --------------------------------------------------------------------------- #
 # Percorsi (layout PIATTO: la root e' la cartella di questo file)              #
 # --------------------------------------------------------------------------- #
 PROJECT_ROOT: Path = Path(__file__).resolve().parent
@@ -342,7 +366,7 @@ SAMPLE_RATE: int = 22050  # usato da audio e sintesi
 # commento) 'base' produce trascrizioni illeggibili; 'small' e' molto piu'
 # accurato in italiano. Costo: ~5x piu' lento su CPU (accettabile per clip corte).
 WHISPER_MODEL_SIZE: str = "small"  # tiny/base/small/medium/large
-WHISPER_LANGUAGE: str = "it"  # lingua della telecronaca originale
+WHISPER_LANGUAGE: str = LANGUAGE  # derivata dalla lingua della telecronaca
 AUDIO_ANALYSIS_WINDOW_S: float = 2.0
 # Le soglie partizionano lo score di eccitazione, che ora e' RI-SCALATO ai
 # percentili della clip (0 = momento piu' calmo, 1 = piu' acceso): cosi' i
@@ -361,41 +385,89 @@ AUDIO_ENERGY_MIN_RANGE: float = 0.20
 # --------------------------------------------------------------------------- #
 # Fase 2 - Generazione testo (template)                                        #
 # --------------------------------------------------------------------------- #
-TEMPLATES: dict[str, list[str]] = {
-    "goal": [
-        "GOOOL! Ha segnato {player}!",
-        "Rete di {player}! Incredibile!",
-        "{player} la mette dentro! GOL!",
-    ],
-    "save": [
-        "Che parata! Il portiere dice di no!",
-        "Risponde presente il portiere!",
-        "Miracolo del portiere su {player}!",
-    ],
-    "shot_on_goal": [
-        "Che tiro di {player}! Nello specchio!",
-        "{player} calcia! Conclusione potente verso la porta!",
-    ],
-    "shot_off": ["{player} calcia... fuori di poco!", "Tiro di {player}, palla a lato!"],
-    "corner": ["Calcio d'angolo. Si prepara {player}.", "Corner, batte {player}."],
-    "free_kick": [
-        "Punizione per {player}. Posizione interessante.",
-        "Calcio di punizione, si incarica {player}.",
-    ],
-    "turnover": [
-        "Palla persa, la recupera {player}.",
-        "Se ne impossessa {player}.",
-        "Cambio di fronte, ora {player}.",
-    ],
-    "foul": ["Fallo su {player}! Intervento duro.", "{player} viene atterrato."],
-    "carry": [
-        "{player} avanza con il pallone.",
-        "{player} porta palla.",
-        "Conduce {player}.",
-    ],
-    "pass": ["{player} controlla.", "Apertura per {player}.", "La gioca {player}."],
-    "idle": ["Si fa girare il pallone.", "Fase di studio a centrocampo."],
+TEMPLATES_BY_LANG: dict[str, dict[str, list[str]]] = {
+    "it": {
+        "goal": [
+            "GOOOL! Ha segnato {player}!",
+            "Rete di {player}! Incredibile!",
+            "{player} la mette dentro! GOL!",
+        ],
+        "save": [
+            "Che parata! Il portiere dice di no!",
+            "Risponde presente il portiere!",
+            "Miracolo del portiere su {player}!",
+        ],
+        "shot_on_goal": [
+            "Che tiro di {player}! Nello specchio!",
+            "{player} calcia! Conclusione potente verso la porta!",
+        ],
+        "shot_off": ["{player} calcia... fuori di poco!", "Tiro di {player}, palla a lato!"],
+        "corner": ["Calcio d'angolo. Si prepara {player}.", "Corner, batte {player}."],
+        "free_kick": [
+            "Punizione per {player}. Posizione interessante.",
+            "Calcio di punizione, si incarica {player}.",
+        ],
+        "turnover": [
+            "Palla persa, la recupera {player}.",
+            "Se ne impossessa {player}.",
+            "Cambio di fronte, ora {player}.",
+        ],
+        "foul": ["Fallo su {player}! Intervento duro.", "{player} viene atterrato."],
+        "carry": [
+            "{player} avanza con il pallone.",
+            "{player} porta palla.",
+            "Conduce {player}.",
+        ],
+        "pass": ["{player} controlla.", "Apertura per {player}.", "La gioca {player}."],
+        "idle": ["Si fa girare il pallone.", "Fase di studio a centrocampo."],
+    },
+    "en": {
+        "goal": [
+            "GOAAL! {player} scores!",
+            "What a goal by {player}!",
+            "{player} puts it in the back of the net! GOAL!",
+        ],
+        "save": [
+            "What a save! The keeper says no!",
+            "Brilliant stop by the goalkeeper!",
+            "The keeper denies {player}!",
+        ],
+        "shot_on_goal": [
+            "Great shot by {player}! On target!",
+            "{player} shoots! Powerful effort towards goal!",
+        ],
+        "shot_off": ["{player} shoots... just wide!", "Shot by {player}, off target!"],
+        "corner": ["Corner kick. {player} to take it.", "Corner, taken by {player}."],
+        "free_kick": [
+            "Free kick for {player}. Interesting position.",
+            "Free kick, {player} steps up.",
+        ],
+        "turnover": [
+            "Ball lost, {player} picks it up.",
+            "{player} wins possession.",
+            "Change of play, now {player}.",
+        ],
+        "foul": ["Foul on {player}! Tough challenge.", "{player} is brought down."],
+        "carry": [
+            "{player} drives forward.",
+            "{player} carries the ball.",
+            "{player} on the move.",
+        ],
+        "pass": ["{player} on the ball.", "Played out to {player}.", "{player} with the pass."],
+        "idle": ["Passing it around.", "Keeping possession in midfield."],
+    },
 }
+
+
+def get_templates(lang: str | None = None) -> dict[str, list[str]]:
+    """Restituisce i template per la lingua richiesta (default: LANGUAGE).
+    Fallback: inglese se la lingua non ha template dedicati."""
+    return TEMPLATES_BY_LANG.get(lang or LANGUAGE, TEMPLATES_BY_LANG["en"])
+
+
+# Retro-compatibilita': chi importa config.TEMPLATES riceve i template della
+# lingua corrente. Per il dizionario completo usare TEMPLATES_BY_LANG.
+TEMPLATES: dict[str, list[str]] = get_templates()
 
 # --------------------------------------------------------------------------- #
 # Fase 2b - Generazione testo con LLM                                          #
@@ -416,24 +488,46 @@ LLM_CONFIG: dict[str, dict] = {
         "base_url": "https://api.groq.com/openai/v1/chat/completions",
     },
 }
-LLM_SYSTEM_PROMPT: str = (
-    "Sei un telecronista sportivo italiano professionista, stile Pierluigi Pardo o Fabio Caressa. "
-    "La lunghezza della battuta dipende dall'importanza dell'evento: "
-    "azioni di routine (passaggi normali) -> pochissime parole, secche e dinamiche; "
-    "azioni importanti (tiri, corner, falli) -> una frase; "
-    "momenti clou (gol, parate) -> massimo due frasi esaltate. "
-    "Usa un verbo DIVERSO a ogni battuta. "
-    "Pool di verbi (ruota): verticalizza, scarica, apre, lancia, conduce, cerca, "
-    "avanza, tiene, tocca, smarca, gioca, distribuisce, mette in moto. "
-    "Se aggiungi un complemento al verbo, usa solo riferimenti concreti al gioco: "
-    "un nome di giocatore ('scarica per Haaland'), una zona ('verso l'area', 'in profondità', 'sulla fascia'). "
-    "MAI termini tattici astratti ('il settore', 'il campo', 'lo spazio'). "
-    "A volte (non sempre) inizia la battuta con un breve connettivo per creare flusso: "
-    "'E poi', 'Ancora', 'Ma ecco che', 'Ora', 'Ed e''. Non abusarne: max una volta ogni 3-4 battute. "
-    "NON citare mai il giocatore ricevente: sai solo chi ha la palla, non a chi la passa. "
-    "Basati ESCLUSIVAMENTE sui dati JSON. Testo piano, niente markdown, niente virgolette. "
-    "NON usare mai la parola 'pallone' o 'palla': sono sottointesi."
-)
+LLM_SYSTEM_PROMPTS: dict[str, str] = {
+    "it": (
+        "Sei un telecronista sportivo italiano professionista, stile Pierluigi Pardo o Fabio Caressa. "
+        "La lunghezza della battuta dipende dall'importanza dell'evento: "
+        "azioni di routine (passaggi normali) -> pochissime parole, secche e dinamiche; "
+        "azioni importanti (tiri, corner, falli) -> una frase; "
+        "momenti clou (gol, parate) -> massimo due frasi esaltate. "
+        "Usa un verbo DIVERSO a ogni battuta. "
+        "Pool di verbi (ruota): verticalizza, scarica, apre, lancia, conduce, cerca, "
+        "avanza, tiene, tocca, smarca, gioca, distribuisce, mette in moto. "
+        "Se aggiungi un complemento al verbo, usa solo riferimenti concreti al gioco: "
+        "un nome di giocatore ('scarica per Haaland'), una zona ('verso l'area', 'in profondità', 'sulla fascia'). "
+        "MAI termini tattici astratti ('il settore', 'il campo', 'lo spazio'). "
+        "A volte (non sempre) inizia la battuta con un breve connettivo per creare flusso: "
+        "'E poi', 'Ancora', 'Ma ecco che', 'Ora', 'Ed e''. Non abusarne: max una volta ogni 3-4 battute. "
+        "NON citare mai il giocatore ricevente: sai solo chi ha la palla, non a chi la passa. "
+        "Basati ESCLUSIVAMENTE sui dati JSON. Testo piano, niente markdown, niente virgolette. "
+        "NON usare mai la parola 'pallone' o 'palla': sono sottointesi."
+    ),
+    "en": (
+        "You are a professional English football commentator, in the style of Martin Tyler or Peter Drury. "
+        "The length of each line depends on the event importance: "
+        "routine actions (normal passes) -> very few words, punchy and dynamic; "
+        "important actions (shots, corners, fouls) -> one sentence; "
+        "key moments (goals, saves) -> up to two excited sentences. "
+        "Use a DIFFERENT verb in every line. "
+        "Verb pool (rotate): drives, releases, spreads, launches, carries, looks for, "
+        "pushes forward, holds, touches, finds, plays, distributes, sets in motion. "
+        "If you add a complement to the verb, use only concrete football references: "
+        "a player name ('releases to Haaland'), a zone ('towards the box', 'down the wing'). "
+        "NEVER use abstract tactical terms ('the sector', 'the space'). "
+        "Sometimes (not always) start the line with a short connective for flow: "
+        "'And then', 'Again', 'But here', 'Now', 'Oh and'. Don't overuse: max once every 3-4 lines. "
+        "NEVER mention the receiving player: you only know who has the ball, not who receives it. "
+        "Base yourself EXCLUSIVELY on the JSON data. Plain text, no markdown, no quotes. "
+        "NEVER use the word 'ball' or 'football': they are implied."
+    ),
+}
+# Retro-compatibilita': prompt della lingua corrente.
+LLM_SYSTEM_PROMPT: str = LLM_SYSTEM_PROMPTS.get(LANGUAGE, LLM_SYSTEM_PROMPTS["en"])
 LLM_TEMPERATURE: float = 0.9
 
 # --------------------------------------------------------------------------- #
@@ -478,7 +572,7 @@ GAP_BETWEEN_UTTERANCES_S: float = 0.15
 SYNC_MERGE_MAX_GAP_S: float = 1.5
 TTS_ENGINE: str = "coqui"  # unico motore supportato: Coqui XTTS v2
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
-COQUI_LANGUAGE: str = "it"
+COQUI_LANGUAGE: str = LANGUAGE  # derivata dalla lingua della telecronaca
 # NB: la voce clonata (COQUI_SPEAKER_WAV/_EXCITED) e i parametri di sintesi
 # (COQUI_SPEED, _CLAMP, _CHUNK_MAX_CHARS, EMPHASIS_..., ONSET_FADE_MS) sono
 # definiti piu' sotto, nelle sezioni "Voce clonata" e "Parametri di sintesi
@@ -490,11 +584,21 @@ COQUI_LANGUAGE: str = "it"
 # Voce di Lele Adani, telecronista vero: come base evita la raucedine che dava
 # gol_saliente (che e' un'esultanza URLATA -> XTTS ne clona lo strozzato anche
 # sui passaggi tranquilli). Percorso relativo alla root del progetto.
-COQUI_SPEAKER_WAV: str | None = "data/raw/commentary/lele_adani_mono.wav"
+# Voci di riferimento PER LINGUA. Per lingue senza wav dedicato si usa None
+# (voce default XTTS, niente voice cloning: meglio di un accento sbagliato).
+COQUI_SPEAKER_WAVS: dict[str, str | None] = {
+    "it": "data/raw/commentary/ref.wav",
+    "en": "data/raw/commentary/ref.wav",  # usa il riferimento italiano (accento leggero)
+}
+COQUI_SPEAKER_WAVS_EXCITED: dict[str, str | None] = {
+    "it": "data/raw/commentary/ref.wav",  # stesso file (gol_saliente_mono non disponibile)
+    "en": "data/raw/commentary/ref.wav",
+}
+COQUI_SPEAKER_WAV: str | None = COQUI_SPEAKER_WAVS.get(LANGUAGE)
 # Riferimento vocale CONCITATO: usato SOLO sugli eventi importanti (importanza
 # >= EMPHASIS_IMPORTANCE_THRESHOLD), es. gol/parate. Qui l'esultanza urlata e'
 # al posto GIUSTO -> "boato" sui momenti clou, voce calma sul resto.
-COQUI_SPEAKER_WAV_EXCITED: str | None = "data/raw/commentary/gol_saliente_mono.wav"
+COQUI_SPEAKER_WAV_EXCITED: str | None = COQUI_SPEAKER_WAVS_EXCITED.get(LANGUAGE)
 
 # --- Parametri di sintesi XTTS --------------------------------------------- #
 # Sample rate dell'audio SINTETIZZATO (Fase 4). XTTS produce nativamente 24 kHz:

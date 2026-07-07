@@ -1,0 +1,100 @@
+[
+  {
+    "t": 0.0,
+    "text": "OLISE with the pass.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 2.5,
+    "text": "LAIMER on the ball.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 4.5,
+    "text": "Played out to OLISE.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 6.01,
+    "text": "KANE with the pass.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 8.01,
+    "text": "KIMMICH on the ball.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 9.01,
+    "text": "Played out to MUSIALA.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 10.01,
+    "text": "KANE on the ball.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 11.01,
+    "text": "Played out to OLISE.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 12.51,
+    "text": "MUSIALA on the ball.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 15.65,
+    "text": "Change of play, now GUEHI.",
+    "event_type": "turnover",
+    "importance": 0.55,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 17.02,
+    "text": "SILVA with the pass.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 18.02,
+    "text": "RODRI on the ball.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 19.02,
+    "text": "Played out to HAALAND.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  },
+  {
+    "t": 19.52,
+    "text": "CHERKI on the ball.",
+    "event_type": "pass",
+    "importance": 0.25,
+    "audio_energy": 0.5
+  }
+]
