@@ -2,25 +2,25 @@
 """
 run_pipeline.py
 ===============
-Esegue l'intera pipeline di telecronaca in un solo comando.
+Runs the entire commentary pipeline in a single command.
 
-Uso:
-    # Pipeline completa su un video:
+Usage:
+    # Full pipeline on one video:
     python3 run_pipeline.py --video data/raw/gameplay/possesso_palla_1.mov
 
-    # Pipeline completa su TUTTI i video nella cartella:
+    # Full pipeline on ALL the videos in the folder:
     python3 run_pipeline.py --all
 
-    # Solo alcune fasi (es. solo Fase 1 e 2):
+    # Only some phases (e.g. only Phase 1 and 2):
     python3 run_pipeline.py --video <clip> --phases 1 2
 
-    # Fase 4 con entrambe le modalità (flat + learned) per confronto:
+    # Phase 4 with both modes (flat + learned) for comparison:
     python3 run_pipeline.py --video <clip> --phases 4 --both-modes
 
-    # Pipeline completa + studio A/B (Fase 5):
+    # Full pipeline + A/B study (Phase 5):
     python3 run_pipeline.py --video <clip> --phases 1 2 3 4 5
 
-    # Usa un profilo HUD specifico:
+    # Use a specific HUD profile:
     python3 run_pipeline.py --video <clip> --profile tot_om
 """
 
@@ -32,7 +32,7 @@ import sys
 import time
 from pathlib import Path
 
-# ── Colori per output leggibile ──────────────────────────────────────────── #
+# ── Colors for readable output ────────────────────────────────────────────── #
 GREEN = "\033[92m"
 RED = "\033[91m"
 YELLOW = "\033[93m"
@@ -45,6 +45,9 @@ PHASE_ORDER = ["1", "1b", "1c", "2", "2b", "3", "4", "5"]
 
 
 def banner(text: str) -> None:
+    """
+    Print a decorated banner with the given text for console output.
+    """
     width = 64
     print(f"\n{CYAN}{BOLD}{'═' * width}")
     print(f"  {text}")
@@ -52,11 +55,14 @@ def banner(text: str) -> None:
 
 
 def step_header(phase: int | str, desc: str) -> None:
+    """
+    Print a highlighted header for a specific pipeline phase.
+    """
     print(f"{BOLD}{YELLOW}── Fase {phase}: {desc} ──{RESET}")
 
 
 def run(cmd: list[str], label: str) -> bool:
-    """Esegue un comando e stampa il risultato."""
+    """Run a command and print the result."""
     print(f"  {CYAN}▸{RESET} {' '.join(cmd)}")
     t0 = time.time()
     result = subprocess.run(cmd, cwd=str(SRC_DIR))
@@ -70,12 +76,12 @@ def run(cmd: list[str], label: str) -> bool:
 
 
 def get_stem(video_path: str) -> str:
-    """Nome del video senza estensione (usato per i file intermedi)."""
+    """Video name without extension (used for the intermediate files)."""
     return Path(video_path).stem
 
 
 def discover_videos() -> list[str]:
-    """Trova tutti i video nella cartella gameplay."""
+    """Find all the videos in the gameplay folder."""
     gameplay_dir = SRC_DIR / "data" / "raw" / "gameplay"
     exts = {".mov", ".mp4", ".avi", ".mkv", ".webm"}
     videos = sorted(
@@ -97,14 +103,14 @@ def run_pipeline(
     llm_provider: str | None = None,
     use_llm_text: bool = False,
 ) -> dict[str, bool]:
-    """Esegue le fasi selezionate per un singolo video."""
+    """Run the selected phases for a single video."""
     stem = get_stem(video)
     events_json = f"features/events/{stem}.json"
     enriched_json = f"features/events/{stem}_enriched.json"
     script_json = f"features/scripts/{stem}.json"
     results: dict[str, bool] = {}
 
-    # ── FASE 1: Estrazione eventi (OCR HUD) ──────────────────────────── #
+    # ── PHASE 1: Event extraction (HUD OCR) ──────────────────────────── #
     if "1" in phases:
         step_header(1, "Estrazione eventi (OCR HUD)")
         cmd = [sys.executable, "01_extract_events.py", "--video", video]
@@ -114,7 +120,7 @@ def run_pipeline(
         if not results["1"]:
             return results
 
-    # ── FASE 1b: Analisi visiva (YOLO + Tracking) ────────────────────── #
+    # ── PHASE 1b: Visual analysis (YOLO + Tracking) ──────────────────── #
     if "1b" in phases:
         step_header("1b", "Analisi visiva (YOLO + Tracking)")
         cmd = [sys.executable, "01b_visual_analysis.py", "--video", video]
@@ -126,7 +132,7 @@ def run_pipeline(
         if not results["1b"]:
             return results
 
-    # ── FASE 1c: Analisi audio (Tifo + Whisper) ──────────────────────── #
+    # ── PHASE 1c: Audio analysis (Crowd + Whisper) ───────────────────── #
     if "1c" in phases:
         step_header("1c", "Analisi audio (Tifo + Whisper)")
         cmd = [sys.executable, "01c_audio_analysis.py", "--video", video]
@@ -140,7 +146,7 @@ def run_pipeline(
         if not results["1c"]:
             return results
 
-    # ── FASE 2: Generazione testo telecronaca (template) ─────────────── #
+    # ── PHASE 2: Commentary text generation (template) ───────────────── #
     if "2" in phases:
         step_header(2, "Generazione testo telecronaca")
         best_events = enriched_json if (SRC_DIR / enriched_json).exists() else events_json
@@ -151,7 +157,7 @@ def run_pipeline(
         if not results["2"]:
             return results
 
-    # ── FASE 2b: Generazione testo con LLM ───────────────────────────── #
+    # ── PHASE 2b: Text generation with LLM ───────────────────────────── #
     if "2b" in phases:
         step_header("2b", "Generazione testo con LLM")
         best_events = enriched_json if (SRC_DIR / enriched_json).exists() else events_json
@@ -162,7 +168,7 @@ def run_pipeline(
         if not results["2b"]:
             return results
 
-    # ── FASE 3: Training prosodia ────────────────────────────────────── #
+    # ── PHASE 3: Prosody training ────────────────────────────────────── #
     if "3" in phases:
         step_header(3, "Addestramento modello prosodia")
         cmd = [sys.executable, "03_train_prosody.py", "--synthetic"]
@@ -172,15 +178,15 @@ def run_pipeline(
         if not results["3"]:
             return results
 
-    # ── FASE 4: Sintesi audio ────────────────────────────────────────── #
+    # ── PHASE 4: Audio synthesis ─────────────────────────────────────── #
     if "4" in phases:
         step_header(4, "Sintesi audio")
         llm_script = f"features/scripts/{stem}_llm.json"
-        # Scelta del TESTO da sintetizzare. Prima il template vinceva sempre
-        # (lo script LLM veniva usato solo se il template mancava): la Fase 2b
-        # girava per niente. Ora l'LLM ha la precedenza quando e' richiesto
-        # esplicitamente (--llm-text) o quando la 2b fa parte di questa run;
-        # in ogni caso si ripiega sull'altro file se il preferito non esiste.
+        # Choice of the TEXT to synthesize. Before, the template always won
+        # (the LLM script was used only if the template was missing): Phase 2b
+        # ran for nothing. Now the LLM has priority when it is requested
+        # explicitly (--llm-text) or when 2b is part of this run; in any case it
+        # falls back to the other file if the preferred one does not exist.
         prefer_llm = use_llm_text or "2b" in phases
         candidates = [llm_script, script_json] if prefer_llm else [script_json, llm_script]
         actual_script = next((c for c in candidates if (SRC_DIR / c).exists()), script_json)
@@ -190,7 +196,7 @@ def run_pipeline(
             cmd += ["--engine", engine]
         results["4"] = run(cmd, "Fase 4 (learned)")
 
-        # Anche rule-based se richiesto
+        # Also rule-based if requested
         if both_modes:
             cmd_rule = [
                 sys.executable,
@@ -204,7 +210,7 @@ def run_pipeline(
             ok = run(cmd_rule, "Fase 4 (rule-based)")
             results["4"] = results["4"] and ok
 
-    # ── FASE 5: Valutazione A/B ──────────────────────────────────────── #
+    # ── PHASE 5: A/B evaluation ──────────────────────────────────────── #
     if "5" in phases:
         step_header(5, "Preparazione studio A/B")
         results["5"] = run(
@@ -216,6 +222,10 @@ def run_pipeline(
 
 
 def main() -> None:
+    """
+    Main entry point for the pipeline.
+    Parses CLI arguments, sets up the environment, and orchestrates the execution of the selected phases.
+    """
     parser = argparse.ArgumentParser(
         description="Esegue l'intera pipeline di telecronaca in un solo comando.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -292,14 +302,14 @@ Esempi:
         "--language",
         type=str,
         default=None,
-        choices=None,  # validato sotto contro config.SUPPORTED_LANGUAGES
+        choices=None,  # validated below against config.SUPPORTED_LANGUAGES
         help="Lingua della telecronaca (default: da config.py). "
         f"Supportate: {', '.join(__import__('config').SUPPORTED_LANGUAGES)}.",
     )
 
     args = parser.parse_args()
 
-    # --- Lingua ---------------------------------------------------------------- #
+    # --- Language -------------------------------------------------------------- #
     import config as _cfg
     if args.language:
         if args.language not in _cfg.SUPPORTED_LANGUAGES:
@@ -307,9 +317,9 @@ Esempi:
                 f"Lingua '{args.language}' non supportata. "
                 f"Scegli tra: {', '.join(_cfg.SUPPORTED_LANGUAGES)}"
             )
-        # Riscrive la lingua e tutte le costanti derivate.
-        # IMPORTANTE: imposta anche la variabile d'ambiente, perche' i
-        # sottoprocessi (subprocess.run) reimportano config.py da zero.
+        # Rewrite the language and all the derived constants.
+        # IMPORTANT: also set the environment variable, because the
+        # subprocesses (subprocess.run) re-import config.py from scratch.
         import os
         os.environ["COMMENTARY_LANGUAGE"] = args.language
         _cfg.LANGUAGE = args.language
@@ -322,7 +332,7 @@ Esempi:
         _cfg.COQUI_SPEAKER_WAV = _cfg.COQUI_SPEAKER_WAVS.get(args.language)
         _cfg.COQUI_SPEAKER_WAV_EXCITED = _cfg.COQUI_SPEAKER_WAVS_EXCITED.get(args.language)
 
-    # Determina i video da processare
+    # Determine the videos to process
     if args.all:
         videos = discover_videos()
         if not videos:
@@ -362,7 +372,7 @@ Esempi:
         )
         summary[stem] = results
 
-    # ── Riepilogo finale ─────────────────────────────────────────────── #
+    # ── Final summary ────────────────────────────────────────────────── #
     elapsed_total = time.time() - t_start
     banner("RIEPILOGO")
     for stem, results in summary.items():

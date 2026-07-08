@@ -1,4 +1,4 @@
-<!-- Telecronaca AI — Regia -->
+<!-- AI Commentary — Director (Web Interface) -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Regia · Telecronaca AI</title>
@@ -260,7 +260,8 @@
     $("#clock").textContent=`${h}:${m}:${ss}`;
   },1000);
 
-  // ── voci: caricate dal backend (/voci) ────────────────────────────
+  // ── Voices: loaded from the backend (/voci) ────────────────────────────
+  // Fetches available voices and renders them as selectable chips.
   async function loadVoices(){
     const box=$("#voices");
     try{
@@ -278,6 +279,7 @@
       box.innerHTML=`<span class="hint" style="color:var(--amber)">Impossibile caricare le voci (server avviato?).</span>`;
     }
   }
+  // Handles the selection of a specific voice chip.
   function selectVoice(id, el){
     state.voice=id;
     [...$("#voices").children].forEach(x=>x.classList&&x.classList.remove("on"));
@@ -286,6 +288,7 @@
     updateGo();
   }
 
+  // Plays a preview of the selected voice.
   $("#preview").onclick=()=>{
     if(!state.voice) return;
     const a=$("#previewAudio");
@@ -293,8 +296,10 @@
     a.play().catch(()=>{});
   };
 
+  // Updates the state of the "Generate" button based on readiness.
   function updateGo(){ $("#go").disabled = !(state.file && state.voice && !state.running); }
 
+  // Renders the pipeline phases as selectable chips.
   function renderChips(){
     const c=$("#chips"); c.innerHTML="";
     PHASES.forEach(p=>{
@@ -305,7 +310,10 @@
       c.appendChild(el);
     });
   }
+  // Returns the list of currently active pipeline phases.
   function activePhases(){ return PHASES.filter(p=>p.on); }
+
+  // Renders the visual chain of active pipeline phases.
   function renderChain(){
     const c=$("#chain"); c.innerHTML="";
     activePhases().forEach(p=>{
@@ -318,6 +326,7 @@
     });
   }
 
+  // Handles loading a selected video file into the preview stage.
   function loadFile(f){
     if(!f || !f.type.startsWith("video/")) return;
     if(state.url) URL.revokeObjectURL(state.url);
@@ -345,12 +354,19 @@
   const wave=$("#wave"); let bars=[];
   for(let i=0;i<22;i++){const b=document.createElement("i");wave.appendChild(b);bars.push(b);}
   let waveRAF=null;
+  // Animates the "On Air" audio wave indicator.
   function animWave(){bars.forEach((b,i)=>{const h=6+Math.abs(Math.sin(Date.now()/180+i*0.6))*20*(0.5+Math.random()*0.5);b.style.height=h.toFixed(1)+"px";});waveRAF=requestAnimationFrame(animWave);}
+  
+  // Stops the audio wave animation.
   function stopWave(){cancelAnimationFrame(waveRAF);waveRAF=null;bars.forEach(b=>b.style.height="6px");}
 
+  // Updates the progress bar width.
   function setProgress(p){$("#prog").style.width=p+"%";}
+  
+  // Resets the visual status of the pipeline phase chain.
   function resetChainVisual(){[...$("#chain").children].forEach(r=>{r.className="phase";r.querySelector(".tick").textContent="in coda";});}
 
+  // Orchestrates the main pipeline execution by sending a POST request to the backend.
   async function runPipeline(){
     if(state.running || !state.file || !state.voice) return;
     state.running=true; updateGo();
@@ -388,6 +404,7 @@
     state.running=false; $("#go").textContent="Rigenera"; updateGo();
   }
 
+  // Displays the generated transcript and results UI after a successful run.
   function showResult(){
     const tr=$("#transcript"); tr.innerHTML="";
     if(state.transcript){
@@ -403,6 +420,7 @@
         : `Video senza audio originale, con la sola telecronaca (voce clonata da Coqui XTTS v2). Cambiando voce sulla stessa clip, la prossima volta sarà molto più veloce.`);
     playReal();
   }
+  // Plays the final muxed video with the generated commentary.
   function playReal(){
     const v=$("#video"); v.muted=false; v.currentTime=0;
     $("#lower").classList.add("show"); $("#onair").className="onair live"; $("#onairText").textContent="On Air";

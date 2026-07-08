@@ -1,0 +1,5 @@
+clip,start,end,event_type
+esempio.wav,0.0,3.5,goal
+esempio.wav,5.0,7.2,pass
+esempio.wav,10.1,12.0,turnover
+esempio.wav,15.0,17.5,idle

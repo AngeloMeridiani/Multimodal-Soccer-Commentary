@@ -1,27 +1,27 @@
 """
 03_train_prosody.py
 ===================
-FASE 3 - Addestramento del modello di PROSODIA (IL CONTRIBUTO di ricerca).
+PHASE 3 - Training of the PROSODY model (THE research contribution).
 
-Impara la mappa  feature_evento -> (rate_factor, pitch_semitones, energy_gain),
-cioe' COME deve suonare la voce per ogni tipo di evento. E' l'unica parte con un
-modello addestrato (un piccolo MLP); il resto della pipeline e' impalcatura.
+Learns the map  event_feature -> (rate_factor, pitch_semitones, energy_gain),
+i.e. HOW the voice should sound for each event type. It is the only part with a
+trained model (a small MLP); the rest of the pipeline is scaffolding.
 
-Costruzione del dataset:
-  1) Se ci sono clip di telecronaca reale annotate (config.PROSODY_ANNOTATIONS +
-     audio in config.COMMENTARY_DIR), si MISURANO i target prosodici da quei
-     segmenti (rate da densita' di onset, pitch da f0, energy da RMS), normalizzati
-     rispetto alla mediana del dataset.
-  2) Se non ci sono dati reali utilizzabili, si SINTETIZZA un dataset dai valori
-     a regole (config.RULE_BASED_PROSODY) con un po' di rumore, cosi' la pipeline
-     gira comunque end-to-end. (In tesi, sostituire con dati reali.)
+Dataset construction:
+  1) If there are annotated real commentary clips (config.PROSODY_ANNOTATIONS +
+     audio in config.COMMENTARY_DIR), the prosody targets are MEASURED from those
+     segments (rate from onset density, pitch from f0, energy from RMS), normalized
+     against the dataset median.
+  2) If there is no usable real data, a dataset is SYNTHESIZED from the rule-based
+     values (config.RULE_BASED_PROSODY) with a bit of noise, so the pipeline runs
+     end-to-end anyway. (In the thesis, replace with real data.)
 
-Input  : feature da utils.event_to_features (UNICA codifica, coerente con la Fase 4).
+Input  : features from utils.event_to_features (SINGLE encoding, consistent with Phase 4).
 Output : models/prosody_mlp.pt , models/prosody_scaler.joblib , dataset .npz
 
-Uso:
+Usage:
     python 03_train_prosody.py
-    python 03_train_prosody.py --synthetic     # forza il dataset sintetico
+    python 03_train_prosody.py --synthetic     # force the synthetic dataset
     python 03_train_prosody.py --epochs 300
 """
 
@@ -47,10 +47,10 @@ logger = get_logger("fase3_prosodia")
 
 
 # --------------------------------------------------------------------------- #
-# Misura dei target prosodici da audio reale                                  #
+# Measuring the prosody targets from real audio                               #
 # --------------------------------------------------------------------------- #
 def _measure_segment(audio: np.ndarray, sr: int) -> dict[str, float] | None:
-    """Misure grezze (non normalizzate) di un segmento: rate, f0, energy."""
+    """Raw (non-normalized) measures of a segment: rate, f0, energy."""
     import librosa
 
     if audio.size < sr // 5:
@@ -69,7 +69,7 @@ def _measure_segment(audio: np.ndarray, sr: int) -> dict[str, float] | None:
 
 
 def build_dataset_from_audio() -> tuple[np.ndarray, np.ndarray] | None:
-    """Costruisce (X, Y) misurando i target dai segmenti annotati reali."""
+    """Build (X, Y) by measuring the targets from the real annotated segments."""
     import librosa
 
     csv_path = config.PROSODY_ANNOTATIONS
@@ -115,11 +115,11 @@ def build_dataset_from_audio() -> tuple[np.ndarray, np.ndarray] | None:
             np.clip(12.0 * np.log2(m["f0"] / med_f0), *config.PROSODY_CLAMP["pitch_semitones"])
         )
         energy_gain = float(np.clip(m["energy"] / med_energy, *config.PROSODY_CLAMP["energy_gain"]))
-        # NB: le clip annotate sono segmenti di TELECRONACA (voce del commentatore),
-        # non audio di gioco con il tifo: non abbiamo una vera misura di audio_energy
-        # per questi campioni. Si usa il neutro (0.5); il segnale reale del pubblico
-        # arriva solo dal dataset sintetico finche' non si annotano clip di GIOCO
-        # (con tifo) allineate agli stessi eventi.
+        # NB: the annotated clips are COMMENTARY segments (the commentator's voice),
+        # not gameplay audio with the crowd: we do not have a real audio_energy
+        # measure for these samples. We use the neutral value (0.5); the real crowd
+        # signal only comes from the synthetic dataset until GAMEPLAY clips (with
+        # crowd) aligned to the same events are annotated.
         X.append(event_to_features(et, config.EVENT_IMPORTANCE.get(et, 0.1), audio_energy=0.5))
         Y.append([rate_factor, pitch_semi, energy_gain])
     logger.info("Dataset da audio reale: %d campioni.", len(X))
@@ -127,16 +127,16 @@ def build_dataset_from_audio() -> tuple[np.ndarray, np.ndarray] | None:
 
 
 def build_dataset_synthetic(n_per_type: int = 40) -> tuple[np.ndarray, np.ndarray]:
-    """Dataset sintetico dai valori a regole + rumore (per far girare la pipeline).
+    """Synthetic dataset from the rule-based values + noise (to run the pipeline).
 
-    audio_energy e' un PROXY sintetico dell'importanza con rumore: modella
-    l'idea che il pubblico di solito reagisce in proporzione all'evento, ma
-    non sempre (a volte un evento "importante" passa sottotono, o un evento
-    minore scatena un boato). Il target viene nudged dallo SCARTO tra energy
-    reale e importanza attesa, cosi' il modello impara a usare audio_energy
-    come segnale indipendente (non solo a ignorarlo come rumore). E' un
-    limite dichiarato: la relazione vera va appresa da dati reali annotati
-    (audio di gioco + telecronaca), non da questa correlazione sintetica.
+    audio_energy is a synthetic PROXY of importance with noise: it models the
+    idea that the crowd usually reacts in proportion to the event, but not
+    always (sometimes an "important" event goes unnoticed, or a minor event
+    triggers a roar). The target is nudged by the GAP between real energy and
+    expected importance, so the model learns to use audio_energy as an
+    independent signal (not just to ignore it as noise). It is a stated
+    limitation: the true relation must be learned from real annotated data
+    (gameplay audio + commentary), not from this synthetic correlation.
     """
     rng = np.random.default_rng(config.RANDOM_SEED)
     X, Y = [], []
@@ -148,12 +148,12 @@ def build_dataset_synthetic(n_per_type: int = 40) -> tuple[np.ndarray, np.ndarra
         for _ in range(n_per_type):
             imp = float(np.clip(importance + rng.normal(0, 0.03), 0, 1))
             energy = float(np.clip(importance + rng.normal(0, 0.15), 0, 1))
-            delta = energy - importance  # quanto il pubblico ha reagito PIU'/MENO dell'atteso
+            delta = energy - importance  # how much the crowd reacted MORE/LESS than expected
 
             noise = rng.normal(0.0, [0.04, 0.4, 0.06]).astype(np.float32)
             target = base + noise
-            target[0] += 0.06 * delta  # rate_factor: pubblico piu' carico -> ritmo piu' svelto
-            target[2] += 0.20 * delta  # energy_gain: pubblico piu' carico -> voce piu' intensa
+            target[0] += 0.06 * delta  # rate_factor: more hyped crowd -> quicker pace
+            target[2] += 0.20 * delta  # energy_gain: more hyped crowd -> more intense voice
             for i, key in enumerate(config.PROSODY_TARGETS):
                 target[i] = np.clip(target[i], *config.PROSODY_CLAMP[key])
 
@@ -164,9 +164,13 @@ def build_dataset_synthetic(n_per_type: int = 40) -> tuple[np.ndarray, np.ndarra
 
 
 # --------------------------------------------------------------------------- #
-# Addestramento                                                               #
+# Training                                                                    #
 # --------------------------------------------------------------------------- #
 def train(X: np.ndarray, Y: np.ndarray, epochs: int) -> None:
+    """
+    Train the multi-layer perceptron (MLP) mapping event features to prosody targets.
+    Scales the input data, performs a train/val split, and saves the best model.
+    """
     import joblib
     import torch
     from sklearn.preprocessing import StandardScaler
@@ -228,6 +232,10 @@ def train(X: np.ndarray, Y: np.ndarray, epochs: int) -> None:
 
 
 def main() -> None:
+    """
+    Main entry point for Phase 3.
+    Constructs the dataset (from real audio or synthetically), trains the prosody MLP, and saves the artifacts.
+    """
     parser = argparse.ArgumentParser(description="Fase 3 - Addestramento prosodia")
     parser.add_argument("--synthetic", action="store_true", help="Forza dataset sintetico.")
     parser.add_argument("--epochs", type=int, default=config.PROSODY_EPOCHS)

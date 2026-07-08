@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-serve.py  (v4 - cambio voce veloce)
+serve.py  (v4 - fast voice change)
 ===================================
-Collega il frontend alla pipeline e sceglie automaticamente la strada:
+Connects the frontend to the pipeline and picks the route automatically:
 
-  - PRIMA generazione di una clip  -> pipeline COMPLETA (1 1b 1c 2b 3 4)
-  - STESSA clip, voce diversa       -> solo Fase 4 (sintesi) + montaggio  (VELOCE)
+  - FIRST generation of a clip   -> FULL pipeline (1 1b 1c 2b 3 4)
+  - SAME clip, different voice    -> only Phase 4 (synthesis) + muxing  (FAST)
 
-Come lo capisce: se esiste gia' features/scripts/<nome>_llm.json (il testo LLM
-di quella clip), il testo e' gia' pronto e non va rigenerato: basta risintetizzare
-la voce nuova. XTTS clona sempre da data/raw/commentary/ref.wav, quindi il server
-copia la voce scelta su ref.wav prima di sintetizzare.
+How it knows: if features/scripts/<name>_llm.json (the LLM text of that clip)
+already exists, the text is ready and does not need regenerating: it is enough
+to re-synthesize the new voice. XTTS always clones from
+data/raw/commentary/ref.wav, so the server copies the chosen voice onto ref.wav
+before synthesizing.
 
-METTI in src\\ e lancia da src\\ (con l'ambiente (telecronaca) attivo):
+PUT it in src\\ and launch from src\\ (with the (telecronaca) environment active):
     python serve.py
 """
 from __future__ import annotations
@@ -44,11 +45,14 @@ app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
 
 
 def pretty(stem: str) -> str:
+    """
+    Format a filename stem into a human-readable title.
+    """
     return " ".join(w.capitalize() for w in stem.replace("-", "_").split("_") if w)
 
 
 def media_duration(path) -> float | None:
-    """Durata in secondi di un file audio/video via ffprobe, o None se illeggibile."""
+    """Duration in seconds of an audio/video file via ffprobe, or None if unreadable."""
     try:
         out = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -60,8 +64,17 @@ def media_duration(path) -> float | None:
         return None
 
 
+# special id: XTTS native voice (no character cloning).
+ORIGINAL_VOICE_ID = "__originale__"
+
+
 def list_voices():
-    out = []
+    """
+    Scan the commentary directory for available speaker wavs and return them as a list of dicts.
+    Always includes the built-in original voice as the first option.
+    """
+    # The "Original" voice (neutral, built-in XTTS) always at the top.
+    out = [{"id": ORIGINAL_VOICE_ID, "name": "Originale (neutra)"}]
     for p in sorted(COMMENTARY.glob("*.wav")):
         if p.name.lower() == "ref.wav":
             continue
@@ -70,7 +83,7 @@ def list_voices():
 
 
 def run_pipeline(relvideo, phases, lang, env):
-    """Esegue run_pipeline.py con le fasi date. Ritorna (returncode, log_tail)."""
+    """Run run_pipeline.py with the given phases. Returns (returncode, log_tail)."""
     cmd = [sys.executable, "run_pipeline.py"]
     cmd += ["--video", relvideo]
     cmd += ["--phases", *phases,
@@ -88,16 +101,26 @@ def run_pipeline(relvideo, phases, lang, env):
 
 @app.route("/")
 def home():
+    """
+    Serve the main frontend HTML interface.
+    """
     return send_from_directory(WEB, "telecronaca.html")
 
 
 @app.route("/voci")
 def voci():
+    """
+    API endpoint returning a JSON list of available voices.
+    """
     return jsonify(voices=list_voices())
 
 
 @app.route("/voce/<path:name>")
 def voce(name):
+    """
+    Serve an audio file representing a specific voice from the commentary directory.
+    Prevents path traversal attacks.
+    """
     p = (COMMENTARY / name).resolve()
     if p.parent != COMMENTARY.resolve() or not p.exists():
         return "Voce non trovata", 404
@@ -106,16 +129,23 @@ def voce(name):
 
 @app.route("/genera", methods=["POST"])
 def genera():
+    """
+    Main API endpoint to generate commentary for an uploaded video.
+    Handles file upload, voice selection, language, routing between full pipeline
+    and fast re-synthesis, and final audio/video muxing.
+    """
     if "clip" not in request.files:
         return jsonify(ok=False, error="Nessuna clip ricevuta"), 400
 
     voice = (request.form.get("voice") or "").strip()
     if not voice:
         return jsonify(ok=False, error="Seleziona una voce prima di generare."), 400
-    src_wav = (COMMENTARY / voice).resolve()
-    if src_wav.parent != COMMENTARY.resolve() or not src_wav.exists():
-        return jsonify(ok=False, error=f"Voce non trovata: {voice}"), 400
-    shutil.copyfile(src_wav, REF)          # la voce scelta -> ref.wav
+    use_builtin = voice == ORIGINAL_VOICE_ID
+    if not use_builtin:
+        src_wav = (COMMENTARY / voice).resolve()
+        if src_wav.parent != COMMENTARY.resolve() or not src_wav.exists():
+            return jsonify(ok=False, error=f"Voce non trovata: {voice}"), 400
+        shutil.copyfile(src_wav, REF)      # the chosen voice -> ref.wav (cloning)
 
     lang = request.form.get("lang", "it")
     f = request.files["clip"]
@@ -127,39 +157,52 @@ def genera():
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
+    # Original/neutral voice: Phase 4 uses the built-in XTTS voice instead of
+    # cloning from ref.wav. Propagated to subprocesses via env (config re-reads it).
+    env["COMMENTARY_SPEAKER"] = "builtin" if use_builtin else ""
 
-    # ── decide la strada: testo gia' pronto? -> solo Fase 4 ───────────
-    llm_json = SCRIPTS / f"{stem}_llm.json"
-    if llm_json.exists():
+    # ── pick the route: text already ready IN THE CHOSEN LANGUAGE? -> only Phase 4
+    # The text cache is PER LANGUAGE: {stem}_{lang}_llm.json. Without this, text
+    # generated in English would be re-synthesized even when selecting Italian
+    # (Phase 2b skipped) -> commentary in the wrong language.
+    llm_json = SCRIPTS / f"{stem}_llm.json"          # file that Phase 4 reads
+    llm_json_lang = SCRIPTS / f"{stem}_{lang}_llm.json"  # per-language archive
+    if llm_json_lang.exists():
+        shutil.copyfile(llm_json_lang, llm_json)     # restore the right text
         phases = ["4"]
-        mode = "fast"     # cambio voce veloce
+        mode = "fast"     # same clip+language: re-synthesis only (voice change)
     else:
         phases = ["1", "1b", "1c", "2b", "3", "4"]
-        mode = "full"     # prima volta: pipeline completa
+        mode = "full"     # first time in this language: full pipeline
 
     rc, log_tail = run_pipeline(relvideo, phases, lang, env)
 
-    # Cerca il WAV della telecronaca PRIMA di giudicare l'esito.
-    # XTTS su Windows a volte crasha in chiusura (exit code 3221225477 / 0xC0000005)
-    # DOPO aver gia' salvato l'audio: in quel caso il WAV c'e' ed e' valido,
-    # quindi il risultato e' comunque utilizzabile e procediamo al montaggio.
+    # Archive the just-generated text under its language (for the future
+    # fast-path). After a full run, {stem}_llm.json is in the requested language.
+    if mode == "full" and llm_json.exists():
+        shutil.copyfile(llm_json, llm_json_lang)
+
+    # Look for the commentary WAV BEFORE judging the outcome.
+    # XTTS on Windows sometimes crashes on shutdown (exit code 3221225477 / 0xC0000005)
+    # AFTER already saving the audio: in that case the WAV exists and is valid,
+    # so the result is still usable and we proceed to the muxing.
     wavs = sorted(AUDIO_OUT.glob(f"{stem}*.wav"), key=lambda p: p.stat().st_mtime)
-    wavs = [w for w in wavs if w.stat().st_size > 4096]   # WAV con contenuto reale
+    wavs = [w for w in wavs if w.stat().st_size > 4096]   # WAV with real content
     if wavs:
-        wav = wavs[-1]                # audio prodotto: si prosegue anche se rc != 0
+        wav = wavs[-1]                # audio produced: continue even if rc != 0
     else:
-        # nessun audio valido -> errore vero
+        # no valid audio -> real error
         return jsonify(ok=False, error="Pipeline fallita (nessun audio generato).",
                        log=log_tail, returncode=rc, mode=mode), 500
 
     out_mp4 = VIDEO_OUT / f"{stem}_telecronaca.mp4"
     vdur = media_duration(dest)
     adur = media_duration(wav)
-    # Se la telecronaca dura PIU' del video, con -shortest l'output finirebbe
-    # con il video e l'ultima battuta verrebbe tagliata. Invece CONGELIAMO
-    # l'ultimo fotogramma finche' la voce finisce di parlare (tpad clona il
-    # frame finale per la differenza di durata). Niente -shortest in nessun
-    # caso: l'audio non deve mai essere troncato.
+    # If the commentary lasts LONGER than the video, with -shortest the output
+    # would end with the video and the last line would be cut. Instead we FREEZE
+    # the last frame until the voice finishes speaking (tpad clones the final
+    # frame for the duration difference). No -shortest in any case: the audio
+    # must never be truncated.
     if adur and vdur and adur > vdur + 0.05:
         pad = adur - vdur
         mux = ["ffmpeg", "-y", "-i", str(dest), "-i", str(wav),
@@ -167,8 +210,8 @@ def genera():
                "-map", "[v]", "-map", "1:a:0",
                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(out_mp4)]
     else:
-        # Video piu' lungo (o uguale): copia diretta del video. Senza -shortest
-        # l'audio suona per intero; dopo la voce resta il video (muto).
+        # Video longer (or equal): direct copy of the video. Without -shortest
+        # the audio plays in full; after the voice the video remains (muted).
         mux = ["ffmpeg", "-y", "-i", str(dest), "-i", str(wav),
                "-map", "0:v:0", "-map", "1:a:0",
                "-c:v", "copy", "-c:a", "aac", str(out_mp4)]
@@ -194,6 +237,9 @@ def genera():
 
 @app.route("/scarica/<path:name>")
 def scarica(name):
+    """
+    Serve the final muxed video file for download or playback.
+    """
     return send_file(VIDEO_OUT / name)
 
 

@@ -1,21 +1,21 @@
 """
 01c_audio_analysis.py
 ====================
-FASE 1c - Modulo Uditivo: Audio Energy + Trascrizione Whisper.
+PHASE 1c - Auditory module: Audio Energy + Whisper transcription.
 
-A) AUDIO ENERGY: misura l'ENERGIA/ATTIVITA' dell'audio (RMS, centroide
-   spettrale, densita' di onset) -> livello low/medium/high/peak nel tempo.
-   NB: si chiama "energy", non "crowd", di proposito. Test alla mano (AST su
-   AudioSet, SER dimensionale) hanno mostrato che questo audio NON contiene
-   tifo rilevabile: e' voce (commento) + effetti. Quindi il descrittore
-   misura l'energia audio - che correla coi momenti caldi - non il pubblico.
-   E' un proxy acustico dichiarato, non una misura di "crowd excitement".
-B) TRASCRIZIONE: trascrive la telecronaca originale del gioco con Whisper
-   (utile per i nomi dei giocatori che l'OCR non vede, es. il portiere).
+A) AUDIO ENERGY: measures the ENERGY/ACTIVITY of the audio (RMS, spectral
+   centroid, onset density) -> low/medium/high/peak level over time.
+   NB: it is called "energy", not "crowd", on purpose. Tests in hand (AST on
+   AudioSet, dimensional SER) showed that this audio does NOT contain
+   detectable crowd noise: it is voice (commentary) + effects. So the descriptor
+   measures the audio energy - which correlates with the hot moments - not the
+   crowd. It is a stated acoustic proxy, not a "crowd excitement" measure.
+B) TRANSCRIPTION: transcribes the game's original commentary with Whisper
+   (useful for player names the OCR does not see, e.g. the goalkeeper).
 
-Output: features/events/<nome_video>_audio.json  (oppure _enriched.json se --events)
+Output: features/events/<video_name>_audio.json  (or _enriched.json if --events)
 
-Uso:
+Usage:
     python 01c_audio_analysis.py --video data/raw/gameplay/match1.mp4
     python 01c_audio_analysis.py --video data/raw/gameplay/match1.mp4 --no-whisper
     python 01c_audio_analysis.py --video data/raw/gameplay/match1.mp4 --events features/events/match1.json
@@ -37,15 +37,22 @@ logger = get_logger("fase1c_audio")
 
 
 class AudioEnergyAnalyzer:
-    """Misura l'energia/attivita' dell'audio su finestre temporali (NON il tifo:
-    vedi docstring del modulo)."""
+    """Measures the energy/activity of the audio over time windows (NOT the crowd:
+    see the module docstring)."""
 
     def __init__(self, sample_rate: int = config.SAMPLE_RATE) -> None:
+        """
+        Initialize the analyzer with the specified sample rate and configuration thresholds.
+        """
         self.sr = sample_rate
         self.thresholds = config.AUDIO_ENERGY_THRESHOLDS
         self.window_s = config.AUDIO_ANALYSIS_WINDOW_S
 
     def analyze_full(self, audio: np.ndarray) -> list[dict]:
+        """
+        Analyze the full audio array by computing RMS energy, spectral centroid, and onset density.
+        Returns a timeline of normalized energy scores and discrete levels.
+        """
         import librosa
 
         total = len(audio) / self.sr
@@ -57,9 +64,9 @@ class AudioEnergyAnalyzer:
             float(np.mean(librosa.feature.spectral_centroid(y=audio, sr=self.sr))) + 1e-8
         )
 
-        # 1) SCORE GREZZO per finestra: energia (RMS) + brillantezza (centroide)
-        #    + densita' di attacchi (onset), pesati. Normalizzati sulla media
-        #    della clip, quindi un valore "medio" cade intorno a ~0.33.
+        # 1) RAW SCORE per window: energy (RMS) + brightness (centroid)
+        #    + onset density (attacks), weighted. Normalized against the clip
+        #    average, so an "average" value lands around ~0.33.
         windows: list[tuple[float, float, float]] = []  # (t_start, t_end, raw)
         offset = 0
         while offset < len(audio):
@@ -80,11 +87,11 @@ class AudioEnergyAnalyzer:
             windows.append((t_start, t_end, raw))
             offset += hop
 
-        # 2) RI-SCALATURA ai percentili della clip: mappa [p5, p95] -> [0,1], cosi'
-        #    lo score copre tutto il range e i livelli (low/medium/high/peak)
-        #    partizionano davvero (prima lo score stava ~0.33 e "peak" non
-        #    scattava mai). Il guard AUDIO_ENERGY_MIN_RANGE evita che su una clip
-        #    PIATTA il rumore di fondo venga stirato a "peak" fittizi.
+        # 2) RE-SCALING to the clip percentiles: maps [p5, p95] -> [0,1], so the
+        #    score covers the whole range and the levels (low/medium/high/peak)
+        #    actually partition it (before, the score stayed ~0.33 and "peak"
+        #    never fired). The AUDIO_ENERGY_MIN_RANGE guard prevents that on a
+        #    FLAT clip the background noise gets stretched to fake "peak"s.
         results: list[dict] = []
         if windows:
             raws = np.array([w[2] for w in windows])
@@ -103,17 +110,24 @@ class AudioEnergyAnalyzer:
         return results
 
     def get_at(self, data: list[dict], timestamp: float) -> dict:
+        """
+        Fetch the audio energy metrics at a specific timestamp.
+        Falls back to a default neutral value if no data is found.
+        """
         for e in data:
             if e["t_start"] <= timestamp <= e["t_end"]:
                 return e
         if data:
             return min(data, key=lambda e: abs(e["t_start"] - timestamp))
-        # Nessun dato audio: neutro (0.5), COERENTE col default della feature
-        # di prosodia (event_to_features). Uno 0.0 direbbe "pubblico gelido",
-        # che e' un'informazione FALSA, non un "non so".
+        # No audio data: neutral (0.5), CONSISTENT with the default of the
+        # prosody feature (event_to_features). A 0.0 would say "ice-cold crowd",
+        # which is FALSE information, not a "don't know".
         return {"energy_score": 0.5, "energy_level": "medium"}
 
     def _level(self, score: float) -> str:
+        """
+        Convert a continuous normalized score into a discrete category level.
+        """
         if score >= self.thresholds["high"]:
             return "peak"
         if score >= self.thresholds["medium"]:
@@ -124,11 +138,14 @@ class AudioEnergyAnalyzer:
 
 
 class WhisperTranscriber:
-    """Trascrive l'audio con OpenAI Whisper -> segmenti {start, end, text}."""
+    """Transcribes the audio with OpenAI Whisper -> segments {start, end, text}."""
 
     def __init__(
         self, model_size: str = config.WHISPER_MODEL_SIZE, language: str = config.WHISPER_LANGUAGE
     ) -> None:
+        """
+        Initialize the Whisper model for audio transcription.
+        """
         import whisper
 
         logger.info("Carico Whisper '%s'...", model_size)
@@ -136,6 +153,9 @@ class WhisperTranscriber:
         self.language = language
 
     def transcribe(self, audio_path) -> list[dict]:
+        """
+        Transcribe the audio file using Whisper, returning time-aligned text segments.
+        """
         logger.info("Trascrizione (lingua=%s)...", self.language)
         result = self.model.transcribe(
             str(audio_path), language=self.language, task="transcribe", verbose=False
@@ -149,10 +169,10 @@ class WhisperTranscriber:
 
 
 def extract_audio(video_path: Path) -> Path:
-    """Estrae la traccia audio del video in un wav mono temporaneo (via ffmpeg).
-    Il file viene eliminato dal chiamante (analyze_audio) a fine analisi."""
-    # NamedTemporaryFile al posto del deprecato tempfile.mktemp: riserva il
-    # file subito (niente collisioni di nome); ffmpeg poi lo sovrascrive (-y).
+    """Extracts the video's audio track to a temporary mono wav (via ffmpeg).
+    The file is deleted by the caller (analyze_audio) at the end of the analysis."""
+    # NamedTemporaryFile instead of the deprecated tempfile.mktemp: reserves the
+    # file at once (no name collisions); ffmpeg then overwrites it (-y).
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         out = Path(tmp.name)
     cmd = [
@@ -173,15 +193,19 @@ def extract_audio(video_path: Path) -> Path:
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except FileNotFoundError:
-        out.unlink(missing_ok=True)  # niente file orfani se ffmpeg manca
+        out.unlink(missing_ok=True)  # no orphan files if ffmpeg is missing
         raise RuntimeError("ffmpeg non trovato (Ubuntu: sudo apt-get install ffmpeg).")
     except subprocess.CalledProcessError:
-        out.unlink(missing_ok=True)  # idem se ffmpeg fallisce sul video
+        out.unlink(missing_ok=True)  # same if ffmpeg fails on the video
         raise
     return out
 
 
 def analyze_audio(video_path: Path, use_whisper: bool = True) -> dict:
+    """
+    Orchestrate the extraction, energy analysis, and transcription of a video's audio track.
+    Returns a dictionary with timelines and a summary.
+    """
     import librosa
 
     audio_path = extract_audio(video_path)
@@ -219,6 +243,10 @@ def analyze_audio(video_path: Path, use_whisper: bool = True) -> dict:
 
 
 def enrich_events_with_audio(events: list[dict], audio_data: dict) -> list[dict]:
+    """
+    Merge the audio analysis and transcription data into existing game events.
+    Matches audio characteristics and spoken context to event timestamps.
+    """
     analyzer = AudioEnergyAnalyzer()
     energy = audio_data.get("energy", [])
     transcription = audio_data.get("transcription", [])
@@ -227,8 +255,8 @@ def enrich_events_with_audio(events: list[dict], audio_data: dict) -> list[dict]
         e = dict(ev)
         t = e.get("t", 0.0)
         exc = analyzer.get_at(energy, t)
-        # 0.5 (neutro) come default, coerente con event_to_features: un evento
-        # senza dato di eccitazione non deve risultare "pubblico gelido" (0.0).
+        # 0.5 (neutral) as default, consistent with event_to_features: an event
+        # without an excitement value must not read as "ice-cold crowd" (0.0).
         e["audio_energy_level"] = exc.get("energy_level", "medium")
         e["audio_energy"] = exc.get("energy_score", 0.5)
         context = " ".join(
@@ -242,6 +270,10 @@ def enrich_events_with_audio(events: list[dict], audio_data: dict) -> list[dict]
 
 
 def main() -> None:
+    """
+    Main entry point for Phase 1c.
+    Parses arguments, executes audio analysis, and outputs JSON metrics.
+    """
     parser = argparse.ArgumentParser(description="Fase 1c - Analisi audio (Tifo + Whisper)")
     parser.add_argument("--video", required=True)
     parser.add_argument("--no-whisper", action="store_true")

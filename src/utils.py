@@ -1,16 +1,16 @@
 """
 utils.py
 ========
-Utilita' condivise da tutte le fasi.
+Utilities shared by all phases.
 
-- get_logger / set_seed / ensure_dir / save_json / load_json : infrastruttura.
-- VideoNormalizer + iter_sampled_frames : lettura video RADDRIZZATO e RITAGLIATO
-  (risolve rotazione ignorata da OpenCV + bande nere laterali).
-- event_to_features / FEATURE_DIM : evento -> vettore di input del modello
-  prosodia (importanza + one-hot UNICO su config.EVENT_TYPES).
-- ProsodyMLP : la rete (qui, cosi' Fase 3 e Fase 4 la importano senza accoppiarsi
-  al nome-file).
-- apply_prosody : applica i parametri prosodici a un'onda audio neutra (DSP).
+- get_logger / set_seed / ensure_dir / save_json / load_json : infrastructure.
+- VideoNormalizer + iter_sampled_frames : reads the video STRAIGHTENED and CROPPED
+  (fixes rotation ignored by OpenCV + black side bars).
+- event_to_features / FEATURE_DIM : event -> input vector of the prosody model
+  (importance + SINGLE one-hot over config.EVENT_TYPES).
+- ProsodyMLP : the network (here, so Phase 3 and Phase 4 import it without
+  coupling to the file name).
+- apply_prosody : applies the prosody parameters to a neutral audio wave (DSP).
 """
 
 from __future__ import annotations
@@ -28,9 +28,13 @@ import config
 
 
 # --------------------------------------------------------------------------- #
-# Infrastruttura                                                               #
+# Infrastructure                                                              #
 # --------------------------------------------------------------------------- #
 def get_logger(name: str) -> logging.Logger:
+    """
+    Initialize and return a logger with the given name.
+    Sets up a stream handler with a standard timestamped format.
+    """
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler()
@@ -49,6 +53,9 @@ logger = get_logger("utils")
 
 
 def set_seed(seed: int) -> None:
+    """
+    Set the random seed for reproducibility across random, numpy, and torch.
+    """
     random.seed(seed)
     np.random.seed(seed)
     try:
@@ -62,21 +69,28 @@ def set_seed(seed: int) -> None:
 
 
 def ensure_dir(path: Path) -> None:
-    """Crea la cartella di `path` (o `path` stessa se non ha estensione)."""
+    """Create the folder of `path` (or `path` itself if it has no extension)."""
     target = path if path.suffix == "" else path.parent
     target.mkdir(parents=True, exist_ok=True)
 
 
 # --------------------------------------------------------------------------- #
-# I/O JSON                                                                     #
+# JSON I/O                                                                     #
 # --------------------------------------------------------------------------- #
 def save_json(obj, path: Path) -> None:
+    """
+    Save an object as a JSON file, ensuring the target directory exists.
+    """
     ensure_dir(path)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)
 
 
 def load_json(path: Path):
+    """
+    Load and return the content of a JSON file.
+    Raises FileNotFoundError if the file does not exist.
+    """
     if not path.exists():
         raise FileNotFoundError(f"File non trovato: {path}")
     with open(path, "r", encoding="utf-8") as f:
@@ -84,12 +98,12 @@ def load_json(path: Path):
 
 
 # --------------------------------------------------------------------------- #
-# Normalizzazione video: rotazione + ritaglio letterbox                       #
+# Video normalization: rotation + letterbox crop                              #
 # --------------------------------------------------------------------------- #
 def _probe_rotation(video_path: Path) -> int:
     """
-    Rotazione (gradi orari) da applicare per vedere il video dritto.
-    Prova prima ffprobe (robusto), poi torna 0.
+    Rotation (clockwise degrees) to apply to see the video upright.
+    Tries ffprobe first (robust), then falls back to 0.
     """
     try:
         out = subprocess.run(
@@ -111,8 +125,8 @@ def _probe_rotation(video_path: Path) -> int:
         ).stdout
         vals = [int(float(v)) for v in out.split() if v.strip().lstrip("-").isdigit()]
         if vals:
-            # ffprobe da' la rotazione del display (spesso negativa, es. -90).
-            # La rotazione da APPLICARE e' l'opposto, normalizzata a [0,360).
+            # ffprobe gives the display rotation (often negative, e.g. -90).
+            # The rotation to APPLY is the opposite, normalized to [0,360).
             return (-vals[0]) % 360
     except Exception:
         pass
@@ -121,15 +135,15 @@ def _probe_rotation(video_path: Path) -> int:
 
 def _detect_letterbox_bbox(frame: np.ndarray) -> tuple[int, int, int, int]:
     """
-    Trova il rettangolo di "contenuto" eliminando le bande nere.
-    Restituisce (x1, y1, x2, y2) in pixel. Se non trova bande, l'intero frame.
+    Find the "content" rectangle by removing the black bars.
+    Returns (x1, y1, x2, y2) in pixels. If it finds no bars, the whole frame.
     """
     gray = frame.mean(axis=2) if frame.ndim == 3 else frame
     thr = config.LETTERBOX_BLACK_THRESHOLD
     min_fill = config.LETTERBOX_MIN_FILL
 
-    col_fill = (gray > thr).mean(axis=0)  # frazione di pixel "accesi" per colonna
-    row_fill = (gray > thr).mean(axis=1)  # ... per riga
+    col_fill = (gray > thr).mean(axis=0)  # fraction of "lit" pixels per column
+    row_fill = (gray > thr).mean(axis=1)  # ... per row
 
     cols = np.where(col_fill > min_fill)[0]
     rows = np.where(row_fill > min_fill)[0]
@@ -141,9 +155,9 @@ def _detect_letterbox_bbox(frame: np.ndarray) -> tuple[int, int, int, int]:
 
 def open_capture(video_path: Path):
     """
-    Apre un VideoCapture chiedendo a OpenCV di applicare la rotazione dei
-    metadati (auto-orientamento). Restituisce (cap, auto_applied), dove
-    auto_applied dice se OpenCV gestira' la rotazione da solo.
+    Open a VideoCapture asking OpenCV to apply the metadata rotation
+    (auto-orientation). Returns (cap, auto_applied), where auto_applied says
+    whether OpenCV will handle the rotation by itself.
     """
     import cv2
 
@@ -154,26 +168,30 @@ def open_capture(video_path: Path):
     auto_prop = getattr(cv2, "CAP_PROP_ORIENTATION_AUTO", None)
     auto_applied = False
     if auto_prop is not None:
-        cap.set(auto_prop, 1)  # OpenCV moderno: raddrizza lui i frame
+        cap.set(auto_prop, 1)  # modern OpenCV: it straightens the frames
         auto_applied = True
     return cap, auto_applied
 
 
 class VideoNormalizer:
     """
-    Raddrizza (rotazione) e ritaglia (letterbox) i frame, una sola volta per
-    video. Se OpenCV ha gia' applicato l'orientamento (auto_applied=True) NON
-    ruota di nuovo; altrimenti (build vecchie) applica la rotazione dai metadati.
+    Straightens (rotation) and crops (letterbox) the frames, once per video.
+    If OpenCV already applied the orientation (auto_applied=True) it does NOT
+    rotate again; otherwise (old builds) it applies the rotation from the metadata.
     """
 
     def __init__(self, video_path: Path, auto_applied: bool = True) -> None:
+        """
+        Initialize the normalizer. Calculates the required rotation 
+        from video metadata if OpenCV has not already applied it.
+        """
         import cv2
 
         self.cv2 = cv2
 
-        # Rotazione manuale da applicare NOI (oltre a quella eventuale di OpenCV).
+        # Manual rotation for US to apply (on top of OpenCV's, if any).
         if config.VIDEO_ROTATION == "auto":
-            # OpenCV moderno raddrizza da solo -> 0; build vecchie -> dai metadati.
+            # modern OpenCV straightens by itself -> 0; old builds -> from metadata.
             self.rotation = 0 if auto_applied else _probe_rotation(video_path)
         else:
             self.rotation = int(config.VIDEO_ROTATION) % 360
@@ -188,16 +206,22 @@ class VideoNormalizer:
         self._crop_ready = False
 
     def _rotate(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Apply rotation to the frame if a rotation code was computed.
+        """
         return self.cv2.rotate(frame, self._rot_code) if self._rot_code else frame
 
     def _ensure_crop(self, rotated: np.ndarray) -> None:
+        """
+        Determine the crop boundaries on the first frame and store them for reuse.
+        """
         if self._crop_ready:
             return
         mode = config.LETTERBOX_CROP
         h, w = rotated.shape[:2]
         if mode is None:
             self._crop = (0, 0, w, h)
-        elif isinstance(mode, tuple):  # coordinate normalizzate fisse
+        elif isinstance(mode, tuple):  # fixed normalized coordinates
             x1, y1, x2, y2 = mode
             self._crop = (int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h))
         else:  # "auto"
@@ -216,6 +240,9 @@ class VideoNormalizer:
         )
 
     def apply(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Rotate and crop the frame to remove black letterboxes.
+        """
         rotated = self._rotate(frame)
         self._ensure_crop(rotated)
         x1, y1, x2, y2 = self._crop  # type: ignore[misc]
@@ -228,8 +255,8 @@ def iter_sampled_frames(
     normalize: bool = True,
 ) -> Iterator[tuple[float, np.ndarray]]:
     """
-    Genera (timestamp_s, frame_BGR) campionando a `frames_per_second`.
-    Se `normalize` e' True, raddrizza e ritaglia ogni frame.
+    Yields (timestamp_s, frame_BGR) sampling at `frames_per_second`.
+    If `normalize` is True, straightens and crops every frame.
     """
     import cv2
 
@@ -252,7 +279,7 @@ def iter_sampled_frames(
 
 
 def get_frame_at(video_path: Path, timestamp_s: float, normalize: bool = True) -> np.ndarray:
-    """Restituisce un singolo frame al tempo dato (normalizzato di default)."""
+    """Return a single frame at the given time (normalized by default)."""
     import cv2
 
     cap, auto_applied = open_capture(video_path)
@@ -269,40 +296,43 @@ def get_frame_at(video_path: Path, timestamp_s: float, normalize: bool = True) -
 
 
 # --------------------------------------------------------------------------- #
-# Eventi -> feature per il modello di prosodia (UNA sola codifica)             #
+# Events -> features for the prosody model (ONE single encoding)              #
 # --------------------------------------------------------------------------- #
 def event_to_features(event_type: str, importance: float, audio_energy: float = 0.5) -> np.ndarray:
     """
-    Vettore di input del modello: [importanza, audio_energy, one-hot su
-    config.EVENT_TYPES]. Identico in training (Fase 3) e sintesi (Fase 4):
-    ogni tipo ha la sua colonna.
+    Model input vector: [importance, audio_energy, one-hot over
+    config.EVENT_TYPES]. Identical in training (Phase 3) and synthesis (Phase 4):
+    each type has its own column.
 
-    audio_energy e' l'eccitazione REALE del pubblico misurata dalla Fase 1c
-    (AudioEnergyAnalyzer: RMS + centroide spettrale + onset, in [0,1]) nella
-    finestra audio dell'evento. Prima veniva calcolata e poi ignorata dal
-    modello di prosodia (finiva solo nel prompt testuale della Fase 2b):
-    ora e' una feature vera, cosi' la prosodia risponde a QUANTO il pubblico
-    ha reagito in quel momento specifico, non solo al tipo astratto di evento.
-    Default 0.5 (neutro) quando la Fase 1c non e' stata eseguita.
+    audio_energy is the REAL crowd excitement measured by Phase 1c
+    (AudioEnergyAnalyzer: RMS + spectral centroid + onset, in [0,1]) in the
+    event's audio window. Before, it was computed and then ignored by the
+    prosody model (it only ended up in Phase 2b's text prompt): now it is a
+    real feature, so the prosody responds to HOW MUCH the crowd reacted at that
+    specific moment, not only to the abstract event type. Default 0.5 (neutral)
+    when Phase 1c was not run.
     """
     one_hot = [1.0 if event_type == t else 0.0 for t in config.EVENT_TYPES]
     return np.asarray([importance, audio_energy, *one_hot], dtype=np.float32)
 
 
-FEATURE_DIM: int = 2 + len(config.EVENT_TYPES)  # importanza + audio_energy + one-hot
+FEATURE_DIM: int = 2 + len(config.EVENT_TYPES)  # importance + audio_energy + one-hot
 
 
 # --------------------------------------------------------------------------- #
-# Modello di prosodia (qui, per disaccoppiare Fase 3 e Fase 4)                 #
+# Prosody model (here, to decouple Phase 3 and Phase 4)                       #
 # --------------------------------------------------------------------------- #
 def build_prosody_mlp(in_dim: int, hidden: tuple[int, ...], out_dim: int):
-    """Crea l'MLP. Import locale di torch: pesante, solo quando serve."""
+    """Create the MLP. Local torch import: heavy, only when needed."""
     import torch.nn as nn
 
     class ProsodyMLP(nn.Module):
-        """MLP di regressione: feature evento -> [rate, pitch, energy]."""
+        """Regression MLP: event feature -> [rate, pitch, energy]."""
 
         def __init__(self) -> None:
+            """
+            Initialize the MLP with the given hidden dimensions.
+            """
             super().__init__()
             layers: list = []
             prev = in_dim
@@ -313,13 +343,16 @@ def build_prosody_mlp(in_dim: int, hidden: tuple[int, ...], out_dim: int):
             self.net = nn.Sequential(*layers)
 
         def forward(self, x):
+            """
+            Forward pass of the MLP to predict prosody parameters.
+            """
             return self.net(x)
 
     return ProsodyMLP()
 
 
 # --------------------------------------------------------------------------- #
-# Applicazione della prosodia all'audio neutro (DSP)                           #
+# Applying the prosody to the neutral audio (DSP)                             #
 # --------------------------------------------------------------------------- #
 def apply_prosody(
     waveform: np.ndarray,
@@ -329,11 +362,11 @@ def apply_prosody(
     energy_gain: float,
 ) -> np.ndarray:
     """
-    Trasforma un'onda NEUTRA secondo i parametri prosodici.
-    - rate_factor     > 1 accelera (telecronaca concitata).
-    - pitch_semitones > 0 alza il tono.
-    - energy_gain     > 1 aumenta il volume.
-    Disaccoppia il CONTRIBUTO (mappatura evento->prosodia) dal motore TTS.
+    Transform a NEUTRAL wave according to the prosody parameters.
+    - rate_factor     > 1 speeds up (excited commentary).
+    - pitch_semitones > 0 raises the pitch.
+    - energy_gain     > 1 increases the volume.
+    Decouples the CONTRIBUTION (event->prosody mapping) from the TTS engine.
     """
     import pyworld as pw
     import scipy.interpolate
@@ -341,20 +374,20 @@ def apply_prosody(
     # pyworld requires 64-bit float array
     x = waveform.astype(np.float64)
 
-    # 1. Estrarre le caratteristiche vocali
+    # 1. Extract the vocal features
     _f0, t = pw.dio(x, sample_rate)
     f0 = pw.stonemask(x, _f0, t, sample_rate)
     sp = pw.cheaptrick(x, f0, t, sample_rate)
     ap = pw.d4c(x, f0, t, sample_rate)
 
-    # 2. Modifica del pitch (tono)
+    # 2. Pitch modification
     if abs(pitch_semitones) > 1e-3:
         pitch_ratio = 2.0 ** (float(pitch_semitones) / 12.0)
         f0 = f0 * pitch_ratio
 
-    # 3. Modifica della velocità (rate)
+    # 3. Rate (speed) modification
     if abs(rate_factor - 1.0) > 1e-3:
-        # rate_factor > 1 accelera (durata minore)
+        # rate_factor > 1 speeds up (shorter duration)
         new_length = int(len(f0) / float(rate_factor))
         old_indices = np.arange(len(f0))
         new_indices = np.linspace(0, len(f0) - 1, new_length)
@@ -367,13 +400,13 @@ def apply_prosody(
         sp = np.ascontiguousarray(sp_interp)
         ap = np.ascontiguousarray(ap_interp)
 
-    # 4. Risintetizzare l'audio
+    # 4. Re-synthesize the audio
     out = pw.synthesize(f0, sp, ap, sample_rate, pw.default_frame_period)
     out = out.astype(np.float32)
 
-    # 5. Modifica del volume
+    # 5. Volume modification
     out = out * float(energy_gain)
     peak = float(np.max(np.abs(out))) if out.size else 0.0
-    if peak > 1.0:  # evita clipping
+    if peak > 1.0:  # avoid clipping
         out = out / peak
     return out

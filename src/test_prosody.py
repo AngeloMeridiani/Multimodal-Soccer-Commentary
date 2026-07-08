@@ -1,20 +1,20 @@
 """
-test_prosody.py — diagnostica rapida del modello di prosodia (Fase 3).
+test_prosody.py — quick diagnostic of the prosody model (Phase 3).
 =====================================================================
-Mostra, per OGNI tipo di evento, cosa predice il MODELLO appreso
-(prosody_mlp.pt + scaler) accanto ai valori a REGOLE: cosi' vedi
-a colpo d'occhio se e quanto il modello ha imparato qualcosa di
-diverso dalla baseline.
+Shows, for EACH event type, what the learned MODEL predicts
+(prosody_mlp.pt + scaler) next to the RULE-based values: this way you see
+at a glance whether and how much the model learned something different
+from the baseline.
 
-Con --say sintetizza UNA frase di prova in tre versioni nella
-cartella outputs/audio/ , cosi' puoi ascoltare la differenza:
-    _test_neutral.wav    voce TTS neutra (nessuna prosodia)
-    _test_rulebased.wav  prosodia a REGOLE
-    _test_model.wav      prosodia del MODELLO appreso
+With --say it synthesizes ONE test sentence in three versions in the
+outputs/audio/ folder, so you can hear the difference:
+    _test_neutral.wav    neutral TTS voice (no prosody)
+    _test_rulebased.wav  RULE-based prosody
+    _test_model.wav      learned MODEL prosody
 
-Mettilo nella ROOT del progetto (accanto a config.py / 04_synthesize.py).
+Put it in the project ROOT (next to config.py / 04_synthesize.py).
 
-Uso:
+Usage:
     python test_prosody.py
     python test_prosody.py --say "GOOOL! Ha segnato Messi!" --event goal
     python test_prosody.py --say "Si fa girare il pallone." --event idle
@@ -32,7 +32,7 @@ import config
 
 
 def _load_module(filename: str, modname: str):
-    """Importa un modulo il cui nome file inizia con una cifra (es. 04_*.py)."""
+    """Import a module whose file name starts with a digit (e.g. 04_*.py)."""
     spec = importlib.util.spec_from_file_location(modname, Path(__file__).parent / filename)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -51,7 +51,7 @@ def main() -> None:
 
     synth = _load_module("04_synthesize.py", "synth_mod")
 
-    # Due predittori che condividono ESATTAMENTE il codice della Fase 4.
+    # Two predictors that share EXACTLY the Phase 4 code.
     pred_model = synth.ProsodyPredictor(force_rule_based=False)
     pred_rule = synth.ProsodyPredictor(force_rule_based=True)
 
@@ -65,7 +65,7 @@ def main() -> None:
             "\n",
         )
 
-    # ----- Tabella di confronto MODELLO vs REGOLE ------------------------- #
+    # ----- MODEL vs RULES comparison table -------------------------------- #
     print(
         f"\n{'evento':<14}{'imp':>5}   "
         f"{'rate (mod/reg)':>20}{'pitch (mod/reg)':>20}{'energy (mod/reg)':>20}"
@@ -88,7 +88,7 @@ def main() -> None:
         "reali annotate\nle differenze diventano marcate.\n"
     )
 
-    # ----- Sintesi di prova (opzionale) ----------------------------------- #
+    # ----- Test synthesis (optional) -------------------------------------- #
     if args.say:
         import soundfile as sf
         from utils import apply_prosody

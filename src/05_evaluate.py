@@ -1,18 +1,18 @@
 """
 05_evaluate.py
 ==============
-FASE 5 - Valutazione: studio A/B sugli ascoltatori + test statistico.
+PHASE 5 - Evaluation: A/B study on listeners + statistical test.
 
-Confronta due tracce della STESSA partita:
-  A) prosodia APPRESA (modello, Fase 3)      ->  python 04_synthesize.py --script ...
-  B) prosodia a REGOLE (baseline)            ->  python 04_synthesize.py --script ... --rule-based
+Compares two tracks of the SAME match:
+  A) LEARNED prosody (model, Phase 3)        ->  python 04_synthesize.py --script ...
+  B) RULE-based prosody (baseline)           ->  python 04_synthesize.py --script ... --rule-based
 
-Due comandi:
-  - make-study : prepara un foglio risposte (ascoltatori indicano A o B alla cieca).
-  - analyze    : legge le risposte e calcola la preferenza + test binomiale
-                 (H0: nessuna preferenza, p=0.5).
+Two commands:
+  - make-study : prepares an answer sheet (listeners pick A or B blindly).
+  - analyze    : reads the answers and computes the preference + binomial test
+                 (H0: no preference, p=0.5).
 
-Uso:
+Usage:
     python 05_evaluate.py make-study --model outputs/audio/match1_model.wav \\
                                      --rule  outputs/audio/match1_rulebased.wav --raters 20
     python 05_evaluate.py analyze --responses outputs/study/responses.csv
@@ -36,7 +36,7 @@ MANIFEST_JSON = config.STUDY_DIR / "study_manifest.json"
 
 
 def make_study(model_wav: Path, rule_wav: Path, n_raters: int) -> None:
-    """Crea il manifest (con assegnazione cieca A/B casuale) e un CSV da compilare."""
+    """Create the manifest (with random blind A/B assignment) and a CSV to fill in."""
     set_seed(config.RANDOM_SEED)
     if not model_wav.exists() or not rule_wav.exists():
         raise FileNotFoundError("Servono entrambe le tracce (model e rule-based).")
@@ -44,7 +44,7 @@ def make_study(model_wav: Path, rule_wav: Path, n_raters: int) -> None:
     ensure_dir(MANIFEST_JSON)
     rows = []
     for rid in range(1, n_raters + 1):
-        # Per ogni ascoltatore randomizziamo quale traccia e' "A" (anti-bias d'ordine).
+        # For each listener we randomize which track is "A" (order anti-bias).
         model_is_a = random.random() < 0.5
         rows.append(
             {
@@ -62,7 +62,7 @@ def make_study(model_wav: Path, rule_wav: Path, n_raters: int) -> None:
         writer = csv.DictWriter(f, fieldnames=["rater_id", "preference", "model_label"])
         writer.writeheader()
         for r in rows:
-            # 'preference' va compilato dall'ascoltatore con 'A' o 'B'.
+            # 'preference' is filled by the listener with 'A' or 'B'.
             writer.writerow(
                 {"rater_id": r["rater_id"], "preference": "", "model_label": r["model_label"]}
             )
@@ -73,7 +73,7 @@ def make_study(model_wav: Path, rule_wav: Path, n_raters: int) -> None:
 
 
 def analyze(responses_csv: Path) -> dict:
-    """Legge le risposte e calcola preferenza per il modello + test binomiale."""
+    """Read the answers and compute the model preference + binomial test."""
     with open(responses_csv, encoding="utf-8") as f:
         rows = [r for r in csv.DictReader(f) if r.get("preference", "").strip()]
 
@@ -81,8 +81,8 @@ def analyze(responses_csv: Path) -> dict:
         raise ValueError("Nessuna risposta compilata nella colonna 'preference'.")
 
     n = len(rows)
-    # Conta quante volte e' stata preferita la traccia del MODELLO (gestendo la
-    # randomizzazione A/B: model_label dice quale lettera era il modello).
+    # Count how many times the MODEL track was preferred (handling the A/B
+    # randomization: model_label says which letter was the model).
     model_pref = sum(
         1 for r in rows if r["preference"].strip().upper() == r["model_label"].strip().upper()
     )
@@ -93,7 +93,7 @@ def analyze(responses_csv: Path) -> dict:
         from scipy.stats import binomtest
 
         p_value = binomtest(model_pref, n, 0.5, alternative="two-sided").pvalue
-    except Exception:  # fallback senza scipy
+    except Exception:  # fallback without scipy
         p_value = _binom_two_sided(model_pref, n, 0.5)
 
     result = {
@@ -121,7 +121,7 @@ def analyze(responses_csv: Path) -> dict:
 
 
 def _binom_two_sided(k: int, n: int, p: float) -> float:
-    """Test binomiale a due code senza scipy (somma delle code <= prob osservata)."""
+    """Two-sided binomial test without scipy (sum of the tails <= observed prob)."""
     from math import comb
 
     probs = [comb(n, i) * (p**i) * ((1 - p) ** (n - i)) for i in range(n + 1)]
@@ -130,6 +130,10 @@ def _binom_two_sided(k: int, n: int, p: float) -> float:
 
 
 def main() -> None:
+    """
+    Main entry point for Phase 5.
+    Provides subcommands to generate a listener study or analyze its results.
+    """
     parser = argparse.ArgumentParser(description="Fase 5 - Valutazione A/B")
     sub = parser.add_subparsers(dest="command", required=True)
 

@@ -1,22 +1,22 @@
 """
-01_extract_events.py  (versione corretta, self-contained)
+01_extract_events.py  (fixed, self-contained version)
 =========================================================
-FASE 1 - Estrazione eventi dall'HUD (Computer Vision / OCR).
+PHASE 1 - Event extraction from the HUD (Computer Vision / OCR).
 
-Correzioni rispetto alla versione precedente:
-  * GOL: non basta piu' che la somma del punteggio salga. Serve +1 ESATTO a una
-    squadra, l'altra invariata, punteggi plausibili e variazione CONFERMATA su
-    piu' frame (debounce). Uccide i "gol fantasma" da mislettura (es. 16->18).
-  * NOMI: ogni targhetta viene agganciata alla rosa (config.ROSTER_HOME/AWAY)
-    con match esatto/sottostringa/fuzzy. "INHOS"->MARQUINHOS, "NDRO"->ALEX SANDRO.
-    I frammenti troppo corti restano marcati incerti (player_resolved=False).
-  * SQUADRA: l'attore non e' piu' "sempre home". Si deriva dalla rosa del nome
-    agganciato; se entrambe le targhette sono leggibili il possesso e' ambiguo
-    dalla sola HUD e va confermato in Fase 1b (possession_certain=False).
+Fixes over the previous version:
+  * GOAL: it is no longer enough that the score sum rises. It requires EXACTLY
+    +1 to one team, the other unchanged, plausible scores and a CONFIRMED change
+    over several frames (debounce). Kills the "phantom goals" from misreads (e.g. 16->18).
+  * NAMES: every nameplate is snapped to the roster (config.ROSTER_HOME/AWAY)
+    with exact/substring/fuzzy match. "INHOS"->MARQUINHOS, "NDRO"->ALEX SANDRO.
+    Fragments that are too short stay marked uncertain (player_resolved=False).
+  * TEAM: the actor is no longer "always home". It is derived from the roster of
+    the snapped name; if both nameplates are readable the possession is ambiguous
+    from the HUD alone and must be confirmed in Phase 1b (possession_certain=False).
 
-Tutta la logica di validazione/aggancio e' QUI dentro: nessun file aggiuntivo.
+All the validation/snapping logic is HERE inside: no extra file.
 
-Output: features/events/<nome_video>.json
+Output: features/events/<video_name>.json
 """
 
 from __future__ import annotations
@@ -35,22 +35,22 @@ from utils import ensure_dir, get_logger, iter_sampled_frames, save_json
 
 logger = get_logger("fase1_eventi")
 
-# --- parametri (dalla config, con fallback se non definiti) ---------------- #
+# --- parameters (from the config, with fallback if undefined) -------------- #
 MAX_SCORE = getattr(config, "MAX_PLAUSIBLE_SCORE", 9)
 CONFIRM_N = getattr(config, "GOAL_CONFIRM_FRAMES", 2)
 NAME_MIN_CONF = getattr(config, "OCR_NAME_MIN_CONFIDENCE", 0.15)
-NAME_MIN_FRAGMENT = 3  # sotto questa lunghezza NON si tenta il match ("RO","AA")
-NAME_RATIO_THRESHOLD = 0.62  # similarita' minima per accettare un match "fuzzy"
-# Nota: rose, regioni HUD e lato attivo NON sono cablati qui: si leggono dal
-# PROFILO HUD attivo (config.ROSTER_HOME/ROSTER_AWAY/HUD_REGIONS/HUD_ACTIVE_SIDE),
-# scelto a runtime in base alla risoluzione o a --profile.
+NAME_MIN_FRAGMENT = 3  # below this length the match is NOT attempted ("RO","AA")
+NAME_RATIO_THRESHOLD = 0.62  # minimum similarity to accept a "fuzzy" match
+# Note: rosters, HUD regions and active side are NOT hard-wired here: they are
+# read from the active HUD PROFILE (config.ROSTER_HOME/ROSTER_AWAY/HUD_REGIONS/
+# HUD_ACTIVE_SIDE), chosen at runtime based on the resolution or on --profile.
 
 
 # =========================================================================== #
-# Aggancio dei nomi alla rosa (ex events_cleanup)                             #
+# Snapping the names to the roster (formerly events_cleanup)                  #
 # =========================================================================== #
 def normalize_name(raw: str | None) -> str:
-    """MAIUSCOLO, via numeri di maglia e simboli, spazi compattati."""
+    """UPPERCASE, remove jersey numbers and symbols, collapse spaces."""
     if not raw:
         return ""
     name = re.sub(r"[^A-Za-zÀ-ÿ ]", " ", raw).upper()
@@ -58,11 +58,14 @@ def normalize_name(raw: str | None) -> str:
 
 
 def _compact(s: str) -> str:
+    """
+    Remove all spaces from a string for more robust matching.
+    """
     return s.replace(" ", "")
 
 
 def _best_in_roster(name: str, roster: list[str]) -> tuple[str | None, float]:
-    """Miglior candidato nella rosa e relativo punteggio [0,1]."""
+    """Best candidate in the roster and its score [0,1]."""
     if not name:
         return None, 0.0
     if name in roster:
@@ -72,11 +75,11 @@ def _best_in_roster(name: str, roster: list[str]) -> tuple[str | None, float]:
     for cand in roster:
         cc = _compact(cand)
         score = 0.0
-        # (a) Contenimento (frammenti tronchi: "INHOS" in "MARQUINHOS").
+        # (a) Containment (truncated fragments: "INHOS" in "MARQUINHOS").
         if len(name) >= NAME_MIN_FRAGMENT and (nc in cc or cc in nc):
             shorter, longer = sorted((len(nc), len(cc)))
             score = 0.6 + 0.4 * (shorter / max(longer, 1))
-        # (b) Similarita' fuzzy sull'intera stringa e sulle singole parole.
+        # (b) Fuzzy similarity on the whole string and on the single words.
         ratio = SequenceMatcher(None, nc, cc).ratio()
         for w in cand.split():
             ratio = max(ratio, SequenceMatcher(None, nc, w).ratio())
@@ -88,8 +91,8 @@ def _best_in_roster(name: str, roster: list[str]) -> tuple[str | None, float]:
 
 def snap_name(raw: str | None) -> dict:
     """
-    Aggancia una lettura OCR alle rose. Ritorna {name, team, confidence, matched}.
-    Se incerto: name = nome normalizzato grezzo, matched=False.
+    Snap an OCR reading to the rosters. Returns {name, team, confidence, matched}.
+    If uncertain: name = raw normalized name, matched=False.
     """
     name = normalize_name(raw)
     if not name:
@@ -114,9 +117,12 @@ def snap_name(raw: str | None) -> dict:
 
 
 # =========================================================================== #
-# Validazione punteggio / gol                                                 #
+# Score / goal validation                                                     #
 # =========================================================================== #
 def _plausible(score) -> bool:
+    """
+    Check if the given score tuple is valid and within realistic bounds.
+    """
     return (
         isinstance(score, (list, tuple))
         and len(score) == 2
@@ -125,7 +131,7 @@ def _plausible(score) -> bool:
 
 
 def is_real_goal(prev_score, curr_score) -> bool:
-    """Gol vero solo se +1 ESATTO a una squadra, l'altra invariata, plausibili."""
+    """Real goal only if EXACTLY +1 to one team, the other unchanged, plausible."""
     if not (_plausible(prev_score) and _plausible(curr_score)):
         return False
     dh = curr_score[0] - prev_score[0]
@@ -134,12 +140,15 @@ def is_real_goal(prev_score, curr_score) -> bool:
 
 
 # =========================================================================== #
-# OCR dell'HUD                                                                #
+# HUD OCR                                                                     #
 # =========================================================================== #
 class HudReader:
-    """OCR sulle regioni dell'HUD di un singolo frame normalizzato."""
+    """OCR on the HUD regions of a single normalized frame."""
 
     def __init__(self, languages: list[str], min_confidence: float) -> None:
+        """
+        Initialize the EasyOCR reader with the specified languages and confidence threshold.
+        """
         import easyocr
 
         logger.info("Inizializzo EasyOCR (lingue=%s)...", languages)
@@ -148,6 +157,9 @@ class HudReader:
 
     @staticmethod
     def _crop(frame: np.ndarray, region: tuple[float, float, float, float]) -> np.ndarray:
+        """
+        Crop a normalized frame using the given fractional region coordinates.
+        """
         h, w = frame.shape[:2]
         x1, y1, x2, y2 = region
         return frame[int(y1 * h) : int(y2 * h), int(x1 * w) : int(x2 * w)]
@@ -161,6 +173,10 @@ class HudReader:
         paragraph: bool = False,
         resize: int = 1,
     ) -> str:
+        """
+        Read text from a specific region of the frame using OCR.
+        Applies resizing and optional allowlists to improve read accuracy.
+        """
         crop = self._crop(frame, region)
         if crop.size == 0:
             return ""
@@ -191,9 +207,9 @@ class HudReader:
 
 def parse_score(text: str) -> tuple[int, int] | None:
     """
-    Estrae (home, away) tenendo SOLO numeri plausibili (0..MAX_SCORE) e prendendo
-    il PRIMO e l'ULTIMO: cosi' l'icona/trofeo in mezzo ai due punteggi (letta a
-    volte come '8') viene scartata invece di entrare nel risultato.
+    Extract (home, away) keeping ONLY plausible numbers (0..MAX_SCORE) and taking
+    the FIRST and the LAST: this way the icon/trophy between the two scores (read
+    sometimes as '8') is discarded instead of entering the result.
     """
     nums = [int(n) for n in re.findall(r"\d+", text)]
     nums = [n for n in nums if 0 <= n <= MAX_SCORE]
@@ -203,43 +219,49 @@ def parse_score(text: str) -> tuple[int, int] | None:
 
 
 def parse_clock(text: str) -> str | None:
+    """
+    Extract a valid mm:ss clock time from the raw OCR text.
+    """
     m = re.search(r"(\d{1,3})\s*[:\.]\s*(\d{2})", text)
     return f"{int(m.group(1))}:{m.group(2)}" if m else None
 
 
 # =========================================================================== #
-# Euristica del possesso dalle targhette HUD                                  #
+# Possession heuristic from the HUD nameplates                               #
 # =========================================================================== #
 class PossessionHeuristic:
     """
-    Deduce il possesso dalle SOLE targhette HUD, quando il lato attivo non e'
-    forzato (HUD_ACTIVE_SIDE=None). Le targhette mostrano il giocatore
-    SELEZIONATO di ciascuna squadra, quindi il possesso va inferito da COME
-    cambiano nel tempo. Tre segnali, in ordine:
+    Infers the possession from the HUD nameplates ALONE, when the active side is
+    not forced (HUD_ACTIVE_SIDE=None). The nameplates show the SELECTED player of
+    each team, so the possession must be inferred from HOW they change over time.
+    Three signals, in order:
 
-      1) AVVIO: il primo lato che cambia targhetta ha la palla (il gioco
-         aggiorna il giocatore selezionato di chi sta manovrando).
-      2) FREQUENZA: nella finestra scorrevole il lato che cambia targhetta
-         molto piu' spesso dell'altro ha la palla (serve un margine di
-         MIN_MARGIN cambi per evitare falsi sorpassi).
-      3) SILENZIO: se ENTRAMBI i lati sono fermi da INACTIVITY_S e il possesso
-         dura da almeno MIN_DURATION_S, probabile cambio di fronte che i
-         segnali 1-2 non hanno visto: si inverte (fallback prudente).
+      1) START: the first side to change nameplate has the ball (the game
+         updates the selected player of whoever is maneuvering).
+      2) FREQUENCY: in the sliding window the side that changes nameplate much
+         more often than the other has the ball (a margin of MIN_MARGIN changes
+         is required to avoid false overtakes).
+      3) SILENCE: if BOTH sides have been still for INACTIVITY_S and the
+         possession has lasted at least MIN_DURATION_S, a likely change of side
+         that signals 1-2 did not see: it flips (prudent fallback).
     """
 
-    WINDOW_S = 2.0  # ampiezza finestra dei cambi (2s = reattiva ai cambi veloci)
-    MIN_MARGIN = 1  # cambi in piu' richiesti per il sorpasso (segnale 2)
-    INACTIVITY_S = 2.0  # da quanti secondi un lato e' "fermo" (segnale 3)
-    MIN_DURATION_S = 8.0  # durata minima del possesso prima del flip (segnale 3)
+    WINDOW_S = 2.0  # width of the changes window (2s = responsive to fast changes)
+    MIN_MARGIN = 1  # extra changes required for the overtake (signal 2)
+    INACTIVITY_S = 2.0  # how long a side has been "still" (signal 3)
+    MIN_DURATION_S = 8.0  # minimum possession duration before the flip (signal 3)
 
     def __init__(self) -> None:
+        """
+        Initialize the heuristic tracker with empty change history.
+        """
         self.current: str | None = None
-        self._changes: deque[tuple[float, str]] = deque()  # (t, lato) recenti
+        self._changes: deque[tuple[float, str]] = deque()  # recent (t, side)
         self._last_change = {"home": 0.0, "away": 0.0}
-        self._start_t: float | None = None  # inizio possesso corrente
+        self._start_t: float | None = None  # start of the current possession
 
     def update(self, t: float, home_changed: bool, away_changed: bool) -> str | None:
-        """Registra i cambi targhetta al tempo t e ritorna il possesso corrente."""
+        """Record the nameplate changes at time t and return the current possession."""
         for side, changed in (("home", home_changed), ("away", away_changed)):
             if changed:
                 self._changes.append((t, side))
@@ -249,11 +271,11 @@ class PossessionHeuristic:
 
         prev = self.current
 
-        # 1) Avvio: il primo lato che si muove prende il possesso.
+        # 1) Start: the first side to move takes the possession.
         if self.current is None and (home_changed or away_changed):
             self.current = "home" if home_changed else "away"
 
-        # 2) Frequenza dei cambi nella finestra scorrevole.
+        # 2) Frequency of the changes in the sliding window.
         n_home = sum(1 for _, side in self._changes if side == "home")
         n_away = sum(1 for _, side in self._changes if side == "away")
         if self.current == "home" and n_away > n_home + self.MIN_MARGIN:
@@ -261,10 +283,10 @@ class PossessionHeuristic:
         elif self.current == "away" and n_home > n_away + self.MIN_MARGIN:
             self.current = "home"
 
-        # Segnale 3 (silence flip) RIMOSSO: causava falsi cambi di possesso
-        # ogni frame quando entrambe le targhette erano ferme, generando
-        # cascate di eventi spuri. Il possesso ora cambia SOLO quando le
-        # targhette mostrano attivita' reale (segnali 1 e 2).
+        # Signal 3 (silence flip) REMOVED: it caused false possession changes
+        # every frame when both nameplates were still, generating cascades of
+        # spurious events. The possession now changes ONLY when the nameplates
+        # show real activity (signals 1 and 2).
 
         if self.current != prev:
             self._start_t = t
@@ -272,11 +294,15 @@ class PossessionHeuristic:
 
 
 # =========================================================================== #
-# Estrazione                                                                   #
+# Extraction                                                                  #
 # =========================================================================== #
 def extract_events(
     video_path: Path, reader: HudReader, limit: int | None, profile_name: str = "auto"
 ) -> list[dict]:
+    """
+    Process the video frame-by-frame and extract HUD events like passes, turnovers, and goals.
+    Uses OCR to read the score and active player nameplates.
+    """
     events: list[dict] = []
     confirmed_score = None
     pending_score, pending_count = None, 0
@@ -296,8 +322,8 @@ def extract_events(
             break
         processed += 1
 
-        # Sceglie e applica il PROFILO HUD una volta sola, sul primo frame
-        # normalizzato (in base alla risoluzione, o forzato da --profile).
+        # Choose and apply the HUD PROFILE only once, on the first normalized
+        # frame (based on the resolution, or forced by --profile).
         if not profile_applied:
             h, w = frame.shape[:2]
             pname, prof = config.select_profile(w, h, profile_name)
@@ -330,13 +356,13 @@ def extract_events(
             logger.debug("Frame a %.1fs saltato: %s", timestamp, exc)
             continue
 
-        # --- punteggio con debounce ---
-        # Un punteggio diventa "ufficiale" solo se letto identico per CONFIRM_N
-        # frame consecutivi: filtra il flicker dell'OCR (es. "1-0" letto "7-0").
+        # --- score with debounce ---
+        # A score becomes "official" only if read identical for CONFIRM_N
+        # consecutive frames: filters the OCR flicker (e.g. "1-0" read as "7-0").
         score = parse_score(score_txt)
         if score is not None:
-            # parse_score ritorna sempre una tupla (home, away): il confronto
-            # diretto con pending_score (tupla o None al primo giro) basta.
+            # parse_score always returns a (home, away) tuple: the direct
+            # comparison with pending_score (tuple or None on the first pass) is enough.
             if score == pending_score:
                 pending_count += 1
             else:
@@ -345,11 +371,11 @@ def extract_events(
         else:
             became_official = False
 
-        # --- nomi agganciati alla rosa (entrambe le targhette sono SEMPRE a video) ---
+        # --- names snapped to the roster (both nameplates are ALWAYS on screen) ---
         snap_h = snap_name(home_txt)
         snap_a = snap_name(away_txt)
 
-        # --- possesso e giocatore attivo -------------------------------- #
+        # --- possession and active player ------------------------------- #
         home_changed = bool(snap_h["name"]) and snap_h["name"] != prev_home
         away_changed = bool(snap_a["name"]) and snap_a["name"] != prev_away
 
@@ -358,23 +384,23 @@ def extract_events(
         else:
             current_possession = heuristic.update(timestamp, home_changed, away_changed)
 
-        # Gli eventi si registrano SOLO sul lato in possesso.
+        # Events are recorded ONLY on the side in possession.
         active = snap_h if current_possession == "home" else snap_a
         active_side_changed = home_changed if current_possession == "home" else away_changed
 
         team = active["team"] or ("home" if active is snap_h else "away")
         active_name = active["name"]
 
-        # --- classificazione ---
+        # --- classification ---
         event_type = "idle"
 
-        # Se il possesso e' appena cambiato, registriamo un turnover.
+        # If the possession just changed, we record a turnover.
         if last_possession and current_possession != last_possession:
             event_type = "turnover"
         elif became_official and is_real_goal(confirmed_score, pending_score):
             event_type = "goal"
         elif active_name and active_name != prev_active and active_side_changed:
-            event_type = "pass"  # cambio del giocatore controllato SUL LATO IN POSSESSO
+            event_type = "pass"  # change of the controlled player ON THE SIDE IN POSSESSION
 
         last_possession = current_possession
 
@@ -407,6 +433,10 @@ def extract_events(
 
 
 def main() -> None:
+    """
+    Main entry point for Phase 1.
+    Initializes OCR, processes the video, and saves the extracted events to JSON.
+    """
     parser = argparse.ArgumentParser(description="Fase 1 - Estrazione eventi da HUD")
     parser.add_argument("--video", required=True)
     parser.add_argument("--limit", type=int, default=None)

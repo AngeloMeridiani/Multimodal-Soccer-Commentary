@@ -1,10 +1,10 @@
 """
 00_setup.py
 ===========
-Setup iniziale: crea le directory, verifica le dipendenze e genera file di
-esempio per avviare subito la pipeline.
+Initial setup: creates the directories, checks the dependencies and generates
+example files to start the pipeline right away.
 
-Uso:
+Usage:
     python 00_setup.py
 """
 
@@ -30,7 +30,7 @@ REQUIRED_DIRS = [
     config.STUDY_DIR,
 ]
 
-# (modulo, descrizione, obbligatorio)
+# (module, description, required)
 DEPENDENCIES = [
     ("cv2", "OpenCV (opencv-python)", True),
     ("numpy", "NumPy", True),
@@ -49,6 +49,10 @@ DEPENDENCIES = [
 
 
 def create_directories() -> None:
+    """
+    Create all the necessary directories for the project, such as data and models.
+    Also creates a .gitkeep file to ensure directories are tracked by git.
+    """
     logger.info("=== Creazione directory ===")
     for d in REQUIRED_DIRS:
         d.mkdir(parents=True, exist_ok=True)
@@ -57,6 +61,10 @@ def create_directories() -> None:
 
 
 def check_dependencies():
+    """
+    Check if all the required and optional python packages are installed.
+    Logs warnings for any missing packages.
+    """
     logger.info("=== Verifica dipendenze ===")
     ok, missing = [], []
     for module, desc, required in DEPENDENCIES:
@@ -72,6 +80,10 @@ def check_dependencies():
 
 
 def create_example_annotations() -> None:
+    """
+    Create an example CSV file for prosody annotations if it does not already exist.
+    Provides a template for manual prosody event tagging.
+    """
     csv_path = config.PROSODY_ANNOTATIONS
     if csv_path.exists():
         logger.info("Annotazioni gia' presenti: %s", csv_path)
@@ -91,6 +103,10 @@ def create_example_annotations() -> None:
 
 
 def main() -> None:
+    """
+    Main entry point for the setup script.
+    Executes directory creation, dependency checks, and annotation setup.
+    """
     print("=" * 64)
     print("  SETUP - Telecronaca AI per EA FC / FIFA")
     print("=" * 64)

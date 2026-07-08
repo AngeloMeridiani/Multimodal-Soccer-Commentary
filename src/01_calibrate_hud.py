@@ -1,17 +1,17 @@
 """
 01_calibrate_hud.py
 ===================
-Aiuto alla CALIBRAZIONE delle regioni HUD (Fase 1).
+Helper to CALIBRATE the HUD regions (Phase 1).
 
-Estrae un frame, lo normalizza (rotazione + crop letterbox) e ci disegna sopra
-i rettangoli di config.HUD_REGIONS, salvando un'immagine annotata. Cosi' vedi
-SE le box cadono dove devono (punteggio, cronometro, le due targhette) e puoi
-correggere le coordinate in config.py.
+Extracts a frame, normalizes it (rotation + letterbox crop) and draws on top
+the config.HUD_REGIONS rectangles, saving an annotated image. This way you see
+IF the boxes land where they should (score, clock, the two nameplates) and you
+can fix the coordinates in config.py.
 
-Con --ocr esegue anche EasyOCR su ogni regione e stampa cosa legge (utile per
-verificare punteggio e nomi prima di lanciare l'estrazione vera).
+With --ocr it also runs EasyOCR on each region and prints what it reads (useful
+to check score and names before launching the real extraction).
 
-Uso:
+Usage:
     python 01_calibrate_hud.py --video data/raw/gameplay/match1.mp4
     python 01_calibrate_hud.py --video data/raw/gameplay/match1.mp4 --time 25 --ocr
 """
@@ -28,7 +28,7 @@ from utils import ensure_dir, get_frame_at, get_logger
 
 logger = get_logger("calibrazione_hud")
 
-# Colore per ogni regione (BGR) — solo per l'anteprima.
+# Color for each region (BGR) — only for the preview.
 _COLORS = {
     "score": (60, 200, 60),
     "clock": (60, 200, 200),
@@ -38,6 +38,10 @@ _COLORS = {
 
 
 def draw_regions(frame, regions: dict) -> "cv2.Mat":
+    """
+    Draw rectangles and labels for the configured HUD regions on the provided frame.
+    Returns the annotated frame for visualization.
+    """
     h, w = frame.shape[:2]
     annotated = frame.copy()
     for name, (x1, y1, x2, y2) in regions.items():
@@ -59,6 +63,10 @@ def draw_regions(frame, regions: dict) -> "cv2.Mat":
 
 
 def run_ocr(frame, regions: dict) -> dict[str, str]:
+    """
+    Run EasyOCR on the specified regions of the frame.
+    Returns a dictionary mapping region names to the extracted text.
+    """
     import easyocr
 
     reader = easyocr.Reader(config.OCR_LANGUAGES, gpu=False)
@@ -75,6 +83,10 @@ def run_ocr(frame, regions: dict) -> dict[str, str]:
 
 
 def main() -> None:
+    """
+    Main entry point for the HUD calibration script.
+    Extracts a frame, annotates regions, and optionally runs OCR for verification.
+    """
     parser = argparse.ArgumentParser(description="Calibrazione regioni HUD")
     parser.add_argument("--video", required=True, help="Percorso del video.")
     parser.add_argument(
@@ -93,7 +105,7 @@ def main() -> None:
     if not video_path.exists():
         raise FileNotFoundError(f"Video non trovato: {video_path}")
 
-    # Tempo di default: meta' del video.
+    # Default time: half of the video.
     t = args.time
     if t is None:
         cap = cv2.VideoCapture(str(video_path))

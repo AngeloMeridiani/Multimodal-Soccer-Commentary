@@ -1,7 +1,7 @@
 [
   {
     "t": 0.0,
-    "text": "Donnarumma distributes.",
+    "text": "Donnarumma lancia.",
     "event_type": "pass",
     "importance": 0.25,
     "audio_energy_level": "low",
@@ -19,7 +19,7 @@
   },
   {
     "t": 6.34,
-    "text": "O’Reilly surges forward.",
+    "text": "O’Reilly si fa largo.",
     "event_type": "carry",
     "importance": 0.2,
     "audio_energy_level": "low",
@@ -28,7 +28,7 @@
   },
   {
     "t": 10.17,
-    "text": "O'reilly strides forward.",
+    "text": "O’Reilly si inerpica.",
     "event_type": "carry",
     "importance": 0.2,
     "audio_energy_level": "low",
@@ -37,7 +37,7 @@
   },
   {
     "t": 12.5,
-    "text": "Olise retrieves possession swiftly.",
+    "text": "Recupera il possesso Olise, riprende velocità.",
     "event_type": "turnover",
     "importance": 0.55,
     "audio_energy_level": "medium",
@@ -55,7 +55,7 @@
   },
   {
     "t": 17.02,
-    "text": "Olise pushes forward.",
+    "text": "Si fa largo Olise.",
     "event_type": "carry",
     "importance": 0.2,
     "audio_energy_level": "low",
@@ -73,7 +73,7 @@
   },
   {
     "t": 20.52,
-    "text": "Olise strikes! A ferocious attempt attempts to test Donnarumma.",
+    "text": "Calcia Olise! Un tiro potente verso l’area, un tentativo di rovesciata... Donnarumma si distende!",
     "event_type": "shot_on_goal",
     "importance": 0.85,
     "audio_energy_level": "high",
@@ -82,7 +82,7 @@
   },
   {
     "t": 21.02,
-    "text": "Donnarumma saves! A magnificent denial prevents a certain strike!",
+    "text": "Vola Donnarumma! Un miracolo incredibile, respinge a terra il tiro di Olise!",
     "event_type": "save",
     "importance": 0.8,
     "audio_energy_level": "peak",

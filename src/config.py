@@ -1,25 +1,25 @@
 """
 config.py
 =========
-Configurazione centralizzata della pipeline di telecronaca per videogiochi.
+Centralized configuration of the video-game commentary pipeline.
 
-Tutti i percorsi sono RELATIVI alla root del progetto. L'unico file da toccare
-per cambiare comportamento (rotazione/crop video, regioni HUD, soglie,
-iperparametri, template) e' questo.
+All paths are RELATIVE to the project root. The only file to touch to change
+behavior (video rotation/crop, HUD regions, thresholds, hyperparameters,
+templates) is this one.
 
-Layout PIATTO: questo file e gli script "NN_*.py" stanno nella stessa cartella,
-che e' anche la root del progetto. Le cartelle dati vengono create QUI dentro.
+FLAT layout: this file and the "NN_*.py" scripts live in the same folder,
+which is also the project root. The data folders are created HERE inside.
 
-Pipeline "a staffetta":
-    Fase 0  (norm.)    -> raddrizza il video (rotazione) e ritaglia le bande nere.
-    Fase 1  (eventi)   -> OCR dell'HUD (punteggio + targhette) -> log eventi JSON.
-    Fase 1b (visivo)   -> YOLO + OpenCV: tiri, parate, corner.
-    Fase 1c (audio)    -> eccitazione del tifo (Librosa) + trascrizione (Whisper).
-    Fase 2  (script)   -> eventi -> testo di telecronaca (template).
-    Fase 2b (LLM)      -> eventi -> testo di telecronaca (LLM, alternativa).
-    Fase 3  (prosodia) -> ADDESTRA il modello evento->prosodia (il CONTRIBUTO).
-    Fase 4  (sintesi)  -> testo + prosodia -> audio espressivo (Coqui XTTS v2).
-    Fase 5  (valutaz.) -> studio A/B sugli ascoltatori + test statistico.
+"Relay" pipeline:
+    Phase 0  (norm.)    -> straightens the video (rotation) and crops the black bars.
+    Phase 1  (events)   -> HUD OCR (score + nameplates) -> JSON event log.
+    Phase 1b (visual)   -> YOLO + OpenCV: shots, saves, corners.
+    Phase 1c (audio)    -> crowd excitement (Librosa) + transcription (Whisper).
+    Phase 2  (script)   -> events -> commentary text (template).
+    Phase 2b (LLM)      -> events -> commentary text (LLM, alternative).
+    Phase 3  (prosody)  -> TRAINS the event->prosody model (the CONTRIBUTION).
+    Phase 4  (synthesis)-> text + prosody -> expressive audio (Coqui XTTS v2).
+    Phase 5  (eval)     -> A/B study on listeners + statistical test.
 """
 
 from __future__ import annotations
@@ -27,19 +27,19 @@ from __future__ import annotations
 from pathlib import Path
 
 # --------------------------------------------------------------------------- #
-# Lingua della telecronaca                                                     #
+# Commentary language                                                         #
 # --------------------------------------------------------------------------- #
-# Codice ISO 639-1. Deve essere supportato da XTTS v2:
+# ISO 639-1 code. Must be supported by XTTS v2:
 #   en, es, fr, de, it, pt, pl, tr, ru, nl, cs, ar, zh-cn, ja, ko, hu, hi.
-# Tutti i componenti (template, prompt LLM, voce TTS, Whisper) derivano da qui.
-# La variabile d'ambiente COMMENTARY_LANGUAGE sovrascrive il default: permette
-# a run_pipeline.py di propagare la lingua ai sottoprocessi (che reimportano
-# config.py da zero).
+# All the components (templates, LLM prompt, TTS voice, Whisper) derive from here.
+# The COMMENTARY_LANGUAGE environment variable overrides the default: it lets
+# run_pipeline.py propagate the language to the subprocesses (which re-import
+# config.py from scratch).
 import os as _os
 LANGUAGE: str = _os.environ.get("COMMENTARY_LANGUAGE", "it")
 SUPPORTED_LANGUAGES: list[str] = ["it", "en"]
 
-# Placeholder per "giocatore sconosciuto" per lingua.
+# Placeholder for "unknown player", per language.
 UNKNOWN_PLAYER: dict[str, str] = {
     "it": "il giocatore",
     "en": "the player",
@@ -47,24 +47,27 @@ UNKNOWN_PLAYER: dict[str, str] = {
 
 
 def get_unknown_player(lang: str | None = None) -> str:
-    """Restituisce il placeholder localizzato per il giocatore sconosciuto."""
+    """
+    Return the localized placeholder for the unknown player.
+    It falls back to English if the language is not found.
+    """
     return UNKNOWN_PLAYER.get(lang or LANGUAGE, UNKNOWN_PLAYER["en"])
 
 # --------------------------------------------------------------------------- #
-# Percorsi (layout PIATTO: la root e' la cartella di questo file)              #
+# Paths (FLAT layout: the root is this file's folder)                         #
 # --------------------------------------------------------------------------- #
 PROJECT_ROOT: Path = Path(__file__).resolve().parent
 
 DATA_DIR: Path = PROJECT_ROOT / "data"
-GAMEPLAY_DIR: Path = DATA_DIR / "raw" / "gameplay"  # video di gioco (input)
-COMMENTARY_DIR: Path = DATA_DIR / "raw" / "commentary"  # clip telecronache reali
+GAMEPLAY_DIR: Path = DATA_DIR / "raw" / "gameplay"  # gameplay videos (input)
+COMMENTARY_DIR: Path = DATA_DIR / "raw" / "commentary"  # real commentary clips
 PROSODY_ANNOTATIONS: Path = DATA_DIR / "raw" / "prosody_annotations.csv"
 
 FEATURES_DIR: Path = PROJECT_ROOT / "features"
-NORMALIZED_DIR: Path = FEATURES_DIR / "normalized"  # frame/anteprime normalizzate
-EVENTS_DIR: Path = FEATURES_DIR / "events"  # log eventi JSON (Fase 1)
-SCRIPTS_DIR: Path = FEATURES_DIR / "scripts"  # testo telecronaca (Fase 2)
-PROSODY_DIR: Path = FEATURES_DIR / "prosody"  # dataset prosodico (Fase 3)
+NORMALIZED_DIR: Path = FEATURES_DIR / "normalized"  # normalized frames/previews
+EVENTS_DIR: Path = FEATURES_DIR / "events"  # JSON event log (Phase 1)
+SCRIPTS_DIR: Path = FEATURES_DIR / "scripts"  # commentary text (Phase 2)
+PROSODY_DIR: Path = FEATURES_DIR / "prosody"  # prosody dataset (Phase 3)
 PROSODY_DATASET: Path = PROSODY_DIR / "prosody_dataset.npz"
 
 MODELS_DIR: Path = PROJECT_ROOT / "models"
@@ -76,66 +79,66 @@ AUDIO_OUT_DIR: Path = OUTPUTS_DIR / "audio"
 STUDY_DIR: Path = OUTPUTS_DIR / "study"
 
 # --------------------------------------------------------------------------- #
-# Fase 0 - Normalizzazione video (rotazione + ritaglio letterbox)             #
+# Phase 0 - Video normalization (rotation + letterbox crop)                   #
 # --------------------------------------------------------------------------- #
-# I video registrati da telefono possono avere un flag di rotazione che OpenCV
-# NON applica, e bande nere laterali. Qui si raddrizza e si ritaglia, una volta
-# sola, prima di tutto il resto.
+# Videos recorded from a phone may have a rotation flag that OpenCV does NOT
+# apply, and black side bars. Here we straighten and crop, once, before
+# everything else.
 #
-# VIDEO_ROTATION: "auto" legge la rotazione dai metadati (cv2/ffprobe);
-#   altrimenti forza un valore in gradi orari: 0, 90, 180, 270.
+# VIDEO_ROTATION: "auto" reads the rotation from the metadata (cv2/ffprobe);
+#   otherwise forces a clockwise value in degrees: 0, 90, 180, 270.
 VIDEO_ROTATION: str | int = "auto"
 
-# LETTERBOX_CROP: "auto" rileva le bande nere sul primo frame e ritaglia;
-#   None disattiva il crop; oppure una tupla normalizzata (x1, y1, x2, y2) in [0,1]
-#   per fissare manualmente l'area di gioco (consigliato dopo la calibrazione).
+# LETTERBOX_CROP: "auto" detects the black bars on the first frame and crops;
+#   None disables the crop; or a normalized tuple (x1, y1, x2, y2) in [0,1]
+#   to fix the play area manually (recommended after calibration).
 LETTERBOX_CROP: str | None | tuple[float, float, float, float] = "auto"
 
-# Sotto questa intensita' (0-255) un pixel e' considerato "nero" (bordo).
+# Below this intensity (0-255) a pixel is considered "black" (border).
 LETTERBOX_BLACK_THRESHOLD: int = 18
-# Frazione minima di pixel non-neri perche' una riga/colonna sia "contenuto".
+# Minimum fraction of non-black pixels for a row/column to be "content".
 LETTERBOX_MIN_FILL: float = 0.05
 
 # --------------------------------------------------------------------------- #
-# Fase 1 - Estrazione eventi (OCR dell'HUD)                                    #
+# Phase 1 - Event extraction (HUD OCR)                                        #
 # --------------------------------------------------------------------------- #
-# L'HUD cambia lentamente: 2 fps bastano e tengono leggero l'OCR.
+# The HUD changes slowly: 2 fps is enough and keeps the OCR light.
 FRAMES_PER_SECOND: float = 2.0
 
-# La Fase 1b (visiva) campiona PIU' fitto dell'OCR: un tiro dura pochi decimi
-# di secondo e a 2 fps "sparisce" tra un campione e l'altro (la palla percorre
-# piu' di max_ball_jump_px e il moto viene scartato come glitch). A 8 fps il
-# tragitto tra due campioni resta sotto la soglia anti-glitch e il tiro si vede.
+# Phase 1b (visual) samples MORE densely than the OCR: a shot lasts a few tenths
+# of a second and at 2 fps it "disappears" between two samples (the ball travels
+# more than max_ball_jump_px and the motion is discarded as a glitch). At 8 fps
+# the path between two samples stays below the anti-glitch threshold and the shot is seen.
 VISUAL_FRAMES_PER_SECOND: float = 8.0
 
-# Regioni dell'HUD in coordinate NORMALIZZATE [0,1] (x1, y1, x2, y2), riferite
-# al frame GIA' normalizzato (raddrizzato + ritagliato). Vanno calibrate sul TUO
-# video con: python 01_calibrate_hud.py --video <clip> --ocr
-# (questi sono valori di partenza tipici per l'HUD di EA FC, punteggio in alto a
-#  sinistra e due targhette nomi in basso ai due lati).
+# HUD regions in NORMALIZED [0,1] coordinates (x1, y1, x2, y2), referred to the
+# ALREADY normalized frame (straightened + cropped). They must be calibrated on
+# YOUR video with: python 01_calibrate_hud.py --video <clip> --ocr
+# (these are typical starting values for the EA FC HUD, score at the top left
+#  and two name nameplates at the bottom on the two sides).
 HUD_REGIONS: dict[str, tuple[float, float, float, float]] = {
-    # Calibrate sui fotogrammi REALI di questa clip (1920x886, crop letterbox):
-    "score": (0.115, 0.025, 0.205, 0.10),  # SOLO le due cifre "1 .. 0"
+    # Calibrated on the REAL frames of this clip (1920x886, letterbox crop):
+    "score": (0.115, 0.025, 0.205, 0.10),  # ONLY the two digits "1 .. 0"
     "clock": (0.27, 0.02, 0.37, 0.11),  # "16:55"
-    "active_player_home": (0.035, 0.90, 0.22, 0.985),  # "11 RAPHINHA" (Brasile, sx)
-    "active_player_away": (0.74, 0.88, 0.95, 0.99),  # "BELLEGARDE 10" (Haiti, dx)
+    "active_player_home": (0.035, 0.90, 0.22, 0.985),  # "11 RAPHINHA" (Brazil, left)
+    "active_player_away": (0.74, 0.88, 0.95, 0.99),  # "BELLEGARDE 10" (Haiti, right)
 }
 
-# Lato della targhetta da usare come "giocatore in possesso" quando NON c'e' una
-# fonte affidabile di possesso (la Fase 1b/visivo). Le due targhette sono SEMPRE
-# entrambe a schermo (mostrano il giocatore SELEZIONATO di ogni squadra), quindi
-# dalla sola HUD il possesso non e' deducibile.
-#   "home" / "away" -> forza il lato (usalo quando SAI chi attacca nella clip).
-#   None            -> non si forza: si segue il lato che cambia, possesso incerto.
-HUD_ACTIVE_SIDE: str | None = None  # Impostato a None per abilitare il cambio di possesso dinamico
+# Nameplate side to use as "player in possession" when there is NO reliable
+# possession source (Phase 1b/visual). The two nameplates are ALWAYS both on
+# screen (they show the SELECTED player of each team), so from the HUD alone the
+# possession is not deducible.
+#   "home" / "away" -> force the side (use it when you KNOW who attacks in the clip).
+#   None            -> not forced: follow the changing side, uncertain possession.
+HUD_ACTIVE_SIDE: str | None = None  # Set to None to enable dynamic possession change
 
-# Codici squadra mostrati nel punteggio (per disambiguare home/away dall'OCR).
+# Team codes shown in the score (to disambiguate home/away from the OCR).
 TEAM_CODES: dict[str, str] = {"home": "BRA", "away": "HAI"}
 
-# Rose SEPARATE per squadra. Servono ad agganciare (snap) i nomi letti dall'OCR
-# alla rosa nota e a derivare la squadra dell'attore. Nomi in MAIUSCOLO.
-# Inserisci qui le rose REALI delle due squadre della clip.
-ROSTER_HOME: list[str] = [  # Brasile (home) - COMPLETA con la rosa REALE della clip
+# SEPARATE rosters per team. Used to snap the names read by the OCR to the known
+# roster and to derive the actor's team. Names in UPPERCASE.
+# Put here the REAL rosters of the clip's two teams.
+ROSTER_HOME: list[str] = [  # Brazil (home) - COMPLETE with the clip's REAL roster
     "RAPHINHA",
     "VINICIUS",
     "RODRYGO",
@@ -153,9 +156,9 @@ ROSTER_HOME: list[str] = [  # Brasile (home) - COMPLETA con la rosa REALE della 
     "GABRIEL",
     "WESLEY",
     "EDERSON",
-    "CUNHA",  # mancavano dal debug OCR
+    "CUNHA",  # were missing from the OCR debug
 ]
-ROSTER_AWAY: list[str] = [  # Haiti (away) - COMPLETA con la rosa REALE della clip
+ROSTER_AWAY: list[str] = [  # Haiti (away) - COMPLETE with the clip's REAL roster
     "BELLEGARDE",
     "JEAN JACQUES",
     "DELCROIX",
@@ -166,49 +169,49 @@ ROSTER_AWAY: list[str] = [  # Haiti (away) - COMPLETA con la rosa REALE della cl
     "PROVIDENCE",
     "CASIMIR",
     "PLACIDE",
-    "MARCUS",  # mancavano dal debug OCR
+    "MARCUS",  # were missing from the OCR debug
 ]
 
-# ROSTER combinato giocatore -> squadra ("home"/"away"), derivato dalle due rose.
-# Mantenuto per retro-compatibilita' con chi usa ancora la mappa unica.
+# Combined ROSTER player -> team ("home"/"away"), derived from the two rosters.
+# Kept for backward compatibility with whoever still uses the single map.
 ROSTER: dict[str, str] = {
     **{n: "home" for n in ROSTER_HOME},
     **{n: "away" for n in ROSTER_AWAY},
 }
 
-OCR_LANGUAGES: list[str] = ["en"]  # lingue per EasyOCR
-OCR_MIN_CONFIDENCE: float = 0.30  # sotto questa confidenza la lettura si scarta
-# Soglia piu' bassa per i NOMI: conviene leggere tutto il cognome (anche a bassa
-# confidenza) e poi agganciarlo alla rosa, invece di scartare pezzi e ritrovarsi
-# frammenti come "NDRO"/"INHOS".
+OCR_LANGUAGES: list[str] = ["en"]  # languages for EasyOCR
+OCR_MIN_CONFIDENCE: float = 0.30  # below this confidence the reading is discarded
+# Lower threshold for the NAMES: it is better to read the whole surname (even at
+# low confidence) and then snap it to the roster, instead of discarding pieces
+# and ending up with fragments like "NDRO"/"INHOS".
 OCR_NAME_MIN_CONFIDENCE: float = 0.15
 
-# Un punteggio di calcio oltre questo valore e' quasi certamente OCR rotto:
-# i numeri letti fuori range vengono ignorati nel parsing del punteggio.
+# A football score above this value is almost certainly broken OCR:
+# out-of-range numbers are ignored in the score parsing.
 MAX_PLAUSIBLE_SCORE: int = 9
-# Un cambio di punteggio deve persistere per N letture consecutive prima di
-# valere come gol (debounce contro il flicker dell'OCR).
+# A score change must persist for N consecutive readings before counting as a
+# goal (debounce against the OCR flicker).
 GOAL_CONFIRM_FRAMES: int = 2
 
 # --------------------------------------------------------------------------- #
-# Importanza degli eventi (0 = banale, 1 = clou). Guida la prosodia.           #
+# Event importance (0 = trivial, 1 = key). Guides the prosody.                 #
 # --------------------------------------------------------------------------- #
 EVENT_IMPORTANCE: dict[str, float] = {
     "goal": 1.00,
-    "save": 0.80,  # parata del portiere
-    "shot_on_goal": 0.85,  # tiro nello specchio
-    "shot_off": 0.60,  # tiro fuori / ribattuto
+    "save": 0.80,  # goalkeeper save
+    "shot_on_goal": 0.85,  # shot on target
+    "shot_off": 0.60,  # shot off target / blocked
     "corner": 0.45,
     "free_kick": 0.50,
-    "turnover": 0.55,  # palla persa / intercetto
+    "turnover": 0.55,  # ball lost / interception
     "foul": 0.40,
-    "carry": 0.20,  # porta palla / conduzione
+    "carry": 0.20,  # carrying / dribbling forward
     "pass": 0.25,
-    "idle": 0.10,  # gioco a centrocampo
+    "idle": 0.10,  # midfield play
 }
 
-# UNICA lista usata per il one-hot, sia in training (Fase 3) sia in sintesi
-# (Fase 4). Coerenza garantita: ogni tipo di evento ha la sua colonna.
+# SINGLE list used for the one-hot, both in training (Phase 3) and synthesis
+# (Phase 4). Consistency guaranteed: each event type has its own column.
 EVENT_TYPES: list[str] = [
     "goal",
     "save",
@@ -224,116 +227,116 @@ EVENT_TYPES: list[str] = [
 ]
 
 # --------------------------------------------------------------------------- #
-# Fase 1b - Modulo Visivo (YOLO + OpenCV)                                      #
+# Phase 1b - Visual module (YOLO + OpenCV)                                     #
 # --------------------------------------------------------------------------- #
-YOLO_MODEL: str = "models/best_finetuned.pt"  # modello FIFA fine-tunato (grafica nuova, imgsz 960)
-# Il modello FIFA usa nomi diversi da COCO. Li mappiamo ai nomi interni del progetto.
+YOLO_MODEL: str = "models/best_finetuned.pt"  # fine-tuned FIFA model (new graphics, imgsz 960)
+# The FIFA model uses different names than COCO. We map them to the project's internal names.
 YOLO_CLASS_MAP: dict[str, str] = {
-    "player": "person",  # giocatori
-    # Il portiere resta una classe A PARTE: serve al rilevamento delle PARATE
-    # (palla veloce che si ferma vicino al portiere = respinta/presa).
+    "player": "person",  # players
+    # The goalkeeper stays a SEPARATE class: it is needed to detect SAVES
+    # (fast ball stopping near the keeper = parried/caught).
     "goalkeeper": "goalkeeper",
-    "referee": "referee",  # arbitro
-    "ball": "sports_ball",  # pallone
-    # NB: la classe "goalpost" del modello e' stata provata come segnale di
-    # "porta inquadrata" per il tiro e SCARTATA: falsi positivi del palo a
-    # centrocampo riportavano i tiri fantasma (retest 4 clip, 4 lug 2026).
+    "referee": "referee",  # referee
+    "ball": "sports_ball",  # ball
+    # NB: the model's "goalpost" class was tried as a "goal in frame" signal for
+    # the shot and DISCARDED: false positives of the post at midfield brought
+    # back the phantom shots (retest 4 clips, 4 Jul 2026).
 }
 YOLO_CONFIDENCE: float = 0.35
-# La palla e' piccola e spesso sfocata dal motion blur: con la soglia dei
-# giocatori (0.35) YOLO la vede in <10% dei frame e la velocita' non si puo'
-# calcolare. Soglia dedicata piu' bassa: qualche falso positivo in piu' e'
-# tollerabile (il filtro max_ball_jump_px scarta i salti implausibili).
+# The ball is small and often blurred by motion blur: with the players'
+# threshold (0.35) YOLO sees it in <10% of frames and the speed cannot be
+# computed. A dedicated lower threshold: a few more false positives are
+# tolerable (the max_ball_jump_px filter discards implausible jumps).
 YOLO_BALL_CONFIDENCE: float = 0.15
-# Risoluzione di inferenza YOLO. DEVE combaciare con quella di training del
-# modello: best_finetuned.pt e' a 960, e a 640 (default) perderebbe il
-# guadagno sulla palla piccola (test: palla vista 47% a 960 vs meno a 640).
+# YOLO inference resolution. MUST match the model's training resolution:
+# best_finetuned.pt is at 960, and at 640 (default) it would lose the gain on
+# the small ball (test: ball seen 47% at 960 vs less at 640).
 YOLO_IMGSZ: int = 960
 
-# --- Possesso palla dal COLORE MAGLIA del giocatore piu' vicino alla palla --- #
-# Range HSV (OpenCV: H 0-179, S 0-255, V 0-255), TARATI sui frame reali della clip.
-# home = Brasile (giallo); away = Haiti (rosso, che in HSV sta a cavallo di 0/180).
+# --- Ball possession from the JERSEY COLOR of the player nearest the ball --- #
+# HSV range (OpenCV: H 0-179, S 0-255, V 0-255), TUNED on the clip's real frames.
+# home = Brazil (yellow); away = Haiti (red, which in HSV straddles 0/180).
 TEAM_JERSEY_HSV: dict[str, list[tuple[tuple[int, int, int], tuple[int, int, int]]]] = {
     "home": [((20, 90, 90), (38, 255, 255))],
     "away": [((0, 90, 70), (10, 255, 255)), ((168, 90, 70), (179, 255, 255))],
 }
-# Porzione del bounding box del giocatore da campionare (torso = alto-centrale),
-# in frazioni del box: (x1, y1, x2, y2). Evita gambe/erba e numero schiena.
+# Portion of the player's bounding box to sample (torso = upper-central),
+# in box fractions: (x1, y1, x2, y2). Avoids legs/grass and the back number.
 JERSEY_SAMPLE_BOX: tuple[float, float, float, float] = (0.20, 0.15, 0.80, 0.55)
-# Frazione minima di pixel del colore squadra perche' la classificazione valga.
+# Minimum fraction of team-color pixels for the classification to count.
 JERSEY_MIN_FILL: float = 0.12
-# Margine: il colore vincente deve superare l'altro di almeno questo fattore.
+# Margin: the winning color must beat the other by at least this factor.
 JERSEY_MIN_MARGIN: float = 1.3
-# Raggio massimo (px sul frame normalizzato) entro cui un giocatore "ha" la palla.
+# Maximum radius (px on the normalized frame) within which a player "has" the ball.
 POSSESSION_MAX_DIST_PX: float = 90.0
-# Il possesso cambia squadra solo dopo N frame coerenti (anti-flicker). A
-# VISUAL_FRAMES_PER_SECOND=8, 4 frame = 0.5s: sufficienti per filtrare il rumore.
+# The possession changes team only after N consistent frames (anti-flicker). At
+# VISUAL_FRAMES_PER_SECOND=8, 4 frames = 0.5s: enough to filter the noise.
 POSSESSION_CONFIRM_FRAMES: int = 4
-# Sul radar, durante una fase di possesso, la palla sta in un grappolo con
-# pallini di ENTRAMBE le squadre a ridosso. Per rubare la palla, il nuovo
-# pallino deve battere l'altro di questo margine.
+# On the radar, during a possession phase, the ball is in a cluster with dots
+# of BOTH teams right next to it. To steal the ball, the new dot must beat the
+# other by this margin.
 POSSESSION_MARGIN_PX: float = 12.0
-# Bonus (px) alla squadra gia' in possesso quando si confrontano le distanze:
-# ulteriore freno anti-flicker a favore della continuita'.
+# Bonus (px) to the team already in possession when comparing the distances:
+# further anti-flicker brake in favor of continuity.
 POSSESSION_HYSTERESIS_PX: float = 15.0
-# Possesso PRIMARIO dal nome bianco sopra il portatore (segnale diretto: il
-# radar e' ambiguo nei grappoli). L'OCR di quel nome e' costoso, quindi lo si
-# fa ogni CARRIER_OCR_INTERVAL_S secondi (tra una lettura e l'altra vale il nome
-# cachato). Il nome puo' essere sbiadito/semi-trasparente e la lettura e' flaky
-# frame per frame: solo l'OCR su OGNI frame (~0.125s a 8 fps -> ocr_every=1)
-# cattura in tempo i cambi di portatore, tenendo la transizione di possesso il
-# piu' vicina possibile al reale (costo: Fase 1b piu' lenta).
+# PRIMARY possession from the white name above the carrier (direct signal: the
+# radar is ambiguous in the clusters). The OCR of that name is costly, so it is
+# done every CARRIER_OCR_INTERVAL_S seconds (between two readings the cached name
+# holds). The name can be faded/semi-transparent and the reading is flaky
+# frame by frame: only OCR on EVERY frame (~0.125s at 8 fps -> ocr_every=1)
+# catches the carrier changes in time, keeping the possession transition as
+# close as possible to the real one (cost: slower Phase 1b).
 CARRIER_OCR_INTERVAL_S: float = 0.125
-# Aggancio del nome letto alla rosa. Soglie STRETTE: una lettura garbled
-# ('NEXE'->NEUER a 0.67, 'NES' sottostringa di 'NUNES') non deve agganciare la
-# rosa sbagliata -> meglio NESSUN match (si tiene il nome cachato) che uno
-# errato, che flipperebbe il possesso e sballerebbe l'attribuzione.
-CARRIER_NAME_MIN_FUZZY: float = 0.80  # somiglianza minima per il match fuzzy
-CARRIER_NAME_MIN_LEN: int = 4  # frammento minimo per il match per contenimento
+# Snapping the read name to the roster. TIGHT thresholds: a garbled reading
+# ('NEXE'->NEUER at 0.67, 'NES' substring of 'NUNES') must not snap to the
+# wrong roster -> better NO match (the cached name holds) than a wrong one,
+# which would flip the possession and mess up the attribution.
+CARRIER_NAME_MIN_FUZZY: float = 0.80  # minimum similarity for the fuzzy match
+CARRIER_NAME_MIN_LEN: int = 4  # minimum fragment for the containment match
 
-# Soglie di tracking della palla sul frame normalizzato.
-# Le velocita' sono in PIXEL AL SECONDO (px/s), NON per frame: cosi' restano
-# valide qualunque sia VISUAL_FRAMES_PER_SECOND (prima erano px/campione a
-# 2 fps: 120 px/campione = 240 px/s, 40 = 80).
+# Ball tracking thresholds on the normalized frame.
+# The speeds are in PIXELS PER SECOND (px/s), NOT per frame: this way they stay
+# valid whatever VISUAL_FRAMES_PER_SECOND is (before they were px/sample at
+# 2 fps: 120 px/sample = 240 px/s, 40 = 80).
 BALL_TRACKING: dict[str, float] = {
-    "min_speed_shot": 240.0,  # px/s: sopra = possibile tiro
-    "min_speed_pass": 80.0,  # px/s: sopra = passaggio, sotto = possesso
-    "save_drop_ratio": 0.35,  # parata: la velocita' crolla sotto questa frazione
-    "near_player_px": 100.0,  # raggio (px) per "giocatore vicino alla palla"
-    # Raggio palla-portiere per TIRO e PARATA. Con il detector fine-tunato il
-    # portiere si localizza bene (test: tiro+parata veri con GK a 211-322px;
-    # gioco a centrocampo con GK a ~900px). Questa distanza e' il separatore.
+    "min_speed_shot": 240.0,  # px/s: above = possible shot
+    "min_speed_pass": 80.0,  # px/s: above = pass, below = possession
+    "save_drop_ratio": 0.35,  # save: the speed drops below this fraction
+    "near_player_px": 100.0,  # radius (px) for "player near the ball"
+    # Ball-goalkeeper radius for SHOT and SAVE. With the fine-tuned detector the
+    # keeper localizes well (test: real shot+save with GK at 211-322px;
+    # midfield play with GK at ~900px). This distance is the separator.
     "near_goalkeeper_px": 260.0,
-    # Un TIRO vale solo col portiere DAVVERO vicino (verso la porta): distingue
-    # il tiro vero dal passaggio forte a centrocampo (velocita' simili ma GK
-    # lontano ~900px). Prima era 1200 su camera larga per compensare la pessima
-    # localizzazione GK del vecchio modello: col fine-tuned si puo' stringere a 350.
+    # A SHOT counts only with the keeper REALLY close (towards the goal):
+    # distinguishes the real shot from a strong midfield pass (similar speeds
+    # but GK far ~900px). Before it was 1200 on the wide camera to compensate
+    # the old model's poor GK localization: with the fine-tuned one it can go to 350.
     "shot_goal_view_px": 350.0,
-    # Un TIRO e' un'accelerazione NETTA: velocita' attuale > prev * questo
-    # fattore. Cosi' scatta anche se la palla era gia' in movimento nella
-    # costruzione (tiro reale: 344 -> 835 px/s), non solo da palla ferma.
+    # A SHOT is a CLEAR acceleration: current speed > prev * this factor. This
+    # way it fires even if the ball was already moving in the build-up (real
+    # shot: 344 -> 835 px/s), not only from a still ball.
     "shot_accel_ratio": 1.5,
-    "max_ball_jump_px": 400.0,  # px TRA DUE CAMPIONI: oltre = glitch di tracking
-    # Per quanti secondi il classificatore RICORDA l'ultimo stato palla quando
-    # YOLO la perde: nella parata il motion blur nasconde la palla per diversi
-    # frame e senza memoria il "crollo di velocita'" non viene mai visto.
+    "max_ball_jump_px": 400.0,  # px BETWEEN TWO SAMPLES: above = tracking glitch
+    # For how many seconds the classifier REMEMBERS the last ball state when
+    # YOLO loses it: in a save the motion blur hides the ball for several
+    # frames and without memory the "speed drop" is never seen.
     "ball_memory_s": 1.0,
-    # Memoria dell'ultima POSIZIONE del portiere, usata SOLO dalla parata:
-    # nel tuffo YOLO perde il GK proprio nei frame decisivi, ma la sua
-    # posizione a schermo resta valida per un paio di secondi.
+    # Memory of the keeper's last POSITION, used ONLY by the save:
+    # during the dive YOLO loses the GK right in the decisive frames, but its
+    # on-screen position stays valid for a couple of seconds.
     "gk_memory_s": 2.0,
 }
 
-# Copia PRISTINA dei default: apply_profile fonde gli override del profilo
-# partendo sempre da qui, cosi' cambiare profilo non eredita i valori del
-# profilo applicato prima.
+# PRISTINE copy of the defaults: apply_profile merges the profile overrides
+# always starting from here, so switching profile does not inherit the values
+# of the previously applied profile.
 _BALL_TRACKING_DEFAULTS: dict[str, float] = dict(BALL_TRACKING)
 
-# Colori dei SEGNALINI sulla minimappa/radar (non le maglie: il radar usa
-# colori stilizzati suoi). Range HSV OpenCV (H 0-179); ogni voce e' una LISTA
-# di intervalli perche' il rosso sta a cavallo dello 0/180. Override
-# per-profilo con la chiave "radar_hsv" (vedi HUD_PROFILES).
-# Default = radar di bra_hai: palla arancione, home giallo, away rosso.
+# Colors of the MARKERS on the minimap/radar (not the jerseys: the radar uses
+# its own stylized colors). OpenCV HSV range (H 0-179); each entry is a LIST
+# of intervals because red straddles 0/180. Per-profile override with the
+# "radar_hsv" key (see HUD_PROFILES).
+# Default = bra_hai radar: orange ball, yellow home, red away.
 RADAR_HSV: dict[str, list[tuple[tuple[int, int, int], tuple[int, int, int]]]] = {
     "ball": [((10, 100, 150), (25, 255, 255))],
     "home": [((25, 30, 150), (45, 255, 255))],
@@ -341,12 +344,12 @@ RADAR_HSV: dict[str, list[tuple[tuple[int, int, int], tuple[int, int, int]]]] = 
 }
 _RADAR_HSV_DEFAULTS = dict(RADAR_HSV)
 
-# Due eventi visivi dello STESSO tipo entro questa finestra sono la stessa
-# azione: a 8 fps una parata soddisfa la condizione su piu' frame consecutivi
-# e senza cooldown verrebbe commentata due volte.
+# Two visual events of the SAME type within this window are the same action:
+# at 8 fps a save satisfies the condition on several consecutive frames and
+# without cooldown it would be commented twice.
 VISUAL_EVENT_COOLDOWN_S: float = 3.0
 
-# Zone del campo in coordinate normalizzate (per classificare la posizione palla).
+# Field zones in normalized coordinates (to classify the ball position).
 FIELD_ZONES: dict[str, tuple[float, float, float, float]] = {
     "penalty_area_home": (0.00, 0.15, 0.20, 0.85),
     "penalty_area_away": (0.80, 0.15, 1.00, 0.85),
@@ -356,31 +359,31 @@ FIELD_ZONES: dict[str, tuple[float, float, float, float]] = {
 }
 
 # --------------------------------------------------------------------------- #
-# Fase 1c - Modulo Uditivo (Audio Energy + Whisper)                            #
+# Phase 1c - Auditory module (Audio Energy + Whisper)                          #
 # --------------------------------------------------------------------------- #
-SAMPLE_RATE: int = 22050  # usato da audio e sintesi
-# 'small' invece di 'base': su audio di gioco (musica + effetti sopra il
-# commento) 'base' produce trascrizioni illeggibili; 'small' e' molto piu'
-# accurato in italiano. Costo: ~5x piu' lento su CPU (accettabile per clip corte).
+SAMPLE_RATE: int = 22050  # used by audio and synthesis
+# 'small' instead of 'base': on gameplay audio (music + effects over the
+# commentary) 'base' produces unreadable transcriptions; 'small' is much more
+# accurate in Italian. Cost: ~5x slower on CPU (acceptable for short clips).
 WHISPER_MODEL_SIZE: str = "small"  # tiny/base/small/medium/large
-WHISPER_LANGUAGE: str = LANGUAGE  # derivata dalla lingua della telecronaca
+WHISPER_LANGUAGE: str = LANGUAGE  # derived from the commentary language
 AUDIO_ANALYSIS_WINDOW_S: float = 2.0
-# Le soglie partizionano lo score di eccitazione, che ora e' RI-SCALATO ai
-# percentili della clip (0 = momento piu' calmo, 1 = piu' acceso): cosi' i
-# livelli hanno senso e "peak" scatta davvero (prima lo score stava ~0.33 e
-# non arrivava mai a 0.75). Il neutro e' 0.5.
+# The thresholds partition the excitement score, which is now RE-SCALED to the
+# clip percentiles (0 = calmest moment, 1 = most heated): this way the levels
+# make sense and "peak" actually fires (before the score stayed ~0.33 and
+# never reached 0.75). The neutral value is 0.5.
 AUDIO_ENERGY_THRESHOLDS: dict[str, float] = {
     "low": 0.25,
     "medium": 0.50,
-    "high": 0.75,  # sopra 0.75 = "peak"
+    "high": 0.75,  # above 0.75 = "peak"
 }
-# Range dinamico minimo dello score grezzo perche' la ri-scalatura ai percentili
-# "stiri" la clip a [0,1]. Sotto questo (clip PIATTA, senza momenti caldi), non
-# si stira: si evita di promuovere il rumore di fondo a "peak" fittizi.
+# Minimum dynamic range of the raw score for the percentile re-scaling to
+# "stretch" the clip to [0,1]. Below this (FLAT clip, no hot moments), it does
+# not stretch: it avoids promoting the background noise to fake "peak"s.
 AUDIO_ENERGY_MIN_RANGE: float = 0.20
 
 # --------------------------------------------------------------------------- #
-# Fase 2 - Generazione testo (template)                                        #
+# Phase 2 - Text generation (template)                                         #
 # --------------------------------------------------------------------------- #
 TEMPLATES_BY_LANG: dict[str, dict[str, list[str]]] = {
     "it": {
@@ -457,28 +460,30 @@ TEMPLATES_BY_LANG: dict[str, dict[str, list[str]]] = {
 
 
 def get_templates(lang: str | None = None) -> dict[str, list[str]]:
-    """Restituisce i template per la lingua richiesta (default: LANGUAGE).
-    Fallback: inglese se la lingua non ha template dedicati."""
+    """
+    Return the templates for the requested language (default: LANGUAGE).
+    Fallback: English if the language has no dedicated templates.
+    """
     return TEMPLATES_BY_LANG.get(lang or LANGUAGE, TEMPLATES_BY_LANG["en"])
 
 
-# Retro-compatibilita': chi importa config.TEMPLATES riceve i template della
-# lingua corrente. Per il dizionario completo usare TEMPLATES_BY_LANG.
+# Backward compatibility: whoever imports config.TEMPLATES gets the templates of
+# the current language. For the full dictionary use TEMPLATES_BY_LANG.
 TEMPLATES: dict[str, list[str]] = get_templates()
 
 # --------------------------------------------------------------------------- #
-# Fase 2b - Generazione testo con LLM                                          #
+# Phase 2b - Text generation with LLM                                          #
 # --------------------------------------------------------------------------- #
-LLM_PROVIDER: str = "ollama"  # "ollama" (locale) | "openai" | "anthropic"
+LLM_PROVIDER: str = "ollama"  # "ollama" (local) | "openai" | "anthropic"
 LLM_CONFIG: dict[str, dict] = {
-    # gemma3:4b: modello effettivamente installato in locale; entra comodo
-    # nei 7.6 GB di RAM disponibili e resta veloce su CPU per le battute.
+    # gemma3:4b: model actually installed locally; fits comfortably in the
+    # 7.6 GB of available RAM and stays fast on CPU for the lines.
     "ollama": {"model": "gemma3:4b", "base_url": "http://localhost:11434"},
     "openai": {"model": "gpt-4o-mini", "api_key_env": "OPENAI_API_KEY"},
     "anthropic": {"model": "claude-haiku-4-5-20251001", "api_key_env": "ANTHROPIC_API_KEY"},
-    # Groq: endpoint OpenAI-compatibile, free tier. Llama 70B gira sui loro
-    # server (niente RAM locale), molto piu' capace del 3-4B che entra nei
-    # 7.6 GB della macchina -> meno allucinazioni di stile/ruolo.
+    # Groq: OpenAI-compatible endpoint, free tier. Llama 70B runs on their
+    # servers (no local RAM), much more capable than the 3-4B that fits in the
+    # machine's 7.6 GB -> fewer style/role hallucinations.
     "groq": {
         "model": "llama-3.3-70b-versatile",
         "api_key_env": "GROQ_API_KEY",
@@ -523,18 +528,18 @@ LLM_SYSTEM_PROMPTS: dict[str, str] = {
         "NEVER use the word 'ball' or 'football': they are implied."
     ),
 }
-# Retro-compatibilita': prompt della lingua corrente.
+# Backward compatibility: prompt of the current language.
 LLM_SYSTEM_PROMPT: str = LLM_SYSTEM_PROMPTS.get(LANGUAGE, LLM_SYSTEM_PROMPTS["en"])
 LLM_TEMPERATURE: float = 0.9
 
 # --------------------------------------------------------------------------- #
-# Fase 3 - Modello di prosodia (IL CONTRIBUTO)                                 #
+# Phase 3 - Prosody model (THE CONTRIBUTION)                                   #
 # --------------------------------------------------------------------------- #
 PROSODY_TARGETS: list[str] = ["rate_factor", "pitch_semitones", "energy_gain"]
 PROSODY_CLAMP: dict[str, tuple[float, float]] = {
-    "rate_factor": (0.85, 1.45),  # 1.0 = velocita' normale
-    "pitch_semitones": (-2.0, 5.0),  # 0   = pitch normale
-    "energy_gain": (0.80, 1.80),  # 1.0 = volume normale
+    "rate_factor": (0.85, 1.45),  # 1.0 = normal speed
+    "pitch_semitones": (-2.0, 5.0),  # 0   = normal pitch
+    "energy_gain": (0.80, 1.80),  # 1.0 = normal volume
 }
 PROSODY_HIDDEN_DIMS: tuple[int, ...] = (32, 16)
 PROSODY_EPOCHS: int = 200
@@ -542,7 +547,7 @@ PROSODY_LR: float = 1e-3
 PROSODY_BATCH_SIZE: int = 16
 RANDOM_SEED: int = 42
 
-# Baseline a regole (anche condizione dello studio + fallback se manca il modello).
+# Rule-based baseline (also the study condition + fallback if the model is missing).
 RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
     "goal": {"rate_factor": 1.35, "pitch_semitones": 4.0, "energy_gain": 1.6},
     "save": {"rate_factor": 1.30, "pitch_semitones": 3.0, "energy_gain": 1.5},
@@ -558,89 +563,99 @@ RULE_BASED_PROSODY: dict[str, dict[str, float]] = {
 }
 
 # --------------------------------------------------------------------------- #
-# Fase 4 - Sintesi audio                                                       #
+# Phase 4 - Audio synthesis                                                    #
 # --------------------------------------------------------------------------- #
 GAP_BETWEEN_UTTERANCES_S: float = 0.15
-# Sincronizzazione: ogni battuta parte al timestamp del suo evento (traccia
-# allineata all'azione). Se il blocco precedente non e' finito, la successiva
-# si ACCODA subito dopo (nessuna voce sovrapposta). Due battute piu' vicine di
-# questa soglia vengono unite in un unico blocco (prosodia connessa); oltre, il
-# blocco si spezza e la seconda parte al proprio timestamp con silenzio in mezzo.
+# Synchronization: each line starts at its event's timestamp (track aligned to
+# the action). If the previous block is not finished, the next one QUEUES right
+# after (no overlapping voice). Two lines closer than this threshold are merged
+# into a single block (connected prosody); beyond it, the block is split and the
+# second one starts at its own timestamp with silence in between.
 SYNC_MERGE_MAX_GAP_S: float = 1.5
-TTS_ENGINE: str = "coqui"  # unico motore supportato: Coqui XTTS v2
+TTS_ENGINE: str = "coqui"  # only supported engine: Coqui XTTS v2
 COQUI_MODEL: str = "tts_models/multilingual/multi-dataset/xtts_v2"
-COQUI_LANGUAGE: str = LANGUAGE  # derivata dalla lingua della telecronaca
-# NB: la voce clonata (COQUI_SPEAKER_WAV/_EXCITED) e i parametri di sintesi
-# (COQUI_SPEED, _CLAMP, _CHUNK_MAX_CHARS, EMPHASIS_..., ONSET_FADE_MS) sono
-# definiti piu' sotto, nelle sezioni "Voce clonata" e "Parametri di sintesi
-# XTTS". Il merge aveva duplicato quelle costanti qui: duplicazione rimossa.
+COQUI_LANGUAGE: str = LANGUAGE  # derived from the commentary language
+# NB: the cloned voice (COQUI_SPEAKER_WAV/_EXCITED) and the synthesis parameters
+# (COQUI_SPEED, _CLAMP, _CHUNK_MAX_CHARS, EMPHASIS_..., ONSET_FADE_MS) are
+# defined further below, in the "Cloned voice" and "XTTS synthesis parameters"
+# sections. The merge had duplicated those constants here: duplication removed.
 
-# --- Voce clonata (voice cloning zero-shot XTTS v2) ------------------------- #
-# Riferimento vocale BASE: il tono "di lavoro" del telecronista (voce presente
-# ma NON urlata). Deve essere WAV MONO, pulito (lo stereo degrada la clonazione).
-# Voce di Lele Adani, telecronista vero: come base evita la raucedine che dava
-# gol_saliente (che e' un'esultanza URLATA -> XTTS ne clona lo strozzato anche
-# sui passaggi tranquilli). Percorso relativo alla root del progetto.
-# Voci di riferimento PER LINGUA. Per lingue senza wav dedicato si usa None
-# (voce default XTTS, niente voice cloning: meglio di un accento sbagliato).
+# --- Cloned voice (zero-shot voice cloning XTTS v2) ------------------------- #
+# BASE voice reference: the commentator's "working" tone (present but NOT
+# shouted voice). Must be a MONO WAV, clean (stereo degrades the cloning).
+# Voice of Lele Adani, a real commentator: as a base it avoids the raspiness
+# that gol_saliente gave (which is a SHOUTED celebration -> XTTS clones its
+# strained sound even on calm passes). Path relative to the project root.
+# PER-LANGUAGE reference voices. For languages without a dedicated wav None is
+# used (default XTTS voice, no voice cloning: better than a wrong accent).
 COQUI_SPEAKER_WAVS: dict[str, str | None] = {
     "it": "data/raw/commentary/ref.wav",
-    "en": "data/raw/commentary/ref.wav",  # usa il riferimento italiano (accento leggero)
+    "en": "data/raw/commentary/ref.wav",  # uses the Italian reference (slight accent)
 }
 COQUI_SPEAKER_WAVS_EXCITED: dict[str, str | None] = {
-    "it": "data/raw/commentary/ref.wav",  # stesso file (gol_saliente_mono non disponibile)
+    "it": "data/raw/commentary/ref.wav",  # same file (gol_saliente_mono not available)
     "en": "data/raw/commentary/ref.wav",
 }
 COQUI_SPEAKER_WAV: str | None = COQUI_SPEAKER_WAVS.get(LANGUAGE)
-# Riferimento vocale CONCITATO: usato SOLO sugli eventi importanti (importanza
-# >= EMPHASIS_IMPORTANCE_THRESHOLD), es. gol/parate. Qui l'esultanza urlata e'
-# al posto GIUSTO -> "boato" sui momenti clou, voce calma sul resto.
+# EXCITED voice reference: used ONLY on the important events (importance
+# >= EMPHASIS_IMPORTANCE_THRESHOLD), e.g. goals/saves. Here the shouted
+# celebration is in the RIGHT place -> "roar" on the key moments, calm voice on the rest.
 COQUI_SPEAKER_WAV_EXCITED: str | None = COQUI_SPEAKER_WAVS_EXCITED.get(LANGUAGE)
 
-# --- Parametri di sintesi XTTS --------------------------------------------- #
-# Sample rate dell'audio SINTETIZZATO (Fase 4). XTTS produce nativamente 24 kHz:
-# tenerli evita di ricampionare giu' a SAMPLE_RATE (22050), che tagliava le alte
-# frequenze del parlato facendolo suonare "ovattato". NB: distinto da
-# SAMPLE_RATE, che resta 22050 per l'ANALISI audio (Fase 1c), cosa a se'.
+# --- ORIGINAL / neutral voice (no cloning) ---------------------------------- #
+# XTTS v2 includes 58 built-in "studio" voices, callable with the `speaker=`
+# parameter (NOT speaker_wav): they give a neutral narrator, without imitating a
+# character, at a regular pace. Activated when COMMENTARY_SPEAKER=builtin
+# (the frontend sets it for the "Original" voice): in that case Phase 4 ignores
+# the speaker_wav and uses COQUI_BUILTIN_SPEAKER. Name swappable among the 58
+# available voices (see tts.speakers).
+USE_BUILTIN_SPEAKER: bool = _os.environ.get("COMMENTARY_SPEAKER", "") == "builtin"
+COQUI_BUILTIN_SPEAKER: str = "Gilberto Mathias"
+
+# --- XTTS synthesis parameters --------------------------------------------- #
+# Sample rate of the SYNTHESIZED audio (Phase 4). XTTS natively produces 24 kHz:
+# keeping it avoids downsampling to SAMPLE_RATE (22050), which cut the high
+# frequencies of the speech making it sound "muffled". NB: distinct from
+# SAMPLE_RATE, which stays 22050 for the audio ANALYSIS (Phase 1c), a separate thing.
 COQUI_OUTPUT_SAMPLE_RATE: int = 24000
-# Velocità base del parlato (1.0 = naturale). Il modello di prosodia (Fase 3)
-# la modula per evento tramite rate_factor; COQUI_SPEED_CLAMP la tiene in range.
+# Base speech speed (1.0 = natural). The prosody model (Phase 3) modulates it
+# per event via rate_factor; COQUI_SPEED_CLAMP keeps it in range.
 COQUI_SPEED: float = 1.0
 COQUI_SPEED_CLAMP: tuple[float, float] = (0.85, 1.35)
-# Lunghezza massima (caratteri) di un blocco di battute unite e sintetizzate in
-# un'unica passata -> prosodia connessa. XTTS regge bene ~200-250 caratteri.
+# Maximum length (characters) of a block of lines merged and synthesized in a
+# single pass -> connected prosody. XTTS handles ~200-250 characters well.
 COQUI_CHUNK_MAX_CHARS: int = 220
-# Sopra questa importanza l'evento e' "concitato": attiva la voce excited (se
-# presente) e permette al blocco di ricevere enfasi propria.
+# Above this importance the event is "excited": activates the excited voice (if
+# present) and lets the block receive its own emphasis.
 EMPHASIS_IMPORTANCE_THRESHOLD: float = 0.60
-# Rampa di fade-in (ms) in testa a ogni blocco: smorza l'attacco "rauco" di XTTS.
+# Fade-in ramp (ms) at the head of each block: softens the "raspy" attack of XTTS.
 ONSET_FADE_MS: int = 15
 
 
 # =========================================================================== #
-# PROFILI HUD  (multi-interfaccia)                                            #
+# HUD PROFILES  (multi-interface)                                            #
 # =========================================================================== #
-# Ogni profilo descrive UNA interfaccia: posizioni HUD + rosa + colori maglia +
-# lato attivo. Il profilo si sceglie a runtime (per risoluzione o via --profile)
-# e si applica con apply_profile(), che riscrive le costanti usate dalle fasi.
+# Each profile describes ONE interface: HUD positions + roster + jersey colors +
+# active side. The profile is chosen at runtime (by resolution or via --profile)
+# and applied with apply_profile(), which rewrites the constants used by the phases.
 HUD_PROFILES: dict[str, dict] = {
-    # Brasile vs Haiti (clip verticale ruotata -> normalizzata ~1706x886).
+    # Brazil vs Haiti (vertical rotated clip -> normalized ~1706x886).
     "bra_hai": {
         "regions": {
             **HUD_REGIONS,
-            "minimap": (0.35, 0.82, 0.65, 0.98),  # Aggiunto minimap
+            "minimap": (0.35, 0.82, 0.65, 0.98),  # Added minimap
         },
         "roster_home": ROSTER_HOME,
         "roster_away": ROSTER_AWAY,
         "team_codes": TEAM_CODES,
         "jersey_hsv": TEAM_JERSEY_HSV,
         "active_side": HUD_ACTIVE_SIDE,
-        "aspect_min": 1.85,  # frame largo/basso (~1.93)
+        "aspect_min": 1.85,  # wide/short frame (~1.93)
     },
-    # Tottenham vs Marseille (1920x1080 orizzontale, HUD standard EA FC).
+    # Tottenham vs Marseille (1920x1080 horizontal, standard EA FC HUD).
     "tot_om": {
         "regions": {
-            "score": (0.135, 0.055, 0.155, 0.108),  # cifre "2"/"1" impilate
+            "score": (0.135, 0.055, 0.155, 0.108),  # stacked digits "2"/"1"
             "clock": (0.085, 0.110, 0.140, 0.140),  # "x:05" (best effort)
             "active_player_home": (0.045, 0.886, 0.210, 0.930),  # "23 PORRO"
             "active_player_away": (0.780, 0.886, 0.955, 0.930),  # "PAIXAO 14"
@@ -677,12 +692,12 @@ HUD_PROFILES: dict[str, dict] = {
             "GARCIA",
         ],
         "team_codes": {"home": "TOT", "away": "OM"},
-        # ATTENZIONE: entrambe le maglie sono BIANCHE -> il possesso DAL COLORE qui
-        # non e' affidabile. Valori indicativi sul colore secondario (navy vs
-        # azzurro). Per questa interfaccia serve il clustering colori (vedi nota).
+        # WARNING: both jerseys are WHITE -> possession FROM COLOR here is not
+        # reliable. Indicative values on the secondary color (navy vs light
+        # blue). For this interface color clustering is needed (see note).
         "jersey_hsv": {
             "home": [((105, 60, 40), (130, 255, 255))],  # navy (Tottenham)
-            "away": [((90, 50, 110), (104, 255, 255))],  # azzurro (Marseille)
+            "away": [((90, 50, 110), (104, 255, 255))],  # light blue (Marseille)
         },
         "active_side": "home",
         "aspect_min": 0.0,  # fallback (16:9 ~1.78)
@@ -747,24 +762,24 @@ HUD_PROFILES: dict[str, dict] = {
         ],
         "team_codes": {"home": "MCI", "away": "BAY"},
         "jersey_hsv": {
-            "home": [((90, 40, 120), (115, 255, 255))],  # azzurro (Man City)
-            "away": [((0, 80, 80), (10, 255, 255)), ((165, 80, 80), (180, 255, 255))],  # rosso
+            "home": [((90, 40, 120), (115, 255, 255))],  # light blue (Man City)
+            "away": [((0, 80, 80), (10, 255, 255)), ((165, 80, 80), (180, 255, 255))],  # red
         },
-        "active_side": None,  # nessun lato fisso, usa euristica
-        "aspect_min": 1.7,  # priorita' su video 16:9 (~1.77)
-        # Soglie di tracking TARATE su questa camera (1080p, inquadratura larga:
-        # le distanze in px sono maggiori che sui video bra_hai 1706x886).
-        # Col detector FINE-TUNATO il portiere si localizza bene: il tiro+parata
-        # vero ha GK a 211-322px, il gioco a centrocampo ~900px. shot_goal_view
-        # sceso da 1200 (cerotto per il vecchio modello) a 600: separa i due.
+        "active_side": None,  # no fixed side, uses the heuristic
+        "aspect_min": 1.7,  # priority on 16:9 video (~1.77)
+        # Tracking thresholds TUNED on this camera (1080p, wide framing:
+        # the distances in px are larger than on the bra_hai 1706x886 videos).
+        # With the FINE-TUNED detector the keeper localizes well: the real
+        # shot+save has GK at 211-322px, midfield play ~900px. shot_goal_view
+        # lowered from 1200 (patch for the old model) to 600: separates the two.
         "ball_tracking": {
             "shot_goal_view_px": 600.0,
             "near_player_px": 160.0,
             "near_goalkeeper_px": 300.0,
         },
-        # Segnalini del radar di QUESTA interfaccia, misurati sui frame reali:
-        # triangoli azzurri = City (home), cerchi cremisi bordati di bianco =
-        # Bayern (away), croce giallo-ocra = palla.
+        # Radar markers of THIS interface, measured on the real frames:
+        # light-blue triangles = City (home), crimson circles bordered with white =
+        # Bayern (away), yellow-ochre cross = ball.
         "radar_hsv": {
             "ball": [((20, 120, 120), (35, 255, 255))],
             "home": [((90, 60, 120), (115, 255, 255))],
@@ -777,7 +792,10 @@ DEFAULT_PROFILE: str = "bra_hai"
 
 
 def select_profile(frame_w: int, frame_h: int, name: str = "auto") -> tuple[str, dict]:
-    """Profilo HUD attivo: per nome esplicito, o 'auto' in base alle proporzioni."""
+    """
+    Active HUD profile: by explicit name, or 'auto' based on the aspect ratio.
+    It compares the aspect ratio of the video to the predefined profiles to select the best match.
+    """
     if name and name != "auto":
         return name, HUD_PROFILES[name]
     aspect = frame_w / max(frame_h, 1)
@@ -793,7 +811,7 @@ def select_profile(frame_w: int, frame_h: int, name: str = "auto") -> tuple[str,
 
 
 def apply_profile(prof: dict) -> None:
-    """Riscrive le costanti globali usate dalle fasi con i valori del profilo."""
+    """Rewrite the global constants used by the phases with the profile's values."""
     global HUD_REGIONS, ROSTER_HOME, ROSTER_AWAY, TEAM_CODES, TEAM_JERSEY_HSV
     global HUD_ACTIVE_SIDE, ROSTER, BALL_TRACKING, RADAR_HSV
     HUD_REGIONS = prof["regions"]
@@ -803,8 +821,8 @@ def apply_profile(prof: dict) -> None:
     TEAM_JERSEY_HSV = prof["jersey_hsv"]
     HUD_ACTIVE_SIDE = prof["active_side"]
     ROSTER = {**{n: "home" for n in ROSTER_HOME}, **{n: "away" for n in ROSTER_AWAY}}
-    # Soglie di tracking per-camera: default pristini + override del profilo
-    # (le distanze in px dipendono da risoluzione e zoom dell'inquadratura).
+    # Per-camera tracking thresholds: pristine defaults + profile overrides
+    # (the distances in px depend on the resolution and zoom of the framing).
     BALL_TRACKING = {**_BALL_TRACKING_DEFAULTS, **prof.get("ball_tracking", {})}
-    # Colori dei segnalini radar di questa interfaccia (default = bra_hai).
+    # Radar marker colors of this interface (default = bra_hai).
     RADAR_HSV = {**_RADAR_HSV_DEFAULTS, **prof.get("radar_hsv", {})}

@@ -1,23 +1,23 @@
 """
 04_synthesize.py
 ================
-FASE 4 - Sintesi audio: testo + prosodia -> voce espressiva.
+PHASE 4 - Audio synthesis: text + prosody -> expressive voice.
 
-Pipeline (Coqui XTTS v2, voice cloning zero-shot):
-  1) PROSODIA: prosody_mlp (Fase 3) predice l'enfasi per evento; qui usiamo
-     rate_factor -> speed XTTS e energy_gain -> volume. (Fallback: regole.)
-  2) BLOCCHI: le battute vengono unite in blocchi e sintetizzate in un'unica
-     passata -> prosodia connessa, con voce clonata da un audio di riferimento.
-  3) RIFINITURA: trim dei silenzi + fade-in, poi concatenazione -> traccia.
+Pipeline (Coqui XTTS v2, zero-shot voice cloning):
+  1) PROSODY: prosody_mlp (Phase 3) predicts the emphasis per event; here we use
+     rate_factor -> XTTS speed and energy_gain -> volume. (Fallback: rules.)
+  2) BLOCKS: the lines are merged into blocks and synthesized in a single
+     pass -> connected prosody, with the voice cloned from a reference audio.
+  3) POLISH: silence trim + fade-in, then concatenation -> track.
 
-Il modello prosodico importa ProsodyMLP da utils (nessun accoppiamento al
-nome-file della Fase 3).
+The prosody model imports ProsodyMLP from utils (no coupling to the Phase 3
+file name).
 
-Output: outputs/audio/<nome>.wav
+Output: outputs/audio/<name>.wav
 
-Uso:
+Usage:
     python 04_synthesize.py --script features/scripts/match1.json
-    python 04_synthesize.py --script features/scripts/match1.json --rule-based   # baseline A/B
+    python 04_synthesize.py --script features/scripts/match1.json --rule-based   # A/B baseline
 """
 
 from __future__ import annotations
@@ -41,12 +41,16 @@ logger = get_logger("fase4_sintesi")
 
 
 # --------------------------------------------------------------------------- #
-# Predizione prosodia                                                         #
+# Prosody prediction                                                          #
 # --------------------------------------------------------------------------- #
 class ProsodyPredictor:
-    """Predice (rate, pitch, energy) per evento: modello appreso o regole."""
+    """Predicts (rate, pitch, energy) per event: learned model or rules."""
 
     def __init__(self, force_rule_based: bool = False) -> None:
+        """
+        Initialize the prosody predictor.
+        Attempts to load the learned model unless rule-based is forced.
+        """
         self.model = None
         self.scaler = None
         if not force_rule_based:
@@ -55,6 +59,10 @@ class ProsodyPredictor:
         logger.info("Predittore prosodia: modalita' = %s", self.mode)
 
     def _try_load_model(self) -> None:
+        """
+        Load the PyTorch model and the scikit-learn scaler from disk.
+        Sets self.model to None on failure.
+        """
         if not config.PROSODY_MODEL_PATH.exists():
             logger.warning(
                 "Modello non trovato (%s): uso i valori a regole.", config.PROSODY_MODEL_PATH
@@ -80,6 +88,10 @@ class ProsodyPredictor:
     def predict(
         self, event_type: str, importance: float, audio_energy: float = 0.5
     ) -> dict[str, float]:
+        """
+        Predict the target prosody values (rate, pitch, energy) for an event.
+        Uses the MLP if loaded, otherwise falls back to configured rule-based values.
+        """
         if self.model is not None and self.scaler is not None:
             import torch
 
@@ -92,7 +104,7 @@ class ProsodyPredictor:
             values = dict(
                 config.RULE_BASED_PROSODY.get(event_type, config.RULE_BASED_PROSODY["idle"])
             )
-        # Clamp di sicurezza (vale per entrambe le modalita').
+        # Safety clamp (applies to both modes).
         for key in config.PROSODY_TARGETS:
             lo, hi = config.PROSODY_CLAMP[key]
             values[key] = float(np.clip(values[key], lo, hi))
@@ -100,44 +112,51 @@ class ProsodyPredictor:
 
 
 # --------------------------------------------------------------------------- #
-# Motori TTS (voce neutra)                                                     #
+# TTS engines (neutral voice)                                                 #
 # --------------------------------------------------------------------------- #
 class TTSEngine:
-    """Interfaccia motore TTS. Unica implementazione: CoquiEngine (XTTS v2)."""
+    """TTS engine interface. Single implementation: CoquiEngine (XTTS v2)."""
 
-    output_sample_rate: int = config.SAMPLE_RATE  # rate dell'audio prodotto
+    output_sample_rate: int = config.SAMPLE_RATE  # rate of the produced audio
 
     def synth_neutral(
         self, text: str, speed: float | None = None, excited: bool = False
     ) -> tuple[np.ndarray, int]:
+        """
+        Synthesize text into audio using the specified speed and emotion.
+        Returns the audio array and its sample rate.
+        """
         raise NotImplementedError
 
 
 class CoquiEngine(TTSEngine):
-    """TTS espressivo (Coqui XTTS v2). Multilingue nativo (italiano incluso)
-    con voice cloning zero-shot da speaker_wav. Modello caricato UNA volta."""
+    """Expressive TTS (Coqui XTTS v2). Natively multilingual (Italian included)
+    with zero-shot voice cloning from speaker_wav. Model loaded ONCE."""
 
     def __init__(self) -> None:
+        """
+        Initialize the Coqui XTTS v2 engine and resolve reference speaker audio paths.
+        """
         import os
 
-        # XTTS v2 e' sotto licenza CPML: senza questo, al primo download il
-        # loader chiede conferma interattiva e si blocca in modalita' batch.
+        # XTTS v2 is under the CPML license: without this, on the first download
+        # the loader asks for interactive confirmation and hangs in batch mode.
         os.environ.setdefault("COQUI_TOS_AGREED", "1")
         from TTS.api import TTS
 
         logger.info("TTS: Coqui (%s).", config.COQUI_MODEL)
         self.tts = TTS(config.COQUI_MODEL)
-        # Rate dell'audio prodotto: 24 kHz nativi di XTTS (config), NON i 22050
-        # dell'analisi audio -> niente downsampling che "ovatta" il parlato.
+        # Rate of the produced audio: XTTS's native 24 kHz (config), NOT the 22050
+        # of the audio analysis -> no downsampling that "muffles" the speech.
         self.output_sample_rate = config.COQUI_OUTPUT_SAMPLE_RATE
-        # Risolve i riferimenti rispetto alla root del progetto (robusto al cwd).
-        # XTTS v2 richiede OBBLIGATORIAMENTE un speaker_wav (non ha voci
-        # built-in). Se la lingua corrente non ha un wav dedicato, si usa quello
-        # italiano come fallback (la voce avra' un leggero accento ma parlera'
-        # correttamente nella lingua target grazie al parametro language).
+        # Resolve the references against the project root (robust to the cwd).
+        # XTTS v2 REQUIRES a speaker_wav (it has no built-in voices). If the
+        # current language has no dedicated wav, the Italian one is used as
+        # fallback (the voice will have a slight accent but will speak correctly
+        # in the target language thanks to the language parameter).
         raw_wav = config.COQUI_SPEAKER_WAV
         if not raw_wav:
-            # Fallback: primo wav disponibile tra le lingue configurate.
+            # Fallback: first wav available among the configured languages.
             for wav in config.COQUI_SPEAKER_WAVS.values():
                 if wav:
                     raw_wav = wav
@@ -153,32 +172,50 @@ class CoquiEngine(TTSEngine):
                     break
         self.speaker_wav_excited = str(config.PROJECT_ROOT / raw_excited) if raw_excited else None
 
+        # ORIGINAL / neutral voice: no cloning. It uses a built-in "studio" XTTS
+        # voice (`speaker=` parameter), at a regular pace. Overrides the cloned
+        # speaker_wav when COMMENTARY_SPEAKER=builtin.
+        self.builtin_speaker = config.COQUI_BUILTIN_SPEAKER if config.USE_BUILTIN_SPEAKER else None
+        if self.builtin_speaker:
+            logger.info("Voce ORIGINALE (no cloning): speaker built-in '%s'.", self.builtin_speaker)
+            self.speaker_wav = None
+            self.speaker_wav_excited = None
+
     def synth_neutral(
         self, text: str, speed: float | None = None, excited: bool = False
     ) -> tuple[np.ndarray, int]:
-        # XTTS v2 in ITALIANO verbalizza il punto finale ("punto") sulle
-        # frasi corte: lo togliamo. In altre lingue il comportamento non si
-        # verifica, e il punto puo' guidare l'intonazione di fine frase.
-        # Virgole interne, ! e ? restano perche' guidano la prosodia.
+        """
+        Synthesize speech using Coqui XTTS v2, maintaining continuous prosody for blocks.
+        """
+        # XTTS v2 in ITALIAN speaks out the final period ("punto") on short
+        # sentences: we strip it. In other languages the behavior does not
+        # happen, and the period can guide the sentence-final intonation.
+        # Internal commas, ! and ? stay because they guide the prosody.
         if config.LANGUAGE == "it":
             text = text.rstrip().rstrip(".").rstrip()
-        # split_sentences=False: il blocco (piu' frasi) viene generato in
-        # UN'UNICA passata -> prosodia continua/connessa tra le frasi.
+        # split_sentences=False: the block (multiple sentences) is generated in
+        # ONE single pass -> continuous/connected prosody across the sentences.
         kwargs = {
             "text": text,
             "language": config.COQUI_LANGUAGE,
             "speed": config.COQUI_SPEED if speed is None else speed,
             "split_sentences": False,
         }
-        # Riferimento concitato per gli eventi importanti (se disponibile).
-        ref = (
-            self.speaker_wav_excited if (excited and self.speaker_wav_excited) else self.speaker_wav
-        )
-        if ref:
-            kwargs["speaker_wav"] = ref
+        # Built-in voice (original/neutral) -> `speaker=`; otherwise cloning
+        # from the reference (excited on important events, if available).
+        if self.builtin_speaker:
+            kwargs["speaker"] = self.builtin_speaker
+        else:
+            ref = (
+                self.speaker_wav_excited
+                if (excited and self.speaker_wav_excited)
+                else self.speaker_wav
+            )
+            if ref:
+                kwargs["speaker_wav"] = ref
         wav = np.asarray(self.tts.tts(**kwargs), dtype=np.float32)
-        # Rate reale di XTTS; si ricampiona SOLO se non coincide col target di
-        # sintesi (di norma entrambi 24 kHz -> nessun resampling, max qualita').
+        # XTTS's real rate; we resample ONLY if it does not match the synthesis
+        # target (usually both 24 kHz -> no resampling, max quality).
         sr = getattr(self.tts.synthesizer, "output_sample_rate", self.output_sample_rate)
         if sr != self.output_sample_rate:
             import librosa
@@ -188,20 +225,20 @@ class CoquiEngine(TTSEngine):
 
 
 def make_tts_engine(name: str = "coqui") -> TTSEngine:
-    """Unico motore supportato: Coqui XTTS v2 (voice cloning, italiano nativo)."""
+    """Only supported engine: Coqui XTTS v2 (voice cloning, native Italian)."""
     if name != "coqui":
         logger.warning("Motore '%s' non piu' supportato: uso XTTS (coqui).", name)
     return CoquiEngine()
 
 
 # --------------------------------------------------------------------------- #
-# Sintesi della traccia                                                       #
+# Track synthesis                                                             #
 # --------------------------------------------------------------------------- #
 def _trim_silence(
     wav: np.ndarray, sr: int, thresh: float = 0.02, margin_ms: int = 30
 ) -> np.ndarray:
-    """Taglia il silenzio in testa/coda (XTTS aggiunge padding a ogni battuta).
-    Soglia sull'ampiezza + piccolo margine per non tagliare gli attacchi."""
+    """Trim the silence at head/tail (XTTS adds padding to every line).
+    Amplitude threshold + small margin so the attacks are not clipped."""
     active = np.where(np.abs(wav) > thresh)[0]
     if active.size == 0:
         return wav
@@ -212,7 +249,7 @@ def _trim_silence(
 
 
 def _fade_in(wav: np.ndarray, sr: int, ms: int) -> np.ndarray:
-    """Rampa lineare in ingresso: smorza l'attacco 'rauco' d'avvio di XTTS."""
+    """Linear fade-in ramp: softens the 'raspy' startup attack of XTTS."""
     n = min(len(wav), int(sr * ms / 1000))
     if n <= 0:
         return wav
@@ -222,21 +259,24 @@ def _fade_in(wav: np.ndarray, sr: int, ms: int) -> np.ndarray:
 
 
 def _is_excited(importance: float) -> bool:
+    """
+    Check if the event importance crosses the threshold for excited delivery.
+    """
     return importance >= config.EMPHASIS_IMPORTANCE_THRESHOLD
 
 
 def _group_utterances(
     items: list[tuple[str, str, float, float, float]], max_chars: int, max_gap_s: float
 ) -> list[tuple[str, str, float, float, float]]:
-    """Unisce battute consecutive in blocchi <= max_chars mantenendo la
-    punteggiatura interna. Si spezza un blocco quando: cambia il livello
-    emotivo (calmo<->concitato), cosi' un evento importante (es. gol) finisce
-    in un blocco a se' e puo' ricevere enfasi propria; OPPURE due battute sono
-    lontane nel tempo piu' di max_gap_s (le fonderemmo perdendo la sincronia).
-    Ogni item e' (testo, event_type, importanza, t, audio_energy); il blocco
-    eredita event_type/importanza/audio_energy della battuta PIU' importante
-    (il suo "carattere") e il timestamp della PRIMA battuta (quando parte
-    sulla timeline)."""
+    """Merge consecutive lines into blocks <= max_chars keeping the internal
+    punctuation. A block is split when: the emotional level changes
+    (calm<->excited), so an important event (e.g. goal) ends up in its own block
+    and can get its own emphasis; OR two lines are farther apart in time than
+    max_gap_s (merging them would break the sync).
+    Each item is (text, event_type, importance, t, audio_energy); the block
+    inherits event_type/importance/audio_energy of the MOST important line
+    (its "character") and the timestamp of the FIRST line (when it starts on
+    the timeline)."""
     chunks: list[tuple[str, str, float, float, float]] = []
     cur, cur_evt, cur_imp, cur_t, cur_energy = "", "idle", -1.0, 0.0, 0.5
     prev_t: float | None = None
@@ -252,10 +292,10 @@ def _group_utterances(
             chunks.append((cur, cur_evt, cur_imp, cur_t, cur_energy))
             cur, cur_evt, cur_imp, cur_t, cur_energy = text, evt, imp, t, energy
         else:
-            if not cur:  # prima battuta del blocco: ne fissa il timestamp
+            if not cur:  # first line of the block: sets its timestamp
                 cur_t = t
             cur = candidate
-            if imp > cur_imp:  # rappresentante del blocco = piu' importante
+            if imp > cur_imp:  # block representative = most important
                 cur_evt, cur_imp, cur_energy = evt, imp, energy
         prev_t = t
     if cur:
@@ -264,26 +304,30 @@ def _group_utterances(
 
 
 def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) -> np.ndarray:
-    sr = tts.output_sample_rate  # 24 kHz nativi XTTS (non i 22050 dell'analisi)
+    """
+    Synthesize an entire script into a single continuous audio track.
+    Groups lines into blocks and positions them sequentially on the timeline to avoid overlap.
+    """
+    sr = tts.output_sample_rate  # XTTS native 24 kHz (not the 22050 of the analysis)
     min_gap = int(config.GAP_BETWEEN_UTTERANCES_S * sr)
 
-    # NOTA: la prosodia NON viene piu' applicata via DSP (WORLD/pyworld).
-    # Passare una voce neurale gia' sintetica in un secondo vocoder la
-    # "doppia-vocoda" e introduce l'artefatto metallico. Usiamo la voce del
-    # TTS cosi' com'e': l'espressivita' arriva dall'audio di riferimento
-    # (voice cloning). Il predittore resta per compatibilita' (log/suffix).
+    # NOTE: the prosody is NO LONGER applied via DSP (WORLD/pyworld). Passing an
+    # already-synthetic neural voice through a second vocoder "double-vocodes"
+    # it and introduces the metallic artifact. We use the TTS voice as is: the
+    # expressiveness comes from the reference audio (voice cloning). The
+    # predictor stays for compatibility (log/suffix).
     #
-    # Le battute vengono unite in BLOCCHI e sintetizzate in un'unica passata,
-    # cosi' XTTS collega la prosodia tra le frasi (parlato piu' naturale) invece
-    # di generare frasi isolate una dopo l'altra.
+    # The lines are merged into BLOCKS and synthesized in one pass, so XTTS
+    # connects the prosody across the sentences (more natural speech) instead
+    # of generating isolated sentences one after the other.
     items = [
         (
             line.get("text", ""),
             line.get("event_type", "idle"),
             float(line.get("importance", 0.0)),
             float(line.get("t", 0.0)),
-            # audio_energy: eccitazione REALE del pubblico (Fase 1c), se la
-            # battuta ce l'ha; 0.5 (neutro) se la Fase 1c non e' girata.
+            # audio_energy: REAL crowd excitement (Phase 1c), if the line has
+            # it; 0.5 (neutral) if Phase 1c was not run.
             float(line.get("audio_energy", 0.5)),
         )
         for line in script
@@ -291,16 +335,16 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
     chunks = _group_utterances(items, config.COQUI_CHUNK_MAX_CHARS, config.SYNC_MERGE_MAX_GAP_S)
     lo, hi = config.COQUI_SPEED_CLAMP
 
-    # Sintesi + posizionamento sulla TIMELINE: ogni blocco parte al timestamp
-    # del suo evento; se il precedente non e' ancora finito, si accoda (cursor)
-    # per non sovrapporre le voci. La traccia finisce con l'ultima battuta.
-    placed: list[tuple[int, np.ndarray]] = []  # (campione d'inizio, audio)
-    cursor = 0  # fine (in campioni) dell'ultimo blocco piazzato
+    # Synthesis + placement on the TIMELINE: each block starts at its event's
+    # timestamp; if the previous one is not finished yet, it queues (cursor) so
+    # the voices do not overlap. The track ends with the last line.
+    placed: list[tuple[int, np.ndarray]] = []  # (start sample, audio)
+    cursor = 0  # end (in samples) of the last placed block
     for i, (chunk, evt, imp, t, energy) in enumerate(chunks):
-        # ENFASI DAL MODELLO (Fase 3): rate_factor -> speed, energy_gain -> volume.
-        # energy (Fase 1c) e' una feature IN PIU': a parita' di evento, la
-        # prosodia ora reagisce anche a quanto il pubblico si e' davvero
-        # eccitato in quel momento, non solo al tipo/importanza dell'evento.
+        # EMPHASIS FROM THE MODEL (Phase 3): rate_factor -> speed, energy_gain -> volume.
+        # energy (Phase 1c) is an EXTRA feature: for the same event, the prosody
+        # now also reacts to how much the crowd actually got excited at that
+        # moment, not only to the event type/importance.
         prosody = predictor.predict(evt, imp, energy)
         speed = float(np.clip(config.COQUI_SPEED * prosody["rate_factor"], lo, hi))
         excited = _is_excited(imp)
@@ -315,8 +359,8 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
         start = max(int(round(t * sr)), cursor)
         placed.append((start, voiced))
         cursor = start + len(voiced) + min_gap
-        # Log SOLO a blocco riuscito: prima veniva stampato "sintetizzato"
-        # anche per i blocchi saltati dall'except, confondendo il conteggio.
+        # Log ONLY on a successful block: before, "synthesized" was printed
+        # even for blocks skipped by the except, confusing the count.
         logger.info(
             "Sintetizzati %d/%d blocchi a t=%.2fs (inizio reale %.2fs, %s, speed=%.2f, gain=%.2f).",
             i + 1,
@@ -335,10 +379,14 @@ def synthesize(script: list[dict], predictor: ProsodyPredictor, tts: TTSEngine) 
     for start, voiced in placed:
         track[start : start + len(voiced)] += voiced
     peak = float(np.max(np.abs(track))) or 1.0
-    return track / peak * 0.95  # normalizzazione finale
+    return track / peak * 0.95  # final normalization
 
 
 def main() -> None:
+    """
+    Main entry point for Phase 4.
+    Synthesizes the given JSON script to an output WAV audio track.
+    """
     parser = argparse.ArgumentParser(description="Fase 4 - Sintesi audio")
     parser.add_argument("--script", required=True, help="JSON dello script (Fase 2/2b).")
     parser.add_argument(
@@ -360,7 +408,7 @@ def main() -> None:
     tts = make_tts_engine(args.engine)
     track = synthesize(script, predictor, tts)
 
-    sr = tts.output_sample_rate  # rate reale della traccia (24 kHz), non 22050
+    sr = tts.output_sample_rate  # real track rate (24 kHz), not 22050
     suffix = "_rulebased" if args.rule_based else "_model"
     out_path = (
         Path(args.out) if args.out else config.AUDIO_OUT_DIR / f"{script_path.stem}{suffix}.wav"

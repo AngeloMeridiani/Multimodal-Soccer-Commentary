@@ -1,18 +1,18 @@
 """
 02b_generate_llm.py
 ===================
-FASE 2b - Generazione telecronaca con LLM (alternativa ai template).
+PHASE 2b - Commentary generation with an LLM (alternative to the templates).
 
-I dati strutturati di ogni evento vengono passati a un LLM che genera la battuta
-come un telecronista italiano esaltato. Provider: ollama (locale), openai, anthropic.
+The structured data of each event is passed to an LLM that generates the line
+like an excited Italian commentator. Providers: ollama (local), openai, anthropic.
 
-Ogni battuta generata passa da un VALIDATORE anti-allucinazioni: se cita un
-giocatore della rosa che non c'entra con l'evento (nome inventato dall'LLM),
-viene scartata e sostituita dal template equivalente, che non puo' allucinare.
+Every generated line goes through an anti-hallucination VALIDATOR: if it mentions
+a roster player unrelated to the event (a name invented by the LLM), it is
+discarded and replaced by the equivalent template, which cannot hallucinate.
 
-Output: features/scripts/<nome_video>_llm.json
+Output: features/scripts/<video_name>_llm.json
 
-Uso:
+Usage:
     python 02b_generate_llm.py --events features/events/match1_enriched.json
     python 02b_generate_llm.py --events features/events/match1.json --provider openai
 """
@@ -36,6 +36,10 @@ logger = get_logger("fase2b_llm")
 
 class LLMProvider:
     def generate(self, system_prompt: str, user_prompt: str) -> str:
+        """
+        Generate a text response given a system and user prompt.
+        Must be implemented by subclasses.
+        """
         raise NotImplementedError
 
 
@@ -71,9 +75,9 @@ class OllamaProvider(LLMProvider):
 
 
 class OpenAIProvider(LLMProvider):
-    """Client per l'API 'chat completions' stile OpenAI. base_url configurabile:
-    stesso client serve OpenAI vero e qualunque endpoint compatibile (Groq,
-    LM Studio, Gemini...), cambia solo l'URL e la chiave."""
+    """Client for the OpenAI-style 'chat completions' API. Configurable base_url:
+    the same client serves real OpenAI and any compatible endpoint (Groq,
+    LM Studio, Gemini...), only the URL and the key change."""
 
     DEFAULT_BASE_URL = "https://api.openai.com/v1/chat/completions"
 
@@ -136,6 +140,9 @@ class AnthropicProvider(LLMProvider):
 
 
 def create_provider(provider_name: str, model: str | None = None) -> LLMProvider:
+    """
+    Factory function to instantiate the correct LLM provider based on the configuration name.
+    """
     cfg = config.LLM_CONFIG.get(provider_name)
     if not cfg:
         raise ValueError(f"Provider sconosciuto: {provider_name}")
@@ -146,8 +153,8 @@ def create_provider(provider_name: str, model: str | None = None) -> LLMProvider
     if not api_key:
         raise EnvironmentError(f"API key mancante: esporta {cfg.get('api_key_env')}.")
     if provider_name in ("openai", "groq"):
-        # Groq espone un endpoint OpenAI-compatibile: stessa classe, solo
-        # base_url e chiave diversi (letti da LLM_CONFIG).
+        # Groq exposes an OpenAI-compatible endpoint: same class, only a
+        # different base_url and key (read from LLM_CONFIG).
         return OpenAIProvider(actual_model, api_key, base_url=cfg.get("base_url"))
     if provider_name == "anthropic":
         return AnthropicProvider(actual_model, api_key)
@@ -161,6 +168,10 @@ def build_event_prompt(
     recent: list[str] | None = None,
     next_events: list[dict] | None = None,
 ) -> str:
+    """
+    Construct the final prompt string for the LLM.
+    Includes rules, event data, contextual history, and language-specific instructions.
+    """
     data = {
         "evento_numero" if config.LANGUAGE == "it" else "event_number": f"{idx + 1}/{total}",
         "timestamp_s": event.get("t", 0),
@@ -193,7 +204,7 @@ def build_event_prompt(
     evt = event.get("type", "pass")
     imp = float(event.get("importance", 0.5))
 
-    # Verbi specifici per tipo di evento, così il modello non usa verbi da passaggio per un gol.
+    # Event-type-specific verbs, so the model does not use passing verbs for a goal.
     VERB_HINTS_IT: dict[str, str] = {
         "goal": "USA SOLO verbi da gol: segna, insacca, trafigge, batte il portiere, la mette dentro. MAI 'filtra', 'lancia', 'verticalizza'. NON descrivere dove va: il modello non vede la traiettoria.",
         "save": "USA SOLO verbi da parata: para, dice di no, vola, blocca, devia, respinge.",
@@ -298,20 +309,20 @@ def build_event_prompt(
 
 
 # --------------------------------------------------------------------------- #
-# Validatore anti-allucinazioni (il "Validator" della pipeline di refinery)    #
+# Anti-hallucination validator (the pipeline's "Validator" refinery step)     #
 # --------------------------------------------------------------------------- #
-# Similarita' minima perche' una parola del testo "sia" un nome della rosa.
-# Alta apposta: deve riconoscere flessioni/refusi (RAPHINA~RAPHINHA = 0.93)
-# senza confondere nomi simili tra loro (PIERRE~PIERROT = 0.77 -> distinti).
+# Minimum similarity for a word of the text to "be" a roster name.
+# High on purpose: it must recognize inflections/typos (RAPHINA~RAPHINHA = 0.93)
+# without confusing similar names (PIERRE~PIERROT = 0.77 -> distinct).
 NAME_SIMILARITY = 0.85
 
 
 def mentioned_roster_names(text: str) -> set[str]:
-    """Nomi della rosa (home+away) citati nel testo.
+    """Roster names (home+away) mentioned in the text.
 
-    Confronta ogni parola del testo con le parole dei nomi in rosa: match
-    esatto oppure fuzzy sopra NAME_SIMILARITY. I nomi multi-parola
-    ("BRUNO GUIMARAES") contano se una qualunque loro parola compare.
+    Compares every word of the text with the words of the roster names: exact
+    match or fuzzy above NAME_SIMILARITY. Multi-word names
+    ("BRUNO GUIMARAES") count if any of their words appears.
     """
     roster = set(config.ROSTER_HOME) | set(config.ROSTER_AWAY)
     words = set(re.findall(r"[A-Za-zÀ-ÿ]{3,}", text.upper()))
@@ -327,13 +338,13 @@ def mentioned_roster_names(text: str) -> set[str]:
 
 
 def validate_line(text: str, event: dict) -> bool:
-    """True se la battuta cita SOLO giocatori pertinenti all'evento.
+    """True if the line mentions ONLY players relevant to the event.
 
-    Pertinenti = i nomi presenti nell'evento (player, player_home,
-    player_away) piu' quelli della telecronaca originale (il prompt invita
-    l'LLM a usarli). Qualunque ALTRO nome della rosa nel testo e' inventato
-    dall'LLM -> la battuta va scartata (fallback al template).
-    Una battuta senza nomi ("Che parata!") e' sempre valida.
+    Relevant = the names present in the event (player, player_home,
+    player_away) plus those from the original commentary (the prompt invites
+    the LLM to use them). Any OTHER roster name in the text is invented by the
+    LLM -> the line must be discarded (fallback to the template).
+    A line with no names ("What a save!") is always valid.
     """
     allowed: set[str] = set()
     for key in ("player", "player_home", "player_away"):
@@ -350,8 +361,8 @@ def validate_line(text: str, event: dict) -> bool:
 
 
 def _strip_markdown(text: str) -> str:
-    """Rimuove formattazione markdown che alcuni LLM inseriscono nel testo.
-    XTTS leggerebbe asterischi e underscore come caratteri, rovinando l'audio."""
+    """Remove markdown formatting that some LLMs insert into the text.
+    XTTS would read asterisks and underscores as characters, ruining the audio."""
     text = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", text)
     text = re.sub(r"_{1,2}([^_]+)_{1,2}", r"\1", text)
     text = re.sub(r"`([^`]+)`", r"\1", text)
@@ -359,10 +370,10 @@ def _strip_markdown(text: str) -> str:
 
 
 def _snap_names(text: str, event_names: set[str] | None = None) -> str:
-    """Sostituisce varianti LLM di nomi con il canonico (fuzzy match).
+    """Replace LLM name variants with the canonical one (fuzzy match).
 
-    Usa sia il roster da config sia i nomi estratti dagli eventi stessi, così
-    funziona anche su clip di squadre non configurate nel profilo attivo.
+    Uses both the roster from config and the names extracted from the events
+    themselves, so it works even on clips of teams not configured in the active profile.
     """
     roster_parts: list[str] = []
     for name in list(config.ROSTER_HOME) + list(config.ROSTER_AWAY):
@@ -395,17 +406,17 @@ def _snap_names(text: str, event_names: set[str] | None = None) -> str:
 
 
 def _name_only(event: dict) -> str | None:
-    """Restituisce solo il nome del giocatore se disponibile, altrimenti None."""
+    """Return only the player's name if available, otherwise None."""
     player = str(event.get("player") or "").strip()
     unknown = config.get_unknown_player()
-    # Controlla sia il placeholder della lingua corrente sia quelli noti.
+    # Check both the current-language placeholder and the known ones.
     skip = {unknown.lower(), "il giocatore", "sconosciuto", "the player", "unknown", ""}
     if player and player.lower() not in skip:
         return player.capitalize() if player.isupper() else player
     return None
 
 
-# Probabilità che un passaggio semplice venga commentato solo col nome (stile reale).
+# Probability that a simple pass is commented with the name only (real style).
 _NAME_ONLY_PROB = 0.45
 
 
@@ -415,7 +426,11 @@ class LLMScriptGenerator:
         self.system_prompt = config.LLM_SYSTEM_PROMPT
 
     def generate(self, events: list[dict], delay: float = 0.5) -> list[dict]:
-        # Nomi canonici estratti dagli eventi (integrano il roster di config).
+        """
+        Iterate through the event log, invoking the LLM to generate script lines.
+        Applies validation and falls back to templates or simple names when needed.
+        """
+        # Canonical names extracted from the events (complement the config roster).
         event_names: set[str] = set()
         for ev in events:
             for key in ("player", "player_home", "player_away"):
@@ -428,7 +443,7 @@ class LLMScriptGenerator:
         total = len(events)
         for i, event in enumerate(events):
             source = "llm"
-            # Passaggi semplici: ~45% delle volte solo il nome, come fa un vero telecronista.
+            # Simple passes: ~45% of the time only the name, like a real commentator.
             if (
                 event.get("type") == "pass"
                 and float(event.get("importance", 0)) < 0.3
@@ -458,8 +473,8 @@ class LLMScriptGenerator:
                 )
                 text = _strip_markdown(text)
                 text = _snap_names(text, event_names)
-                # VALIDAZIONE: se l'LLM ha citato un giocatore che non c'entra
-                # con l'evento, la battuta e' un'allucinazione -> template.
+                # VALIDATION: if the LLM mentioned a player unrelated to the
+                # event, the line is a hallucination -> template.
                 if not validate_line(text, event):
                     logger.warning(
                         "Battuta LLM evento %d scartata (nome inventato): '%s'. Uso template.",
@@ -492,6 +507,9 @@ class LLMScriptGenerator:
 
     @staticmethod
     def _fallback(event: dict) -> str:
+        """
+        Provide a safe template-based fallback string if the LLM fails or hallucinates.
+        """
         import random
 
         templates = config.get_templates().get(
@@ -502,6 +520,10 @@ class LLMScriptGenerator:
 
 
 def main() -> None:
+    """
+    Main entry point for Phase 2b.
+    Loads events, generates a commentary script via LLM, and saves the output.
+    """
     parser = argparse.ArgumentParser(description="Fase 2b - Generazione telecronaca con LLM")
     parser.add_argument("--events", required=True)
     parser.add_argument(

@@ -1,16 +1,16 @@
 """
 02_generate_script.py
 ====================
-FASE 2 - Generazione del testo della telecronaca (NLP, basata su template).
+PHASE 2 - Commentary text generation (NLP, template-based).
 
-Trasforma il log eventi in battute testuali, scegliendo un template per evento e
-riempiendo i segnaposto. I template sono affidabili (zero allucinazioni,
-riproducibili) e spostano il valore di ricerca sulla prosodia (Fase 3).
-L'LLM e' l'alternativa nella Fase 2b.
+Turns the event log into text lines by picking a template per event and filling
+in the placeholders. Templates are reliable (zero hallucinations, reproducible)
+and shift the research value onto the prosody (Phase 3). The LLM is the
+alternative in Phase 2b.
 
-Output: features/scripts/<nome_video>.json   (lista: {t, text, event_type, importance})
+Output: features/scripts/<video_name>.json   (list: {t, text, event_type, importance})
 
-Uso:
+Usage:
     python 02_generate_script.py --events features/events/match1.json
 """
 
@@ -28,10 +28,17 @@ logger = get_logger("fase2_script")
 
 class ScriptGenerator:
     def __init__(self, templates: dict[str, list[str]]) -> None:
+        """
+        Initialize the script generator with a dictionary of templates for each event type.
+        """
         self.templates = templates
         self._last: dict[str, str] = {}
 
     def _pick(self, event_type: str) -> str:
+        """
+        Randomly select a template for a given event type.
+        Avoids repeating the exact same template consecutively if alternatives exist.
+        """
         options = self.templates.get(event_type, ["{player}."])
         if len(options) > 1 and event_type in self._last:
             options = [o for o in options if o != self._last[event_type]] or options
@@ -40,10 +47,14 @@ class ScriptGenerator:
         return choice
 
     def generate(self, events: list[dict]) -> list[dict]:
+        """
+        Generate a text script from a list of events by populating templates.
+        Resolves player names using possession context when available.
+        """
         script: list[dict] = []
         for ev in events:
             template = self._pick(ev["type"])
-            # Scegli il nome giusto in base al possesso visivo.
+            # Pick the right name based on the visual possession.
             poss = ev.get("possession")
             if poss == "home" and ev.get("player_home"):
                 player = ev["player_home"]
@@ -58,9 +69,9 @@ class ScriptGenerator:
                     "text": text,
                     "event_type": ev["type"],
                     "importance": ev["importance"],
-                    # Eccitazione REALE del pubblico (Fase 1c), se presente:
-                    # la Fase 4 la usa come feature della prosodia. 0.5 (neutro)
-                    # se l'evento non e' stato arricchito con l'audio.
+                    # REAL crowd excitement (Phase 1c), if present: Phase 4 uses
+                    # it as a prosody feature. 0.5 (neutral) when the event was
+                    # not enriched with the audio.
                     "audio_energy": ev.get("audio_energy", 0.5),
                 }
             )
@@ -68,6 +79,10 @@ class ScriptGenerator:
 
 
 def main() -> None:
+    """
+    Main entry point for Phase 2.
+    Loads events, generates a textual script using templates, and saves it.
+    """
     parser = argparse.ArgumentParser(description="Fase 2 - Generazione testo telecronaca")
     parser.add_argument("--events", required=True)
     args = parser.parse_args()
@@ -77,10 +92,10 @@ def main() -> None:
     events = load_json(events_path)
 
     script = ScriptGenerator(config.get_templates()).generate(events)
-    # Nome dello script = <stem>.json, SENZA i suffissi del file eventi
-    # (_enriched/_audio): cosi' combacia con cio' che la Fase 4 si aspetta
-    # (run_pipeline cerca features/scripts/<stem>.json). Stessa normalizzazione
-    # che fa gia' la Fase 2b. Senza, la sintesi non trovava lo script.
+    # Script name = <stem>.json, WITHOUT the event-file suffixes
+    # (_enriched/_audio): this way it matches what Phase 4 expects
+    # (run_pipeline looks for features/scripts/<stem>.json). Same normalization
+    # Phase 2b already does. Without it, synthesis could not find the script.
     stem = events_path.stem.replace("_enriched", "").replace("_audio", "")
     out_path = config.SCRIPTS_DIR / f"{stem}.json"
     ensure_dir(out_path)
