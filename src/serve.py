@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-serve.py  (v2 - robusto su Windows)
+serve.py  (v4 - cambio voce veloce)
 ===================================
-Collega il frontend (web/telecronaca.html) alla pipeline reale.
+Collega il frontend alla pipeline e sceglie automaticamente la strada:
 
-Differenze rispetto alla v1:
-  - forza UTF-8 nei sottoprocessi  -> niente crash di decodifica su Windows
-    (i caratteri stampati dalla pipeline non rompono piu' nulla)
-  - scrive TUTTO l'output della pipeline in outputs/last_run.log
-  - in caso di errore restituisce al browser le ultime righe reali del log
+  - PRIMA generazione di una clip  -> pipeline COMPLETA (1 1b 1c 2b 3 4)
+  - STESSA clip, voce diversa       -> solo Fase 4 (sintesi) + montaggio  (VELOCE)
 
-METTI questo file in src\\ (accanto a config.py) e lancia da src\\:
+Come lo capisce: se esiste gia' features/scripts/<nome>_llm.json (il testo LLM
+di quella clip), il testo e' gia' pronto e non va rigenerato: basta risintetizzare
+la voce nuova. XTTS clona sempre da data/raw/commentary/ref.wav, quindi il server
+copia la voce scelta su ref.wav prima di sintetizzare.
+
+METTI in src\\ e lancia da src\\ (con l'ambiente (telecronaca) attivo):
     python serve.py
-Poi apri  http://localhost:8000
 """
 from __future__ import annotations
 
@@ -25,19 +26,51 @@ from pathlib import Path
 
 from flask import Flask, request, jsonify, send_file, send_from_directory
 
-ROOT = Path(__file__).resolve().parent          # = src\\  (dove sta config.py)
+ROOT = Path(__file__).resolve().parent
 GAMEPLAY = ROOT / "data" / "raw" / "gameplay"
+COMMENTARY = ROOT / "data" / "raw" / "commentary"
+REF = COMMENTARY / "ref.wav"
 AUDIO_OUT = ROOT / "outputs" / "audio"
 VIDEO_OUT = ROOT / "outputs" / "video"
 SCRIPTS = ROOT / "features" / "scripts"
 WEB = ROOT / "web"
 LOG = ROOT / "outputs" / "last_run.log"
 
-for d in (GAMEPLAY, VIDEO_OUT, AUDIO_OUT):
+for d in (GAMEPLAY, COMMENTARY, VIDEO_OUT, AUDIO_OUT):
     d.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024   # 500 MB
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
+
+
+def pretty(stem: str) -> str:
+    return " ".join(w.capitalize() for w in stem.replace("-", "_").split("_") if w)
+
+
+def list_voices():
+    out = []
+    for p in sorted(COMMENTARY.glob("*.wav")):
+        if p.name.lower() == "ref.wav":
+            continue
+        out.append({"id": p.name, "name": pretty(p.stem)})
+    return out
+
+
+def run_pipeline(relvideo, phases, lang, env):
+    """Esegue run_pipeline.py con le fasi date. Ritorna (returncode, log_tail)."""
+    cmd = [sys.executable, "run_pipeline.py"]
+    cmd += ["--video", relvideo]
+    cmd += ["--phases", *phases,
+            "--profile", "auto",
+            "--llm-provider", "ollama",
+            "--llm-text",
+            "--language", lang]
+    with open(LOG, "w", encoding="utf-8") as lf:
+        lf.write("Fasi: " + " ".join(phases) + "\nComando: " + " ".join(cmd) + "\n\n")
+        lf.flush()
+        proc = subprocess.run(cmd, cwd=str(ROOT), env=env,
+                              stdout=lf, stderr=subprocess.STDOUT)
+    return proc.returncode, LOG.read_text(encoding="utf-8", errors="replace")[-3500:]
 
 
 @app.route("/")
@@ -45,89 +78,89 @@ def home():
     return send_from_directory(WEB, "telecronaca.html")
 
 
+@app.route("/voci")
+def voci():
+    return jsonify(voices=list_voices())
+
+
+@app.route("/voce/<path:name>")
+def voce(name):
+    p = (COMMENTARY / name).resolve()
+    if p.parent != COMMENTARY.resolve() or not p.exists():
+        return "Voce non trovata", 404
+    return send_file(p)
+
+
 @app.route("/genera", methods=["POST"])
 def genera():
     if "clip" not in request.files:
         return jsonify(ok=False, error="Nessuna clip ricevuta"), 400
+
+    voice = (request.form.get("voice") or "").strip()
+    if not voice:
+        return jsonify(ok=False, error="Seleziona una voce prima di generare."), 400
+    src_wav = (COMMENTARY / voice).resolve()
+    if src_wav.parent != COMMENTARY.resolve() or not src_wav.exists():
+        return jsonify(ok=False, error=f"Voce non trovata: {voice}"), 400
+    shutil.copyfile(src_wav, REF)          # la voce scelta -> ref.wav
 
     lang = request.form.get("lang", "it")
     f = request.files["clip"]
     dest = GAMEPLAY / f.filename
     f.save(dest)
     stem = dest.stem
+    relvideo = str(dest.relative_to(ROOT))
 
-    # ambiente UTF-8 per i sottoprocessi (fix Windows)
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
 
-    # pipeline reale (stesso comando che funziona da terminale)
-    cmd = [
-        sys.executable, "run_pipeline.py",
-        "--video", str(dest.relative_to(ROOT)),
-        "--phases", "1", "1b", "1c", "2b", "3", "4",
-        "--profile", "auto",
-        "--llm-provider", "ollama",
-        "--llm-text",
-        "--language", lang,
-    ]
+    # ── decide la strada: testo gia' pronto? -> solo Fase 4 ───────────
+    llm_json = SCRIPTS / f"{stem}_llm.json"
+    if llm_json.exists():
+        phases = ["4"]
+        mode = "fast"     # cambio voce veloce
+    else:
+        phases = ["1", "1b", "1c", "2b", "3", "4"]
+        mode = "full"     # prima volta: pipeline completa
 
-    # output su file: niente decodifica in memoria = niente crash unicode
-    with open(LOG, "w", encoding="utf-8") as lf:
-        lf.write("Comando: " + " ".join(cmd) + "\n\n")
-        lf.flush()
-        proc = subprocess.run(
-            cmd, cwd=str(ROOT), env=env,
-            stdout=lf, stderr=subprocess.STDOUT,
-        )
+    rc, log_tail = run_pipeline(relvideo, phases, lang, env)
 
-    log_tail = LOG.read_text(encoding="utf-8", errors="replace")[-3500:]
-
-    if proc.returncode != 0:
-        return jsonify(ok=False, error="Pipeline fallita",
-                       log=log_tail, returncode=proc.returncode), 500
-
-    # trova il WAV della telecronaca (Fase 4 aggiunge _model / _rule)
+    # Cerca il WAV della telecronaca PRIMA di giudicare l'esito.
+    # XTTS su Windows a volte crasha in chiusura (exit code 3221225477 / 0xC0000005)
+    # DOPO aver gia' salvato l'audio: in quel caso il WAV c'e' ed e' valido,
+    # quindi il risultato e' comunque utilizzabile e procediamo al montaggio.
     wavs = sorted(AUDIO_OUT.glob(f"{stem}*.wav"), key=lambda p: p.stat().st_mtime)
-    wavs = [w for w in wavs if w.stat().st_size > 1024]   # scarta WAV vuoti
-    if not wavs:
-        return jsonify(ok=False,
-                       error="Nessun audio valido generato (WAV vuoto). "
-                             "Controlla ref.wav in data/raw/commentary/.",
-                       log=log_tail), 500
-    wav = wavs[-1]
+    wavs = [w for w in wavs if w.stat().st_size > 4096]   # WAV con contenuto reale
+    if wavs:
+        wav = wavs[-1]                # audio prodotto: si prosegue anche se rc != 0
+    else:
+        # nessun audio valido -> errore vero
+        return jsonify(ok=False, error="Pipeline fallita (nessun audio generato).",
+                       log=log_tail, returncode=rc, mode=mode), 500
 
-    # mux ffmpeg: SOLO video + SOLO telecronaca (niente audio originale)
     out_mp4 = VIDEO_OUT / f"{stem}_telecronaca.mp4"
-    mux = [
-        "ffmpeg", "-y",
-        "-i", str(dest),
-        "-i", str(wav),
-        "-map", "0:v:0", "-map", "1:a:0",
-        "-c:v", "copy", "-c:a", "aac", "-shortest",
-        str(out_mp4),
-    ]
+    mux = ["ffmpeg", "-y", "-i", str(dest), "-i", str(wav),
+           "-map", "0:v:0", "-map", "1:a:0",
+           "-c:v", "copy", "-c:a", "aac", "-shortest", str(out_mp4)]
     m = subprocess.run(mux, capture_output=True)
     if m.returncode != 0:
         return jsonify(ok=False, error="Montaggio ffmpeg fallito",
-                       log=m.stderr.decode("utf-8", "replace")[-2000:]), 500
+                       log=m.stderr.decode("utf-8", "replace")[-2000:], mode=mode), 500
 
-    # testo generato per il frontend
     battute = []
-    script_json = SCRIPTS / f"{stem}_llm.json"
-    if script_json.exists():
+    if llm_json.exists():
         try:
-            data = json.loads(script_json.read_text(encoding="utf-8"))
+            data = json.loads(llm_json.read_text(encoding="utf-8"))
             items = data if isinstance(data, list) else data.get("lines", data.get("battute", []))
             for it in items:
-                battute.append({
-                    "t": str(it.get("time", it.get("t", ""))),
-                    "s": it.get("text", it.get("s", it.get("testo", ""))),
-                })
+                battute.append({"t": str(it.get("time", it.get("t", ""))),
+                                "s": it.get("text", it.get("s", it.get("testo", "")))})
         except Exception:
             pass
 
-    return jsonify(ok=True, file=out_mp4.name, audio=wav.name, transcript=battute)
+    return jsonify(ok=True, file=out_mp4.name, audio=wav.name,
+                   voice=voice, mode=mode, transcript=battute)
 
 
 @app.route("/scarica/<path:name>")
@@ -138,5 +171,7 @@ def scarica(name):
 if __name__ == "__main__":
     if not shutil.which("ffmpeg"):
         print("ATTENZIONE: ffmpeg non nel PATH.")
+    print("Python:", sys.executable)
+    print("Voci trovate:", [v["name"] for v in list_voices()] or "NESSUNA")
     print("Apri  ->  http://localhost:8000")
     app.run(host="127.0.0.1", port=8000, debug=True, use_reloader=False)

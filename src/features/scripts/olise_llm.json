@@ -28,7 +28,7 @@
   },
   {
     "t": 10.17,
-    "text": "O’Reilly si infila.",
+    "text": "O’Reilly si muove.",
     "event_type": "carry",
     "importance": 0.2,
     "audio_energy_level": "low",
@@ -37,7 +37,7 @@
   },
   {
     "t": 12.61,
-    "text": "Recupera il possesso Olise, riprende velocità.",
+    "text": "Recupera il possesso Olise, fa avanzare!",
     "event_type": "turnover",
     "importance": 0.55,
     "audio_energy_level": "medium",
@@ -55,7 +55,7 @@
   },
   {
     "t": 17.02,
-    "text": "O’Lise si infila.",
+    "text": "O’Lise si muove profondità!",
     "event_type": "carry",
     "importance": 0.2,
     "audio_energy_level": "low",
@@ -73,7 +73,7 @@
   },
   {
     "t": 20.52,
-    "text": "Calcia Olise! Conclude con decisione verso l'area!",
+    "text": "Scarica il destro Olise! Un tiro dalla zona di rigore, ma Donnarumma reagisce!",
     "event_type": "shot_on_goal",
     "importance": 0.85,
     "audio_energy_level": "high",
@@ -82,7 +82,7 @@
   },
   {
     "t": 21.02,
-    "text": "Vola Donnarumma! Un gesto provvidenziale nel cuore dell’area di rigore! Che reazione tra i tifosi!",
+    "text": "Vola Donnarumma! Un’eccezionale deviazione che smarca il pericolo in area di rigore!",
     "event_type": "save",
     "importance": 0.8,
     "audio_energy_level": "peak",
