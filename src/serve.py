@@ -47,6 +47,19 @@ def pretty(stem: str) -> str:
     return " ".join(w.capitalize() for w in stem.replace("-", "_").split("_") if w)
 
 
+def media_duration(path) -> float | None:
+    """Durata in secondi di un file audio/video via ffprobe, o None se illeggibile."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nk=1:nw=1", str(path)],
+            capture_output=True, text=True,
+        )
+        return float(out.stdout.strip())
+    except (ValueError, OSError):
+        return None
+
+
 def list_voices():
     out = []
     for p in sorted(COMMENTARY.glob("*.wav")):
@@ -140,9 +153,25 @@ def genera():
                        log=log_tail, returncode=rc, mode=mode), 500
 
     out_mp4 = VIDEO_OUT / f"{stem}_telecronaca.mp4"
-    mux = ["ffmpeg", "-y", "-i", str(dest), "-i", str(wav),
-           "-map", "0:v:0", "-map", "1:a:0",
-           "-c:v", "copy", "-c:a", "aac", "-shortest", str(out_mp4)]
+    vdur = media_duration(dest)
+    adur = media_duration(wav)
+    # Se la telecronaca dura PIU' del video, con -shortest l'output finirebbe
+    # con il video e l'ultima battuta verrebbe tagliata. Invece CONGELIAMO
+    # l'ultimo fotogramma finche' la voce finisce di parlare (tpad clona il
+    # frame finale per la differenza di durata). Niente -shortest in nessun
+    # caso: l'audio non deve mai essere troncato.
+    if adur and vdur and adur > vdur + 0.05:
+        pad = adur - vdur
+        mux = ["ffmpeg", "-y", "-i", str(dest), "-i", str(wav),
+               "-filter_complex", f"[0:v]tpad=stop_mode=clone:stop_duration={pad:.3f}[v]",
+               "-map", "[v]", "-map", "1:a:0",
+               "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(out_mp4)]
+    else:
+        # Video piu' lungo (o uguale): copia diretta del video. Senza -shortest
+        # l'audio suona per intero; dopo la voce resta il video (muto).
+        mux = ["ffmpeg", "-y", "-i", str(dest), "-i", str(wav),
+               "-map", "0:v:0", "-map", "1:a:0",
+               "-c:v", "copy", "-c:a", "aac", str(out_mp4)]
     m = subprocess.run(mux, capture_output=True)
     if m.returncode != 0:
         return jsonify(ok=False, error="Montaggio ffmpeg fallito",
