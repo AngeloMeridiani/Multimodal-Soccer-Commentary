@@ -27,6 +27,7 @@ from flask import Flask, request, jsonify, send_file, send_from_directory
 
 ROOT = Path(__file__).resolve().parent          # = src\\  (dove sta config.py)
 GAMEPLAY = ROOT / "data" / "raw" / "gameplay"
+COMMENTARY = ROOT / "data" / "raw" / "commentary"   # voci di riferimento (wav)
 AUDIO_OUT = ROOT / "outputs" / "audio"
 VIDEO_OUT = ROOT / "outputs" / "video"
 SCRIPTS = ROOT / "features" / "scripts"
@@ -40,9 +41,45 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024   # 500 MB
 
 
+def _voice_label(stem: str) -> str:
+    """Nome leggibile dal nome-file: 'voce_de_sica' -> 'De Sica'."""
+    name = stem[5:] if stem.startswith("voce_") else stem
+    return name.replace("_", " ").strip().title() or stem
+
+
+def list_voices() -> list[dict]:
+    """Elenca i wav di riferimento disponibili in data/raw/commentary/."""
+    voices = []
+    if COMMENTARY.exists():
+        for p in sorted(COMMENTARY.glob("*.wav")):
+            if p.stat().st_size <= 1024:   # scarta wav vuoti/placeholder
+                continue
+            voices.append({
+                "id": p.name,                       # es. "voce_caressa.wav"
+                "label": _voice_label(p.stem),      # es. "Caressa"
+                "path": f"data/raw/commentary/{p.name}",  # relativo alla root
+            })
+    return voices
+
+
 @app.route("/")
 def home():
     return send_from_directory(WEB, "telecronaca.html")
+
+
+@app.route("/voci")
+def voci():
+    """Voci disponibili per la telecronaca (per il selettore del frontend)."""
+    return jsonify(ok=True, voices=list_voices())
+
+
+@app.route("/anteprima-voce/<path:name>")
+def anteprima_voce(name):
+    """Serve il wav di una voce per l'anteprima audio nel frontend."""
+    wav = COMMENTARY / Path(name).name          # niente path traversal
+    if not wav.exists():
+        return jsonify(ok=False, error="Voce non trovata"), 404
+    return send_file(wav)
 
 
 @app.route("/genera", methods=["POST"])
@@ -51,6 +88,15 @@ def genera():
         return jsonify(ok=False, error="Nessuna clip ricevuta"), 400
 
     lang = request.form.get("lang", "it")
+
+    # Voce OBBLIGATORIA: l'utente la sceglie dal frontend. Si valida contro le
+    # voci realmente presenti per non passare percorsi arbitrari alla pipeline.
+    voice_id = request.form.get("voice", "")
+    voices = {v["id"]: v for v in list_voices()}
+    if voice_id not in voices:
+        return jsonify(ok=False, error="Devi scegliere una voce valida per la telecronaca."), 400
+    voice_path = voices[voice_id]["path"]
+
     f = request.files["clip"]
     dest = GAMEPLAY / f.filename
     f.save(dest)
@@ -70,6 +116,7 @@ def genera():
         "--llm-provider", "ollama",
         "--llm-text",
         "--language", lang,
+        "--voice", voice_path,
     ]
 
     # output su file: niente decodifica in memoria = niente crash unicode

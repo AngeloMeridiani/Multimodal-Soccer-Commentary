@@ -597,6 +597,17 @@ COQUI_SPEAKER_WAV: str | None = COQUI_SPEAKER_WAVS.get(LANGUAGE)
 # al posto GIUSTO -> "boato" sui momenti clou, voce calma sul resto.
 COQUI_SPEAKER_WAV_EXCITED: str | None = COQUI_SPEAKER_WAVS_EXCITED.get(LANGUAGE)
 
+# Override ESPLICITO della voce (indipendente dalla lingua). La variabile
+# d'ambiente COMMENTARY_VOICE contiene un percorso wav relativo alla root del
+# progetto (es. "data/raw/commentary/voce_caressa.wav"): la sceglie l'utente
+# dal frontend e run_pipeline.py la propaga ai sottoprocessi (che reimportano
+# config.py da zero). Se impostata, vince sia sulla voce base che su quella
+# concitata -> stessa voce clonata per tutta la telecronaca.
+COMMENTARY_VOICE: str | None = _os.environ.get("COMMENTARY_VOICE") or None
+if COMMENTARY_VOICE:
+    COQUI_SPEAKER_WAV = COMMENTARY_VOICE
+    COQUI_SPEAKER_WAV_EXCITED = COMMENTARY_VOICE
+
 # --- Parametri di sintesi XTTS --------------------------------------------- #
 # Sample rate dell'audio SINTETIZZATO (Fase 4). XTTS produce nativamente 24 kHz:
 # tenerli evita di ricampionare giu' a SAMPLE_RATE (22050), che tagliava le alte

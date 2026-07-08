@@ -1,68 +1,18 @@
-Comando: C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\python.exe run_pipeline.py --video data\raw\gameplay\olise.mp4 --phases 1 1b 1c 2b 3 4 --profile auto --llm-provider ollama --llm-text --language it
+Comando: C:\Users\clare\OneDrive\Desktop\Multimodal-Soccer-Commentary\.venv\Scripts\python.exe run_pipeline.py --video data\raw\gameplay\possesso_palla_finale.mp4 --phases 1 1b 1c 2b 3 4 --profile auto --llm-provider ollama --llm-text --language it --voice data/raw/commentary/mia_voce.wav
 
-19:15:33 | INFO    | fase1_eventi | Inizializzo EasyOCR (lingue=['en'])...
-Neither CUDA nor MPS are available - defaulting to CPU. Note: This module is much faster with a GPU.
-OCR HUD: 0it [00:00, ?it/s]19:15:37 | INFO    | utils | Normalizzazione: rotazione=0°, crop=(0,0,1920,1080) da frame 1920x1080
-19:15:37 | INFO    | fase1_eventi | Profilo HUD: 'mci_bay' (frame 1920x1080, lato attivo=None)
-C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\Lib\site-packages\torch\utils\data\dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.
-  super().__init__(loader)
-OCR HUD: 1it [00:01,  1.68s/it]OCR HUD: 2it [00:02,  1.40s/it]OCR HUD: 3it [00:04,  1.29s/it]OCR HUD: 4it [00:05,  1.24s/it]OCR HUD: 5it [00:06,  1.23s/it]OCR HUD: 6it [00:07,  1.21s/it]OCR HUD: 7it [00:08,  1.18s/it]OCR HUD: 8it [00:09,  1.18s/it]OCR HUD: 9it [00:11,  1.17s/it]OCR HUD: 10it [00:12,  1.17s/it]OCR HUD: 11it [00:13,  1.16s/it]OCR HUD: 12it [00:14,  1.16s/it]OCR HUD: 13it [00:15,  1.17s/it]OCR HUD: 14it [00:16,  1.17s/it]OCR HUD: 15it [00:17,  1.15s/it]OCR HUD: 16it [00:19,  1.16s/it]OCR HUD: 17it [00:20,  1.16s/it]OCR HUD: 18it [00:21,  1.15s/it]OCR HUD: 19it [00:22,  1.15s/it]OCR HUD: 20it [00:23,  1.15s/it]OCR HUD: 21it [00:24,  1.16s/it]OCR HUD: 22it [00:26,  1.17s/it]OCR HUD: 23it [00:27,  1.17s/it]OCR HUD: 24it [00:28,  1.18s/it]OCR HUD: 25it [00:29,  1.15s/it]OCR HUD: 26it [00:30,  1.13s/it]OCR HUD: 27it [00:31,  1.12s/it]OCR HUD: 28it [00:32,  1.12s/it]OCR HUD: 29it [00:33,  1.11s/it]OCR HUD: 30it [00:35,  1.10s/it]OCR HUD: 31it [00:36,  1.11s/it]OCR HUD: 32it [00:37,  1.12s/it]OCR HUD: 33it [00:38,  1.13s/it]OCR HUD: 34it [00:39,  1.12s/it]OCR HUD: 35it [00:40,  1.12s/it]OCR HUD: 36it [00:41,  1.12s/it]OCR HUD: 37it [00:42,  1.14s/it]OCR HUD: 38it [00:44,  1.14s/it]OCR HUD: 39it [00:45,  1.16s/it]OCR HUD: 40it [00:46,  1.17s/it]OCR HUD: 41it [00:47,  1.12s/it]OCR HUD: 42it [00:48,  1.08s/it]OCR HUD: 43it [00:49,  1.07s/it]OCR HUD: 44it [00:50,  1.05s/it]OCR HUD: 45it [00:51,  1.09s/it]OCR HUD: 46it [00:52,  1.04s/it]OCR HUD: 46it [00:52,  1.15s/it]
-19:16:29 | INFO    | fase1_eventi | Estratti 5 eventi ({'pass': 5}) -> C:\Users\utente\Multimodal-Soccer-Commentary\src\features\events\olise.json
-19:16:29 | INFO    | fase1_eventi | Fase 1 completata.
-19:16:31 | INFO    | utils | Normalizzazione: rotazione=0°, crop=(0,0,1920,1080) da frame 1920x1080
-19:16:31 | INFO    | fase1b_visivo | Profilo HUD/colori: 'mci_bay' (frame 1920x1080)
-19:16:31 | INFO    | fase1b_visivo | Caricati 5 eventi OCR da features/events/olise.json
-19:16:38 | INFO    | fase1b_visivo | Carico modello YOLO 'models/best_finetuned.pt'...
-YOLO + Tracking: 0it [00:00, ?it/s]19:16:39 | INFO    | utils | Normalizzazione: rotazione=0°, crop=(0,0,1920,1080) da frame 1920x1080
-Using CPU. Note: This module is much faster with a GPU.
-C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\Lib\site-packages\torch\utils\data\dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.
-  super().__init__(loader)
-YOLO + Tracking: 1it [00:05,  5.67s/it]YOLO + Tracking: 2it [00:07,  3.27s/it]YOLO + Tracking: 3it [00:09,  2.59s/it]YOLO + Tracking: 4it [00:10,  2.25s/it]YOLO + Tracking: 5it [00:12,  2.06s/it]YOLO + Tracking: 6it [00:14,  1.96s/it]YOLO + Tracking: 7it [00:16,  1.91s/it]YOLO + Tracking: 8it [00:17,  1.74s/it]YOLO + Tracking: 9it [00:18,  1.64s/it]YOLO + Tracking: 10it [00:20,  1.49s/it]YOLO + Tracking: 11it [00:21,  1.59s/it]YOLO + Tracking: 12it [00:23,  1.52s/it]YOLO + Tracking: 13it [00:25,  1.67s/it]YOLO + Tracking: 14it [00:27,  1.74s/it]YOLO + Tracking: 15it [00:28,  1.75s/it]YOLO + Tracking: 16it [00:30,  1.78s/it]YOLO + Tracking: 17it [00:32,  1.80s/it]YOLO + Tracking: 18it [00:34,  1.78s/it]YOLO + Tracking: 19it [00:36,  1.77s/it]YOLO + Tracking: 20it [00:37,  1.81s/it]YOLO + Tracking: 21it [00:39,  1.82s/it]YOLO + Tracking: 22it [00:41,  1.83s/it]YOLO + Tracking: 23it [00:43,  1.88s/it]YOLO + Tracking: 24it [00:45,  1.88s/it]YOLO + Tracking: 25it [00:47,  1.87s/it]YOLO + Tracking: 26it [00:49,  1.81s/it]YOLO + Tracking: 27it [00:50,  1.76s/it]YOLO + Tracking: 28it [00:52,  1.80s/it]YOLO + Tracking: 29it [00:54,  1.75s/it]YOLO + Tracking: 30it [00:55,  1.71s/it]YOLO + Tracking: 31it [00:57,  1.66s/it]YOLO + Tracking: 32it [00:59,  1.65s/it]YOLO + Tracking: 33it [01:00,  1.61s/it]YOLO + Tracking: 34it [01:02,  1.62s/it]YOLO + Tracking: 35it [01:03,  1.59s/it]YOLO + Tracking: 36it [01:05,  1.59s/it]YOLO + Tracking: 37it [01:06,  1.60s/it]YOLO + Tracking: 38it [01:08,  1.60s/it]YOLO + Tracking: 39it [01:09,  1.50s/it]YOLO + Tracking: 40it [01:10,  1.33s/it]YOLO + Tracking: 41it [01:11,  1.23s/it]YOLO + Tracking: 42it [01:12,  1.17s/it]YOLO + Tracking: 43it [01:13,  1.18s/it]YOLO + Tracking: 44it [01:15,  1.17s/it]YOLO + Tracking: 45it [01:16,  1.21s/it]YOLO + Tracking: 46it [01:17,  1.27s/it]YOLO + Tracking: 47it [01:18,  1.23s/it]YOLO + Tracking: 48it [01:20,  1.23s/it]YOLO + Tracking: 49it [01:21,  1.16s/it]YOLO + Tracking: 50it [01:22,  1.10s/it]YOLO + Tracking: 51it [01:23,  1.13s/it]YOLO + Tracking: 52it [01:24,  1.20s/it]YOLO + Tracking: 53it [01:25,  1.21s/it]YOLO + Tracking: 54it [01:27,  1.21s/it]YOLO + Tracking: 55it [01:28,  1.19s/it]YOLO + Tracking: 56it [01:29,  1.18s/it]YOLO + Tracking: 57it [01:30,  1.11s/it]YOLO + Tracking: 58it [01:31,  1.13s/it]YOLO + Tracking: 59it [01:32,  1.12s/it]YOLO + Tracking: 60it [01:33,  1.14s/it]YOLO + Tracking: 61it [01:34,  1.07s/it]YOLO + Tracking: 62it [01:35,  1.04s/it]YOLO + Tracking: 63it [01:36,  1.06s/it]YOLO + Tracking: 64it [01:37,  1.02s/it]YOLO + Tracking: 65it [01:38,  1.00s/it]YOLO + Tracking: 66it [01:39,  1.05it/s]YOLO + Tracking: 67it [01:40,  1.12it/s]YOLO + Tracking: 68it [01:41,  1.12it/s]YOLO + Tracking: 69it [01:42,  1.16it/s]YOLO + Tracking: 70it [01:42,  1.25it/s]YOLO + Tracking: 71it [01:43,  1.29it/s]YOLO + Tracking: 72it [01:44,  1.21it/s]YOLO + Tracking: 73it [01:45,  1.14it/s]YOLO + Tracking: 74it [01:46,  1.08it/s]YOLO + Tracking: 75it [01:47,  1.01it/s]YOLO + Tracking: 76it [01:48,  1.03s/it]YOLO + Tracking: 77it [01:49,  1.06s/it]YOLO + Tracking: 78it [01:50,  1.08s/it]YOLO + Tracking: 79it [01:51,  1.05s/it]YOLO + Tracking: 80it [01:52,  1.05s/it]YOLO + Tracking: 81it [01:53,  1.02s/it]YOLO + Tracking: 82it [01:54,  1.02s/it]YOLO + Tracking: 83it [01:55,  1.01it/s]YOLO + Tracking: 84it [01:56,  1.01it/s]YOLO + Tracking: 85it [01:57,  1.01s/it]YOLO + Tracking: 86it [01:58,  1.04s/it]YOLO + Tracking: 87it [02:00,  1.04s/it]YOLO + Tracking: 88it [02:00,  1.01s/it]YOLO + Tracking: 89it [02:01,  1.02it/s]YOLO + Tracking: 90it [02:03,  1.04s/it]YOLO + Tracking: 91it [02:04,  1.05s/it]YOLO + Tracking: 92it [02:05,  1.07s/it]YOLO + Tracking: 93it [02:06,  1.04s/it]YOLO + Tracking: 94it [02:07,  1.05s/it]YOLO + Tracking: 95it [02:08,  1.04s/it]YOLO + Tracking: 96it [02:09,  1.02s/it]YOLO + Tracking: 97it [02:10,  1.02it/s]YOLO + Tracking: 98it [02:10,  1.07it/s]YOLO + Tracking: 99it [02:11,  1.04it/s]YOLO + Tracking: 100it [02:12,  1.06it/s]YOLO + Tracking: 101it [02:13,  1.07it/s]YOLO + Tracking: 102it [02:14,  1.02it/s]YOLO + Tracking: 103it [02:15,  1.01it/s]YOLO + Tracking: 104it [02:16,  1.06it/s]YOLO + Tracking: 105it [02:17,  1.02it/s]YOLO + Tracking: 106it [02:19,  1.19s/it]YOLO + Tracking: 107it [02:21,  1.34s/it]YOLO + Tracking: 108it [02:22,  1.37s/it]YOLO + Tracking: 109it [02:24,  1.40s/it]YOLO + Tracking: 110it [02:25,  1.55s/it]YOLO + Tracking: 111it [02:27,  1.64s/it]YOLO + Tracking: 112it [02:29,  1.58s/it]YOLO + Tracking: 113it [02:31,  1.70s/it]YOLO + Tracking: 114it [02:33,  1.82s/it]YOLO + Tracking: 115it [02:35,  2.05s/it]YOLO + Tracking: 116it [02:38,  2.24s/it]YOLO + Tracking: 117it [02:40,  2.25s/it]YOLO + Tracking: 118it [02:43,  2.42s/it]YOLO + Tracking: 119it [02:45,  2.38s/it]YOLO + Tracking: 120it [02:48,  2.40s/it]YOLO + Tracking: 121it [02:50,  2.44s/it]YOLO + Tracking: 122it [02:54,  2.71s/it]YOLO + Tracking: 123it [02:56,  2.64s/it]YOLO + Tracking: 124it [02:59,  2.68s/it]YOLO + Tracking: 125it [03:02,  2.72s/it]YOLO + Tracking: 126it [03:04,  2.65s/it]YOLO + Tracking: 127it [03:07,  2.54s/it]YOLO + Tracking: 128it [03:09,  2.35s/it]YOLO + Tracking: 129it [03:10,  2.13s/it]YOLO + Tracking: 130it [03:12,  1.90s/it]YOLO + Tracking: 131it [03:13,  1.65s/it]YOLO + Tracking: 132it [03:14,  1.45s/it]YOLO + Tracking: 133it [03:14,  1.26s/it]YOLO + Tracking: 134it [03:15,  1.12s/it]YOLO + Tracking: 135it [03:16,  1.05s/it]YOLO + Tracking: 136it [03:17,  1.01s/it]YOLO + Tracking: 137it [03:18,  1.03it/s]YOLO + Tracking: 138it [03:19,  1.00it/s]YOLO + Tracking: 139it [03:20,  1.14s/it]YOLO + Tracking: 140it [03:22,  1.22s/it]YOLO + Tracking: 141it [03:23,  1.25s/it]YOLO + Tracking: 142it [03:24,  1.20s/it]YOLO + Tracking: 143it [03:25,  1.17s/it]YOLO + Tracking: 144it [03:26,  1.14s/it]YOLO + Tracking: 145it [03:28,  1.32s/it]YOLO + Tracking: 146it [03:30,  1.58s/it]YOLO + Tracking: 147it [03:32,  1.73s/it]YOLO + Tracking: 148it [03:35,  1.89s/it]YOLO + Tracking: 149it [03:37,  2.04s/it]YOLO + Tracking: 150it [03:39,  2.08s/it]YOLO + Tracking: 151it [03:41,  2.10s/it]YOLO + Tracking: 152it [03:43,  2.06s/it]YOLO + Tracking: 153it [03:45,  2.08s/it]YOLO + Tracking: 154it [03:48,  2.15s/it]YOLO + Tracking: 155it [03:50,  2.11s/it]YOLO + Tracking: 156it [03:52,  2.06s/it]YOLO + Tracking: 157it [03:54,  2.04s/it]YOLO + Tracking: 158it [03:56,  2.10s/it]YOLO + Tracking: 159it [03:57,  1.64s/it]YOLO + Tracking: 160it [03:57,  1.40s/it]YOLO + Tracking: 161it [03:58,  1.30s/it]YOLO + Tracking: 162it [04:00,  1.38s/it]YOLO + Tracking: 163it [04:01,  1.14s/it]YOLO + Tracking: 164it [04:01,  1.00it/s]YOLO + Tracking: 165it [04:02,  1.05it/s]YOLO + Tracking: 166it [04:03,  1.15it/s]YOLO + Tracking: 167it [04:03,  1.21it/s]YOLO + Tracking: 168it [04:05,  1.13it/s]YOLO + Tracking: 169it [04:06,  1.00it/s]YOLO + Tracking: 170it [04:07,  1.01it/s]YOLO + Tracking: 171it [04:08,  1.04it/s]YOLO + Tracking: 172it [04:08,  1.20it/s]YOLO + Tracking: 173it [04:10,  1.04s/it]YOLO + Tracking: 174it [04:10,  1.10it/s]YOLO + Tracking: 175it [04:11,  1.17it/s]YOLO + Tracking: 176it [04:12,  1.33it/s]YOLO + Tracking: 177it [04:12,  1.26it/s]YOLO + Tracking: 178it [04:13,  1.33it/s]YOLO + Tracking: 179it [04:14,  1.35it/s]YOLO + Tracking: 180it [04:14,  1.43it/s]YOLO + Tracking: 181it [04:15,  1.45it/s]YOLO + Tracking: 182it [04:16,  1.41it/s]YOLO + Tracking: 183it [04:17,  1.38it/s]YOLO + Tracking: 184it [04:17,  1.42it/s]YOLO + Tracking: 185it [04:18,  1.38it/s]YOLO + Tracking: 186it [04:19,  1.50it/s]YOLO + Tracking: 187it [04:19,  1.39it/s]YOLO + Tracking: 188it [04:20,  1.36it/s]YOLO + Tracking: 189it [04:21,  1.53it/s]YOLO + Tracking: 190it [04:21,  1.67it/s]YOLO + Tracking: 191it [04:22,  1.79it/s]YOLO + Tracking: 192it [04:22,  1.84it/s]YOLO + Tracking: 193it [04:23,  1.87it/s]YOLO + Tracking: 194it [04:23,  1.85it/s]YOLO + Tracking: 195it [04:24,  1.79it/s]YOLO + Tracking: 196it [04:24,  1.72it/s]YOLO + Tracking: 197it [04:25,  1.70it/s]YOLO + Tracking: 197it [04:25,  1.35s/it]
-19:21:04 | INFO    | fase1b_visivo | Telemetria palla: 98 campioni -> C:\Users\utente\Multimodal-Soccer-Commentary\src\features\events\olise_ball.json
-19:21:04 | INFO    | fase1b_visivo | Timeline possesso: 194/197 frame con possesso assegnato -> C:\Users\utente\Multimodal-Soccer-Commentary\src\features\events\olise_possession.json
-19:21:04 | INFO    | fase1b_visivo | Estratti 10 eventi arricchiti ({'pass': 4, 'carry': 3, 'turnover': 1, 'shot_on_goal': 1, 'save': 1})
-19:21:04 | INFO    | fase1b_visivo | Fonti: {'ocr': 4, 'visual': 4, 'ocr+visual': 2} -> C:\Users\utente\Multimodal-Soccer-Commentary\src\features\events\olise_enriched.json
-19:21:04 | INFO    | fase1b_visivo | Fase 1b completata.
-19:21:05 | INFO    | fase1c_audio | Estraggo audio: olise.mp4
-19:21:12 | INFO    | fase1c_audio | Audio: 23.0s @ 22050Hz
-19:21:15 | INFO    | fase1c_audio | Carico Whisper 'small'...
-19:21:20 | INFO    | fase1c_audio | Trascrizione (lingua=it)...
-C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\Lib\site-packages\whisper\transcribe.py:132: UserWarning: FP16 is not supported on CPU; using FP32 instead
-  warnings.warn("FP16 is not supported on CPU; using FP32 instead")
-  0%|          | 0/2299 [00:00<?, ?frames/s]  0%|          | 0/2299 [00:03<?, ?frames/s]
-19:21:23 | INFO    | fase1c_audio | Trascritti 0 segmenti.
-19:21:24 | INFO    | fase1c_audio | Sommario: {'duration_s': 23.0, 'avg_energy': 0.351, 'max_energy': 1.0, 'level_distribution': {'peak': 3, 'high': 4, 'low': 12, 'medium': 4}, 'n_transcribed_segments': 0}
-19:21:24 | INFO    | fase1c_audio | Output -> C:\Users\utente\Multimodal-Soccer-Commentary\src\features\events\olise_enriched.json
-19:21:24 | INFO    | fase1c_audio | Fase 1c completata.
-19:21:28 | INFO    | fase2b_llm | Caricati 10 eventi da features\events\olise_enriched.json
-19:21:28 | INFO    | fase2b_llm | Provider: Ollama (model=gemma3:4b)
-19:23:57 | INFO    | fase2b_llm | Generate 10/10 battute.
-19:23:57 | INFO    | fase2b_llm | Generate 10 battute LLM -> C:\Users\utente\Multimodal-Soccer-Commentary\src\features\scripts\olise_llm.json
-19:23:57 | INFO    | fase2b_llm | Anteprima: "Donnarumma lancia."
-19:23:57 | INFO    | fase2b_llm | Fase 2b completata.
-19:23:59 | INFO    | fase3_prosodia | Uso dataset SINTETICO (dai valori a regole).
-19:23:59 | INFO    | fase3_prosodia | Dataset sintetico: 440 campioni (11 tipi).
-19:23:59 | INFO    | fase3_prosodia | Dataset salvato ((440, 13)) -> C:\Users\utente\Multimodal-Soccer-Commentary\src\features\prosody\prosody_dataset.npz
-19:24:14 | INFO    | fase3_prosodia | Epoca  50/200 | val_loss=0.0680
-19:24:16 | INFO    | fase3_prosodia | Epoca 100/200 | val_loss=0.0680
-19:24:18 | INFO    | fase3_prosodia | Epoca 150/200 | val_loss=0.0686
-19:24:20 | INFO    | fase3_prosodia | Epoca 200/200 | val_loss=0.0687
-19:24:20 | INFO    | fase3_prosodia | Miglior val_loss: 0.0669
-19:24:20 | INFO    | fase3_prosodia | Modello -> C:\Users\utente\Multimodal-Soccer-Commentary\src\models\prosody_mlp.pt | scaler -> C:\Users\utente\Multimodal-Soccer-Commentary\src\models\prosody_scaler.joblib
-19:24:20 | INFO    | fase3_prosodia | Fase 3 completata.
-19:24:21 | INFO    | fase4_sintesi | Caricate 10 battute da features\scripts\olise_llm.json
-19:24:27 | INFO    | fase4_sintesi | Predittore prosodia: modalita' = learned
-19:24:52 | INFO    | fase4_sintesi | TTS: Coqui (tts_models/multilingual/multi-dataset/xtts_v2).
-19:28:53 | INFO    | fase4_sintesi | Sintetizzati 1/8 blocchi a t=0.00s (inizio reale 0.00s, pass, speed=1.00, gain=0.96).
-19:29:00 | INFO    | fase4_sintesi | Sintetizzati 2/8 blocchi a t=2.50s (inizio reale 2.50s, pass, speed=0.99, gain=0.96).
-19:29:13 | INFO    | fase4_sintesi | Sintetizzati 3/8 blocchi a t=6.34s (inizio reale 6.34s, carry, speed=0.99, gain=0.99).
-19:29:22 | INFO    | fase4_sintesi | Sintetizzati 4/8 blocchi a t=10.17s (inizio reale 10.17s, carry, speed=0.99, gain=0.99).
-19:29:44 | INFO    | fase4_sintesi | Sintetizzati 5/8 blocchi a t=12.61s (inizio reale 12.61s, turnover, speed=1.10, gain=1.17).
-19:29:53 | INFO    | fase4_sintesi | Sintetizzati 6/8 blocchi a t=17.02s (inizio reale 17.02s, carry, speed=1.00, gain=1.00).
-19:30:00 | INFO    | fase4_sintesi | Sintetizzati 7/8 blocchi a t=20.02s (inizio reale 20.02s, pass, speed=1.04, gain=1.05).
-19:30:54 | INFO    | fase4_sintesi | Sintetizzati 8/8 blocchi a t=20.52s (inizio reale 20.76s, shot_on_goal, speed=1.26, gain=1.48).
-19:30:54 | INFO    | fase4_sintesi | Traccia salvata (28.8s) -> C:\Users\utente\Multimodal-Soccer-Commentary\src\outputs\audio\olise_llm_model.wav
-19:30:54 | INFO    | fase4_sintesi | Fase 4 completata.
+Traceback (most recent call last):
+  File "C:\Users\clare\OneDrive\Desktop\Multimodal-Soccer-Commentary\src\01_extract_events.py", line 438, in <module>
+    main()
+  File "C:\Users\clare\OneDrive\Desktop\Multimodal-Soccer-Commentary\src\01_extract_events.py", line 424, in main
+    reader = HudReader(config.OCR_LANGUAGES, config.OCR_MIN_CONFIDENCE)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\clare\OneDrive\Desktop\Multimodal-Soccer-Commentary\src\01_extract_events.py", line 143, in __init__
+    import easyocr
+  File "C:\Users\clare\OneDrive\Desktop\Multimodal-Soccer-Commentary\.venv\Lib\site-packages\easyocr\__init__.py", line 1, in <module>
+    from .easyocr import Reader
+  File "C:\Users\clare\OneDrive\Desktop\Multimodal-Soccer-Commentary\.venv\Lib\site-packages\easyocr\easyocr.py", line 9, in <module>
+    from bidi import get_display
+ImportError: cannot import name 'get_display' from 'bidi' (C:\Users\clare\OneDrive\Desktop\Multimodal-Soccer-Commentary\.venv\Lib\site-packages\bidi\__init__.py)
 
 [96m[1m════════════════════════════════════════════════════════════════
   PIPELINE TELECRONACA AI PER EA FC / FIFA
@@ -74,51 +24,25 @@ C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\Lib\site-packages\whis
 
 
 [96m[1m════════════════════════════════════════════════════════════════
-  [1/1]  olise
+  [1/1]  possesso_palla_finale
 ════════════════════════════════════════════════════════════════[0m
 
 [1m[93m── Fase 1: Estrazione eventi (OCR HUD) ──[0m
-  [96m▸[0m C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\python.exe 01_extract_events.py --video data\raw\gameplay\olise.mp4 --profile auto
-  [92m✓ Fase 1 completata (68.9s)[0m
-
-[1m[93m── Fase 1b: Analisi visiva (YOLO + Tracking) ──[0m
-  [96m▸[0m C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\python.exe 01b_visual_analysis.py --video data\raw\gameplay\olise.mp4 --profile auto --merge features/events/olise.json
-  [92m✓ Fase 1b completata (274.8s)[0m
-
-[1m[93m── Fase 1c: Analisi audio (Tifo + Whisper) ──[0m
-  [96m▸[0m C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\python.exe 01c_audio_analysis.py --video data\raw\gameplay\olise.mp4 --events features/events/olise_enriched.json
-  [92m✓ Fase 1c completata (19.5s)[0m
-
-[1m[93m── Fase 2b: Generazione testo con LLM ──[0m
-  [96m▸[0m C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\python.exe 02b_generate_llm.py --events features/events/olise_enriched.json --provider ollama
-  [92m✓ Fase 2b completata (154.0s)[0m
-
-[1m[93m── Fase 3: Addestramento modello prosodia ──[0m
-  [96m▸[0m C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\python.exe 03_train_prosody.py --synthetic
-  [92m✓ Fase 3 completata (22.1s)[0m
-
-[1m[93m── Fase 4: Sintesi audio ──[0m
-  [96mTesto:[0m features/scripts/olise_llm.json
-  [96m▸[0m C:\Users\utente\Documents\Nuova cartella\envs\telecronaca\python.exe 04_synthesize.py --script features/scripts/olise_llm.json
-  [92m✓ Fase 4 (learned) completata (399.1s)[0m
+  [96m▸[0m C:\Users\clare\OneDrive\Desktop\Multimodal-Soccer-Commentary\.venv\Scripts\python.exe 01_extract_events.py --video data\raw\gameplay\possesso_palla_finale.mp4 --profile auto
+  [91m✗ Fase 1 fallita (exit code 1)[0m
 
 
 [96m[1m════════════════════════════════════════════════════════════════
   RIEPILOGO
 ════════════════════════════════════════════════════════════════[0m
 
-  [1molise[0m
-    Fase 1: [92m✓[0m
-    Fase 1b: [92m✓[0m
-    Fase 1c: [92m✓[0m
-    Fase 2b: [92m✓[0m
-    Fase 3: [92m✓[0m
-    Fase 4: [92m✓[0m
+  [1mpossesso_palla_finale[0m
+    Fase 1: [91m✗[0m
 
-  Tempo totale: 938.4s
+  Tempo totale: 10.5s
 
 [1mOutput generati:[0m
-  🔊 olise_llm_model.wav (1.3 MB)
-  🔊 test_llm_model.wav (2.3 MB)
+  🔊 gol_2_model.wav (0.6 MB)
+  🔊 possesso_palla_1_model.wav (1.6 MB)
 
-[92m[1m✓ Pipeline completata con successo![0m
+[91m[1m✗ Alcune fasi hanno avuto errori.[0m
