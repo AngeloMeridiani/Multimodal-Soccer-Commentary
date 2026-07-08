@@ -296,14 +296,6 @@ Esempi:
         help="Lingua della telecronaca (default: da config.py). "
         f"Supportate: {', '.join(__import__('config').SUPPORTED_LANGUAGES)}.",
     )
-    parser.add_argument(
-        "--voice",
-        type=str,
-        default=None,
-        help="Percorso del wav di riferimento per la voce (voice cloning XTTS), "
-        "relativo alla root del progetto (es. data/raw/commentary/voce_caressa.wav). "
-        "Sovrascrive la voce di default per tutta la telecronaca.",
-    )
 
     args = parser.parse_args()
 
@@ -329,21 +321,6 @@ Esempi:
         )
         _cfg.COQUI_SPEAKER_WAV = _cfg.COQUI_SPEAKER_WAVS.get(args.language)
         _cfg.COQUI_SPEAKER_WAV_EXCITED = _cfg.COQUI_SPEAKER_WAVS_EXCITED.get(args.language)
-
-    # --- Voce (voice cloning) -------------------------------------------------- #
-    # La voce scelta dall'utente sovrascrive quella derivata dalla lingua. Come
-    # per la lingua, si imposta anche la variabile d'ambiente perche' i
-    # sottoprocessi (subprocess.run) reimportano config.py da zero.
-    if args.voice:
-        voice_path = Path(args.voice)
-        abs_voice = voice_path if voice_path.is_absolute() else SRC_DIR / voice_path
-        if not abs_voice.exists():
-            parser.error(f"Voce non trovata: {abs_voice}")
-        import os
-        os.environ["COMMENTARY_VOICE"] = args.voice
-        _cfg.COMMENTARY_VOICE = args.voice
-        _cfg.COQUI_SPEAKER_WAV = args.voice
-        _cfg.COQUI_SPEAKER_WAV_EXCITED = args.voice
 
     # Determina i video da processare
     if args.all:

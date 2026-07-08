@@ -252,15 +252,6 @@
           </div>
         </div>
         <div class="field">
-          <label>Voce telecronaca <span style="color:var(--live)">·  obbligatoria</span></label>
-          <div class="chips" id="voices"><span class="hint">Caricamento voci…</span></div>
-          <div class="hint">
-            Scegli una voce: la telecronaca verrà clonata da questo timbro (Coqui XTTS v2).
-            <br>
-            <button class="btn ghost" id="voicePreview" disabled style="margin-top:8px">▶ Ascolta voce</button>
-          </div>
-        </div>
-        <div class="field">
           <label>Motore generazione</label>
           <div class="fixed-row">
             <span class="fixed-pill">Testo · LLM Ollama</span>
@@ -315,45 +306,7 @@
   ];
 
   const $ = s => document.querySelector(s);
-  const state = {file:null, url:null, lang:"it", voice:null, running:false, outFile:null, transcript:null};
-
-  // Abilita "Genera" solo con clip caricata E voce scelta.
-  function updateGo(){ $("#go").disabled = !(state.file && state.voice) || state.running; }
-
-  // ── Voci di riferimento (dal backend: data/raw/commentary/*.wav) ────
-  const voiceAudio = new Audio();
-  function renderVoices(voices){
-    const box=$("#voices"); box.innerHTML="";
-    if(!voices.length){
-      box.innerHTML=`<span class="hint" style="color:var(--live)">Nessuna voce trovata in data/raw/commentary/. Aggiungi dei file .wav.</span>`;
-      return;
-    }
-    voices.forEach(v=>{
-      const el=document.createElement("div");
-      el.className="chip"; el.textContent=v.label; el.dataset.id=v.id; el.title=v.id;
-      el.onclick=()=>{
-        state.voice=v;
-        [...box.children].forEach(c=>c.classList.remove("on"));
-        el.classList.add("on");
-        $("#voicePreview").disabled=false;
-        updateGo();
-      };
-      box.appendChild(el);
-    });
-  }
-  async function loadVoices(){
-    try{
-      const r=await fetch("/voci"); const d=await r.json();
-      renderVoices(d.ok ? d.voices : []);
-    }catch(e){
-      $("#voices").innerHTML=`<span class="hint" style="color:var(--live)">Backend non raggiungibile: avvia serve.py.</span>`;
-    }
-  }
-  $("#voicePreview").onclick=()=>{
-    if(!state.voice) return;
-    voiceAudio.src="/anteprima-voce/"+encodeURIComponent(state.voice.id)+"?t="+Date.now();
-    voiceAudio.play().catch(()=>{});
-  };
+  const state = {file:null, url:null, lang:"it", running:false, outFile:null, transcript:null};
 
   // clock
   const t0 = Date.now();
@@ -398,7 +351,7 @@
     $("#drop").classList.add("hide");
     $("#fileName").innerHTML=`<b>${f.name}</b> · ${(f.size/1048576).toFixed(1)} MB`;
     $("#playBtn").disabled=false;
-    updateGo();
+    $("#go").disabled=false;
     $("#result").classList.remove("show");
     $("#lower").classList.remove("show");
     setProgress(0); resetChainVisual();
@@ -433,7 +386,6 @@
   // ── pipeline reale (chiama il backend serve.py) ───────────────────
   async function runPipeline(){
     if(state.running || !state.file) return;
-    if(!state.voice){ alert("Scegli prima una voce per la telecronaca."); return; }
     state.running=true;
     $("#go").disabled=true; $("#go").textContent="Elaborazione in corso…";
     $("#result").classList.remove("show");
@@ -451,7 +403,6 @@
     const fd=new FormData();
     fd.append("clip", state.file);
     fd.append("lang", state.lang);
-    fd.append("voice", state.voice.id);
 
     try{
       const r=await fetch("/genera",{method:"POST",body:fd});
@@ -526,6 +477,6 @@
     stopWave(); setProgress(0);resetChainVisual();
   };
 
-  renderChips(); renderChain(); loadVoices();
+  renderChips(); renderChain();
 })();
 </script>
